@@ -127,6 +127,7 @@ sweep) was not inspected.
 | Heal prediction (`CreateUnitHealPredictionCalculator` + `UnitGetDetailedHealPrediction`, overflow percent 1) | **Works**: the green extension past the fill while a Priest casts Lesser Heal on themselves at 86/97 |
 | `TotemFrame` (checked on a warlock) | Parent `PlayerFrame`, anchored to `PlayerFrame`; **not protected** (`explicitly=false`); 0 children; hidden along with `PlayerFrame` |
 | `/glass secrets` for **focus** | Same shape as target: hp/hpMax/pw/pwMax secret; identity plain |
+| Anchoring a frame to an aura container (`debuffs:SetPoint("TOPLEFT", buffsContainer, …)`) | **Refused**: *"Frame:SetPoint(): Anchoring disallowed as dependent object would inherit forbidden aspects: UntrustedLayoutScriptExecution"*. Unguarded, it aborted the frame build. The rows are now fixed and anchored to our own frame |
 | Raid mark on the target frame | **Not shown** while the nameplate shows the mark. Cause unmeasured: `/glass secrets` now reports `mark=` and `markIcon=` |
 | Neutral NPC in combat | Stays yellow: reaction stays neutral (as in SUF). Blizzard's red nameplate comes from threat |
 | NPC with no mana | Power line reads `level  0%` and `0/0`: max power is secret for others, so it can't be tested for 0 |
