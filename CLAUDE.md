@@ -290,13 +290,19 @@ break the behaviour and confirm it goes red.
 
 ## Workflow and releasing (sibling conventions)
 
-- Issue → branch off `main` → PR with `Closes #N` → review → squash-merge. Never commit to `main`.
+- Issue → branch off `main` → PR with `Closes #N` → review (owner-launched) → squash-merge (by
+  the owner). Never commit to `main`.
   Commit or push only when asked. Before committing, `luac -p` must be clean and the tests green.
 - Review policy: use the shared `$wow-addon-review` skill for PR reviews.
-- **Adversarial review is mandatory** for plans and significant diffs. Run it through the
-  project's `/codex-consult` skill (`.claude/skills/codex-consult/`), because Codex is a
-  different model family and so has different blind spots. Always hand it `CLAUDE.md` and the
-  porting guide. If Codex is unavailable, fall back to Fable. Then reconcile:
+- **The owner merges and closes PRs, and launches reviews.** Claude opens the issue, branch and
+  PR, runs the tests, and stops there: never `gh pr merge` or close a PR, and never start a Codex
+  or Fable review on its own. When the owner posts or points to a review, reconcile it
+  (below) and push the fixes to the PR.
+- **Adversarial review is mandatory** for plans and significant diffs, **launched by the owner**.
+  When asked, run it through the project's `/codex-consult` skill
+  (`.claude/skills/codex-consult/`), because Codex is a different model family and so has
+  different blind spots. Always hand it `CLAUDE.md` and the porting guide. If Codex is
+  unavailable, fall back to Fable. Then reconcile:
   - Verify its claims before acting. It has been right, and it has been confidently wrong.
   - Take its bug-catching seriously.
   - Push back when it adds complexity to a single-owner addon.
