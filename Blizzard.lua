@@ -8,7 +8,7 @@
 -- So the re-hide is deferred to a timer, waits while Edit Mode is open, and
 -- waits for combat to end if the frame is protected.
 --
--- Hiding is one-way for a session: /glass blizzard off takes effect after
+-- Hiding is one-way for a session: /glass blizzard show takes effect after
 -- /reload. Party frames are never touched (the owner uses Cell).
 
 GlassUF = GlassUF or {}

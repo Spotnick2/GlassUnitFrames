@@ -101,7 +101,7 @@ end
 local HELP = {
     "font arial|friz  - text font (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
-    "blizzard on|off  - hide Blizzard's frames for the units GlassUF draws (after /reload)",
+    "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
     "Shift-drag a frame to move it (out of combat).",
 }
@@ -119,12 +119,13 @@ local function slash(msg)
     elseif cmd == "reset" then
         whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
     elseif cmd == "blizzard" then
-        if arg == "on" or arg == "off" then
-            GlassUnitFramesDB.hideBlizzard = (arg == "on")
-            say("Blizzard frames will be " .. (arg == "on" and "hidden" or "shown") .. " after /reload")
+        -- Named for what happens to BLIZZARD's frames: "show" brings them back.
+        if arg == "show" or arg == "hide" then
+            GlassUnitFramesDB.hideBlizzard = (arg == "hide")
+            say("Blizzard's frames will be " .. (arg == "hide" and "hidden" or "shown") .. " after /reload")
         else
-            say("Blizzard frames: " .. (GlassUnitFramesDB.hideBlizzard and "hidden" or "shown")
-                .. ". /glass blizzard on|off, then /reload")
+            say("Blizzard's frames are " .. (GlassUnitFramesDB.hideBlizzard and "hidden" or "shown")
+                .. ". /glass blizzard show|hide, then /reload")
         end
     elseif cmd == "secrets" then
         secretsReport()

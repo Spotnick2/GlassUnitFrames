@@ -58,9 +58,14 @@ eq(#WoW.timers, 0, "no timer queued for a reparent to the hidden parent")
 rawset(_G, "ComboFrame", nil)
 check(B.HideFrame("ComboFrame") == false, "absent frame skipped")
 
--- The setting: off leaves Blizzard alone (after /reload), and is saved.
+-- The setting, named for Blizzard's frames: "show" brings them back (after
+-- /reload), "hide" hides them; saved. Old on/off wording is not accepted.
+SlashCmdList.GLASSUNITFRAMES("blizzard show")
+eq(GlassUnitFramesDB.hideBlizzard, false, "'blizzard show' saved as not hiding")
+SlashCmdList.GLASSUNITFRAMES("blizzard hide")
+eq(GlassUnitFramesDB.hideBlizzard, true, "'blizzard hide' saved as hiding")
 SlashCmdList.GLASSUNITFRAMES("blizzard off")
-eq(GlassUnitFramesDB.hideBlizzard, false, "setting saved")
+eq(GlassUnitFramesDB.hideBlizzard, true, "ambiguous 'off' changes nothing")
 WoW.reset()
 standardUnits()
 GlassUF = nil
