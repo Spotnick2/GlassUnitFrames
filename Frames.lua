@@ -24,6 +24,9 @@ Frames.LAYOUT = {
                      power = true, size = "small" },
     targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -275 },
                      size = "small", ticker = true },
+    -- Below targettarget (fits narrow screens too); name only, as the owner's SUF profile had it.
+    targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -305 },
+                     size = "small", ticker = true, nameOnly = true },
     -- Fixed spots near the target frame (above it, focustarget to the right); they
     -- do not follow a moved target frame.
     focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -128 },
@@ -31,7 +34,7 @@ Frames.LAYOUT = {
     focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -128 },
                      size = "small", ticker = true },
 }
-Frames.ORDER = { "player", "target", "pet", "targettarget", "focus", "focustarget" }
+Frames.ORDER = { "player", "target", "pet", "targettarget", "targettargettarget", "focus", "focustarget" }
 
 -- Our own colour tables: PowerBarColor / FACTION_BAR_COLORS are FrameXML
 -- tables the API dump cannot confirm.
@@ -63,6 +66,7 @@ end
 
 local function unitColor(u)
     if plain(UnitIsConnected, u) == false then return GREY end
+    if plain(UnitIsDeadOrGhost, u) == true then return GREY end   -- dead reads as dead even on name-only frames
     if plain(UnitIsPlayer, u) == true then
         local ok, _, classFile = pcall(UnitClass, u)
         if ok then
@@ -83,12 +87,19 @@ end
 -- Painters
 --------------------------------------------------------------------------------
 
+-- The health bar's colour depends on death and connection as well as class
+-- and reaction, so both the name and the health painters apply it: a unit
+-- revived (UNIT_HEALTH) must lose its dead grey without waiting for a name event.
+local function paintColor(f, u)
+    local c = unitColor(u)
+    f.health:SetStatusBarColor(c[1], c[2], c[3])
+end
+
 Engine.SetPainter("name", function(f)
     local u = f.unit
     if not UnitExists(u) then return end
     attempt("name text", function() f.nameText:SetText(GetUnitName(u, false)) end)
-    local c = unitColor(u)
-    f.health:SetStatusBarColor(c[1], c[2], c[3])
+    paintColor(f, u)
 end)
 
 Engine.SetPainter("health", function(f)
@@ -99,7 +110,9 @@ Engine.SetPainter("health", function(f)
         f.health:SetMinMaxValues(0, maxHp)
         f.health:SetValue(hp)
     end)
+    paintColor(f, u)
 
+    if not f.valueText then return end   -- name-only frames
     if plain(UnitIsConnected, u) == false then f.valueText:SetText("Offline") return end
     if plain(UnitIsDeadOrGhost, u) == true then f.valueText:SetText("Dead") return end
 
@@ -297,7 +310,8 @@ local function build(unit)
 
     local b = CreateFrame("Button", "GlassUF_" .. unit, UIParent, "SecureUnitButtonTemplate")
     b.unit, b.layout = unit, L
-    b.channels = { name = true, health = true, power = L.power or nil,
+    local hasPower = L.power and not L.nameOnly   -- nameOnly: just the name over a health bar
+    b.channels = { name = true, health = true, power = hasPower or nil,
                    portrait = L.portrait and true or nil, cast = L.cast or nil }
     b:SetSize(L.w + tileW, L.h)
     b:SetAttribute("unit", unit)
@@ -323,12 +337,12 @@ local function build(unit)
     local inset = Glass.Inset(size)
     local large = size == "large"
     local gap = large and 4 or 2
-    local healthH = L.power and (large and 34 or 17) or (L.h - 2 * inset)
+    local healthH = hasPower and (large and 34 or 17) or (L.h - 2 * inset)
     b.health = Glass.Bar(body, healthH)
     b.health:SetPoint("TOPLEFT", body, "TOPLEFT", inset, -inset)
     b.health:SetPoint("TOPRIGHT", body, "TOPRIGHT", -inset, -inset)
     b.health:SetFrameLevel(Glass.ContentLevel(body))
-    if L.power then
+    if hasPower then
         b.power = Glass.Bar(body, L.h - 2 * inset - healthH - gap)
         b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -gap)
         b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -gap)
@@ -337,12 +351,16 @@ local function build(unit)
 
     local textSize = large and 15 or 11
     local pad = large and 9 or 5
-    b.valueText = Glass.Font(g.top, textSize, "RIGHT")
-    b.valueText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
     b.nameText = Glass.Font(g.top, textSize, "LEFT")
     b.nameText:SetPoint("LEFT", b.health, "LEFT", pad, 0)
-    b.nameText:SetPoint("RIGHT", b.valueText, "LEFT", -6, 0)
-    if L.power and large then
+    if L.nameOnly then
+        b.nameText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
+    else
+        b.valueText = Glass.Font(g.top, textSize, "RIGHT")
+        b.valueText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
+        b.nameText:SetPoint("RIGHT", b.valueText, "LEFT", -6, 0)
+    end
+    if hasPower and large then
         b.powerText = Glass.Font(g.top, 11, "RIGHT")
         b.powerText:SetPoint("RIGHT", b.power, "RIGHT", -7, 0)
     end

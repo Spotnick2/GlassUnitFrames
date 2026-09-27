@@ -5,7 +5,8 @@ dofile("tests/harness.lua")
 standardUnits()
 loadAddon()
 
-for _, unit in ipairs({ "player", "target", "pet", "targettarget", "focus", "focustarget" }) do
+eq(#GlassUF.Frames.ORDER, 7, "seven unit frames")
+for _, unit in ipairs(GlassUF.Frames.ORDER) do
     local b = button(unit)
     check(b ~= nil, unit .. " frame built")
     eq(b._template, "SecureUnitButtonTemplate", unit .. " template")
@@ -69,6 +70,37 @@ WoW.tick(0.3); WoW.tick()
 eq(button("targettarget").health._value, 1240, "no repaint before 0.5s")
 WoW.tick(0.3); WoW.tick()
 eq(button("targettarget").health._value, 155, "ticker repainted targettarget")
+
+-- targettargettarget (#9): name only, repainted on target change and by its ticker.
+local ttt = button("targettargettarget")
+eq(textOf(ttt.nameText), "Defias Pillager", "targettargettarget name")
+check(ttt.valueText == nil and ttt.power == nil, "targettargettarget is name-only: no value text, no power")
+eq(ttt.health._value, 830, "targettargettarget health bar still fills")
+WoW.SetUnit("targettargettarget", { name = "Hathnos", reaction = 5 })
+GlassUF.Engine._test.ticker.elapsed = 0
+WoW.fire("UNIT_TARGET", "target"); WoW.tick()
+eq(textOf(ttt.nameText), "Hathnos", "UNIT_TARGET on target repaints targettargettarget")
+WoW.SetUnit("targettargettarget", { name = "Kobold", reaction = 2 })
+GlassUF.Engine._test.ticker.elapsed = 0
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+eq(textOf(ttt.nameText), "Kobold", "PLAYER_TARGET_CHANGED repaints targettargettarget")
+WoW.units.targettargettarget.dead = true
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+eq(ttt.health._color[1], 0.50, "a dead name-only unit is greyed")
+WoW.units.targettargettarget.dead = false
+
+-- Death and resurrection WITHOUT a target change: health events recolour.
+local tgt = button("target")
+local hostileR = tgt.health._color[1]
+WoW.units.target.dead = true
+WoW.fire("UNIT_HEALTH", "target"); WoW.tick()
+eq(tgt.health._color[1], 0.50, "death greys the bar on UNIT_HEALTH")
+WoW.units.target.dead = false
+WoW.fire("UNIT_HEALTH", "target"); WoW.tick()
+eq(tgt.health._color[1], hostileR, "resurrection restores the colour on UNIT_HEALTH")
+WoW.units.targettargettarget.health = 5
+WoW.tick(0.6); WoW.tick()
+eq(ttt.health._value, 5, "targettargettarget ticker repaints")
 
 -- Focus (#8): PLAYER_FOCUS_CHANGED repaints focus and focustarget; UNIT_TARGET
 -- on focus repaints focustarget; focustarget (no unit events) ticks.
