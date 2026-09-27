@@ -108,7 +108,8 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - The container API isn't in the dump; `test_methods.lua` allowlists exactly those methods,
     with DinoUF as the evidence.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
-  - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
+  - Only frames we draw a replacement for (player and its cast bar `PlayerCastingBarFrame`, pet,
+    target, ToT, focus, focus target):
     `ComboFrame` stays until we draw combo points. Party is never touched, since the owner uses
     Cell.
   - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.

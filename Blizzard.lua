@@ -21,7 +21,8 @@ GlassUF.Blizzard = Blizzard
 
 -- Our unit -> Blizzard frames to hide when we draw that unit.
 Blizzard.FRAMES = {
-    player       = { "PlayerFrame" },
+    -- The player frame carries its own cast row, so Blizzard's cast bar goes too.
+    player       = { "PlayerFrame", "PlayerCastingBarFrame" },
     pet          = { "PetFrame" },
     target       = { "TargetFrame" },
     targettarget = { "TargetFrameToT" },

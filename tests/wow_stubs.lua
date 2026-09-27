@@ -364,7 +364,8 @@ end
 -- name -> unit the client watches it for (ComboFrame is not unit-watched).
 local BLIZZARD_FRAMES = { { "PlayerFrame", "player" }, { "PetFrame", "pet" }, { "TargetFrame", "target" },
                           { "ComboFrame" }, { "TargetFrameToT", "targettarget" },
-                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget" } }
+                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget" },
+                          { "PlayerCastingBarFrame" } }
 function WoW.CreateBlizzardFrames()
     for _, spec in ipairs(BLIZZARD_FRAMES) do
         local f = CreateFrame("Button", spec[1], UIParent, "SecureUnitButtonTemplate")
