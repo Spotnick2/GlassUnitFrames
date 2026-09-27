@@ -117,3 +117,16 @@ frames. Target health and mana tracked continuously (wizard 100 → 86 → 61 �
 stayed in step with Blizzard's bars ("Immolate", "Frostbolt 1.9s → 0.1s"). targettarget swapped
 between the player and the pet as the mob switched. Sub-2-second behaviour (flicker, the sheen
 sweep) was not inspected.
+
+## Roadmap build in game (PRs #19-#26 stacked, build 1.60.1.70009, 2026-09-27)
+
+| Question | Result |
+|---|---|
+| Blizzard's managed aura container (`CustomAuraContainerTemplate`) on the target | **Works**: the player's DoTs on a mob and a buff on a friendly target render, with duration text ("10 s", "32 m"). The API isn't in the dump; this is the first in-game proof for GlassUF |
+| `Enum.StatusBarInterpolation` | **Exists**: `{ Immediate = 0, ExponentialEaseOut = 1 }` (`/dump`), so bars ease |
+| Heal prediction (`CreateUnitHealPredictionCalculator` + `UnitGetDetailedHealPrediction`, overflow percent 1) | **Works**: the green extension past the fill while a Priest casts Lesser Heal on themselves at 86/97 |
+| `TotemFrame` (checked on a warlock) | Parent `PlayerFrame`, anchored to `PlayerFrame`; **not protected** (`explicitly=false`); 0 children; hidden along with `PlayerFrame` |
+| `/glass secrets` for **focus** | Same shape as target: hp/hpMax/pw/pwMax secret; identity plain |
+| Raid mark on the target frame | **Not shown** while the nameplate shows the mark. Cause unmeasured: `/glass secrets` now reports `mark=` and `markIcon=` |
+| Neutral NPC in combat | Stays yellow: reaction stays neutral (as in SUF). Blizzard's red nameplate comes from threat |
+| NPC with no mana | Power line reads `level  0%` and `0/0`: max power is secret for others, so it can't be tested for 0 |
