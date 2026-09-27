@@ -106,8 +106,11 @@ On a host frame, bottom to top:
 | Text | OVERLAY 7 | `g.top` | `Glass.Font` |
 
 A glass bar (`Glass.Bar`) has four parts:
-- a black 0.35 background;
-- a masked `bar_fill` at `STYLE.fillAlpha` (0.75, the texture's own alpha, so `SetStatusBarColor`
+- a black 0.25 background, and over it a **track**: the bar's own colour as a vertical gradient
+  (`STYLE.trackBottom` 0.08 → `STYLE.trackTop` 0.30), so the missing part reads as a faint tint
+  of the fill, as in the mockup. A `SetStatusBarColor` hook keeps it in step; no arithmetic on
+  the colour, so a secret can't throw there;
+- a masked `bar_fill` at `STYLE.fillAlpha` (0.60, picked in game; the texture's own alpha, so `SetStatusBarColor`
   never resets it; text sits on the host's `g.top`, so it stays opaque).
   `Glass.SetFillAlpha(a)` retunes every bar built so far;
 - `gloss` (ADD, 0.45);

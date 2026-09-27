@@ -324,7 +324,7 @@ SlashCmdList.GLASSUNITFRAMES("font friz")
 eq(GlassUnitFramesDB.font, "friz", "font saved")
 eq(p.nameText._font[1], "Fonts\\FRIZQT__.TTF", "font applied to existing text")
 -- Translucent bar fill: texture alpha on every glass bar, text untouched.
-eq(p.health:GetStatusBarTexture()._alpha, 0.75, "bar fill at the default opacity")
+eq(p.health:GetStatusBarTexture()._alpha, 0.6, "bar fill at the default opacity (owner-picked)")
 SlashCmdList.GLASSUNITFRAMES("fill 0.5")
 eq(p.health:GetStatusBarTexture()._alpha, 0.5, "fill retuned live")
 eq(p.power:GetStatusBarTexture()._alpha, 0.5, "power bar too")
@@ -332,6 +332,9 @@ eq(GlassUnitFramesDB.fill, 0.5, "fill saved")
 check(p.nameText._alpha == nil or p.nameText._alpha == 1, "text stays opaque")
 p.health:SetStatusBarColor(1, 0, 0)
 eq(p.health:GetStatusBarTexture()._alpha, 0.5, "recolouring keeps the fill opacity")
+local grad = p.health.track._gradient
+check(grad and grad[1] == "VERTICAL" and grad[2].r == 1 and grad[3].r == 1 and grad[2].a < grad[3].a,
+      "missing health: the bar's own colour, fading towards the bottom")
 SlashCmdList.GLASSUNITFRAMES("fill 3")
 eq(GlassUnitFramesDB.fill, 0.5, "out-of-range fill rejected")
 SlashCmdList.GLASSUNITFRAMES("font comic")

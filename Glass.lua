@@ -36,7 +36,9 @@ Glass.STYLE = {
     wash = 0.18,                         -- top-down white gradient inside the body
     gloss = 0.45,                        -- ADD highlight on bars
     innerShadow = 0.35,                  -- bottom shade on bars
-    fillAlpha = 0.75,                    -- bar fill opacity: the scene shows through, text stays opaque
+    fillAlpha = 0.60,                    -- bar fill opacity: the scene shows through, text stays opaque
+    trackTop = 0.30,                     -- the missing part: the bar's own colour, fading
+    trackBottom = 0.08,                  -- from this alpha at the bottom to trackTop at the top
     sheenAlpha = 0.8,
 }
 
@@ -157,8 +159,23 @@ function Glass.Bar(parent, height)
 
     local bg = bar:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(bar)
-    bg:SetColorTexture(0, 0, 0, 0.35)
+    bg:SetColorTexture(0, 0, 0, 0.25)
     bg:AddMaskTexture(mask)
+
+    -- The missing health/power reads as a faint, vertically fading tint of the
+    -- bar's own colour (the mockup), not a flat dark slot. It follows every
+    -- SetStatusBarColor. No arithmetic on the colour: the alphas come from
+    -- STYLE, so a value the client ever hands back secret can't throw here.
+    local track = bar:CreateTexture(nil, "BACKGROUND", nil, 1)
+    track:SetAllPoints(bar)
+    track:SetColorTexture(1, 1, 1, 1)
+    track:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0))
+    track:AddMaskTexture(mask)
+    bar.track = track
+    hooksecurefunc(bar, "SetStatusBarColor", function(_, r, g, b)
+        pcall(track.SetGradient, track, "VERTICAL",
+            CreateColor(r, g, b, st.trackBottom), CreateColor(r, g, b, st.trackTop))
+    end)
 
     bar:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
     bar:GetStatusBarTexture():AddMaskTexture(mask)
