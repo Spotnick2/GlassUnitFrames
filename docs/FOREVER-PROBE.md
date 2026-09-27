@@ -54,3 +54,20 @@ an inner-lip catch-light, cool light tint), **3D portrait**, **Arial Narrow** (f
 setting). Verdict on the POC's primary question: **the glass reads convincingly** on warm
 sandstone and dark grass. The one visible gap against the mockup is true background blur, which
 addons cannot do: the scene shows through the body sharp rather than frosted.
+
+## Probe 3 (partial): live secure frames in combat (build 1.60.1.70009, 2026-09-27)
+
+Instrument: GlassUnitFrames at PR #2's first commit (before the review fixes: both click edges
+registered, colour set before the timer). One screenshot in combat against a Mangy Wolf, with the
+player channelling Drain Life.
+
+| Question | Result |
+|---|---|
+| `SecureUnitButtonTemplate` + `RegisterUnitWatch` for player, target, pet and targettarget | **All four shown with their units**, targettarget included (the wolf targeting the pet) |
+| Health/power bars and "value \| pct" text on live units, in combat | **Render and update**: "4 \| 3%" on the target, "409 \| 100%" on the player. The masked fill is rounded at 3% |
+| Channel via `UnitChannelDuration` → `StatusBar:SetTimerDuration(d, nil, RemainingTime)` + `GetRemainingDuration` → `SetFormattedText("%.1fs")` | **Works in combat**: "Drain Life 2.9s", draining |
+| Empty-bar contrast at ~3% health over dark grass | Distinct: the dark bar background reads clearly against the glass |
+
+Still open for the post-review build: which values are secret (`/glass secrets` in and out of
+combat), right-click menu with `"AnyUp"`, cast interrupt/fail flash, target switch mid-cast, and
+the creature 3D portrait looking desaturated.
