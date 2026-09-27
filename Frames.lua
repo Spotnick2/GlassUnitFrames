@@ -103,7 +103,17 @@ local function levelClass(u)
     return out
 end
 
+-- Power percent, blank when the unit has no power (max plainly 0). For other
+-- units max power is secret, so they may still read "0%".
+local function powerPct(u)
+    if plain(UnitPowerMax, u) == 0 then return nil end
+    return API.PowerPercent(u)
+end
+
+-- Health formats get (u, hp, maxHp); power formats get (u, pow, maxPow): the
+-- painters fetch each value once.
 local TEXT = {
+    perhp          = function(fs, u) fs:SetFormattedText("%.0f%%", API.HealthPercent(u)) end,
     curhp          = function(fs, u, hp) fs:SetFormattedText("%s", AbbreviateNumbers(hp)) end,
     curmaxhp       = function(fs, u, hp, maxHp)
         fs:SetFormattedText("%s/%s", AbbreviateNumbers(hp), AbbreviateNumbers(maxHp))
@@ -111,22 +121,35 @@ local TEXT = {
     curmaxhp_perhp = function(fs, u, hp, maxHp)
         fs:SetFormattedText("%s/%s | %.0f%%", AbbreviateNumbers(hp), AbbreviateNumbers(maxHp), API.HealthPercent(u))
     end,
-    perpp          = function(fs, u) fs:SetFormattedText("%.0f%%", API.PowerPercent(u)) end,
-    curpp          = function(fs, u) fs:SetFormattedText("%s", AbbreviateNumbers(UnitPower(u))) end,
-    curmaxpp       = function(fs, u)
-        fs:SetFormattedText("%s/%s", AbbreviateNumbers(UnitPower(u)), AbbreviateNumbers(UnitPowerMax(u)))
+    perpp          = function(fs, u) fs:SetFormattedText("%.0f%%", powerPct(u)) end,
+    curpp          = function(fs, u, pow) fs:SetFormattedText("%s", AbbreviateNumbers(pow)) end,
+    curmaxpp       = function(fs, u, pow, maxPow)
+        fs:SetFormattedText("%s/%s", AbbreviateNumbers(pow), AbbreviateNumbers(maxPow))
     end,
     level_class_perpp = function(fs, u)
         local lc = levelClass(u)
-        if lc ~= "" then fs:SetFormattedText("%s  %.0f%%", lc, API.PowerPercent(u))
-        else fs:SetFormattedText("%.0f%%", API.PowerPercent(u)) end
+        -- The plain level line survives a missing/failed percent.
+        local ok = pcall(function()
+            if lc ~= "" then fs:SetFormattedText("%s  %.0f%%", lc, powerPct(u))
+            else fs:SetFormattedText("%.0f%%", powerPct(u)) end
+        end)
+        if not ok then fs:SetText(lc) end
     end,
 }
 Frames.TEXT = TEXT
 
+-- If a format fails (a secret the client would not take, a missing API), fall
+-- back to the percent rather than blanking the text.
+local FALLBACK = { curhp = "perhp", curmaxhp = "perhp", curmaxhp_perhp = "perhp" }
+local KEYS = {}   -- attempt() keys, built once per format
+
 local function paintText(fs, kind, ...)
     if not (fs and kind) then return end
-    if not attempt("text " .. kind, TEXT[kind], fs, ...) then fs:SetText("") end
+    KEYS[kind] = KEYS[kind] or ("text " .. kind)
+    if attempt(KEYS[kind], TEXT[kind], fs, ...) then return end
+    local fb = FALLBACK[kind]
+    if fb and attempt(KEYS[kind] .. " fallback", TEXT[fb], fs, ...) then return end
+    fs:SetText("")
 end
 
 -- "(AFK) Name (3)": AFK tag, and the player's raid group number (SUF's
@@ -185,17 +208,18 @@ end)
 Engine.SetPainter("power", function(f)
     local u = f.unit
     if not (f.power and UnitExists(u)) then return end
+    local pow, maxPow = UnitPower(u), UnitPowerMax(u)
     attempt("power bar", function()
-        f.power:SetMinMaxValues(0, UnitPowerMax(u))
-        f.power:SetValue(UnitPower(u))
+        f.power:SetMinMaxValues(0, maxPow)
+        f.power:SetValue(pow)
     end)
     local ok, _, token = pcall(UnitPowerType, u)
     if not ok or API.IsSecret(token) then token = nil end
     local c = (token and POWER_COLORS[token]) or POWER_COLORS.MANA
     f.power:SetStatusBarColor(c[1], c[2], c[3])
     local t = f.layout.text or {}
-    paintText(f.powerLeftText, t.powerLeft, u)
-    paintText(f.powerText, t.powerRight, u)
+    paintText(f.powerLeftText, t.powerLeft, u, pow, maxPow)
+    paintText(f.powerText, t.powerRight, u, pow, maxPow)
 end)
 
 -- SUF's sequence (modules/portrait.lua): clear, set unit, zoom, reset position.

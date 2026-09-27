@@ -69,14 +69,39 @@ WoW.units.player.afk = true
 WoW.fire("PLAYER_FLAGS_CHANGED", "player"); WoW.tick()
 eq(textOf(p.nameText), "(AFK) Morphisto", "AFK tag")
 WoW.units.player.afk = false
-WoW.raid = { player = { index = 5, subgroup = 3 } }
+-- A targeted player going AFK: the client fires PLAYER_FLAGS_CHANGED with
+-- their group token (raidN), never "target"; the target's tag must follow.
+WoW.units.target.afk = true
+WoW.fire("PLAYER_FLAGS_CHANGED", "raid9"); WoW.tick()
+check(textOf(button("target").nameText):find("^%(AFK%)"), "target AFK tag follows a group-token event")
+WoW.units.target.afk = false
+WoW.fire("PLAYER_FLAGS_CHANGED", "raid9"); WoW.tick()
+WoW.raid = { player = { index = 5, subgroup = 3 }, target = { index = 9, subgroup = 2 } }
+local modelSets = 0
+local realSetUnit = p.model.SetUnit
+rawset(p.model, "SetUnit", function(self, ...) modelSets = modelSets + 1; return realSetUnit(self, ...) end)
 WoW.fire("GROUP_ROSTER_UPDATE"); WoW.tick()
 eq(textOf(p.nameText), "Morphisto (3)", "raid group number on the player")
-eq(textOf(button("target").nameText) == nil or textOf(button("target").nameText):find("%(%d%)") == nil, true,
-   "group number only on the player")
+WoW.fire("UNIT_NAME_UPDATE", "target"); WoW.tick()   -- repaint the target's name line too
+check(not textOf(button("target").nameText):find("%(%d%)"), "group number only where the layout asks (target is in the raid too)")
+eq(modelSets, 0, "a roster change does not reload the 3D portrait")
 WoW.raid = nil
 WoW.fire("GROUP_ROSTER_UPDATE"); WoW.tick()
 eq(textOf(p.nameText), "Morphisto", "no group number out of a raid")
+
+-- No power (max plainly 0): no "0%". A failed health format falls back to the percent.
+WoW.units.player.maxPower, WoW.units.player.power = 0, 0
+WoW.fire("UNIT_MAXPOWER", "player"); WoW.tick()
+eq(textOf(p.powerLeftText), "", "no power: percent blank")
+WoW.units.player.maxPower, WoW.units.player.power = 1270, 920
+WoW.fire("UNIT_MAXPOWER", "player"); WoW.tick()
+local realAbbr = AbbreviateNumbers
+AbbreviateNumbers = function() error("client refused") end
+WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
+eq(textOf(p.valueText), "50%", "health text falls back to the percent")
+AbbreviateNumbers = realAbbr
+GlassUF.paintFailures = {}
+WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
 
 -- Dead and offline read as words.
 WoW.units.target.dead = true

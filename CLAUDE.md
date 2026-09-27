@@ -36,7 +36,7 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - `IsSecret`;
   - event registration that reports failures;
   - `ClickEdges`;
-  - `HealthPercent` via a curve;
+  - `HealthPercent` / `PowerPercent` via a 0..100 curve;
   - `CastDuration` (a `LuaDurationObject`);
   - `ClassColor`.
 
@@ -51,7 +51,13 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     `focustarget`);
   - full repaints when a token changes meaning. One rule, `repaintChain`: when `base` changes
     (`PLAYER_TARGET_CHANGED`, `PLAYER_FOCUS_CHANGED`, or `UNIT_TARGET` registered per base unit),
-    every token starting with `base.."target"` repaints too. Plus `UNIT_PET` and `OnShow`;
+    every token starting with `base.."target"` repaints too. Plus `UNIT_PET`, `OnShow`, and
+    `PLAYER_ENTERING_WORLD`. Every world event has an **explicit** branch: a catch-all `else`
+    once turned any unhandled event into a full repaint and hid a wiring mistake;
+  - `Engine.RepaintChannel(channel, only)` repaints one channel on every frame (optionally
+    filtered). `GROUP_ROSTER_UPDATE` repaints only the name line of frames showing a group number,
+    so it doesn't reload portraits. `PLAYER_FLAGS_CHANGED` (AFK) fires with group tokens, never
+    target/focus, so it repaints every name line;
   - `Engine.OnTokenChanged(base)` is the hook for per-token reactions (the target sheen).
 - **`Frames.lua`**: text formats are a fixed set named after the owner's SUF tags (`Frames.TEXT`:
   `curhp`, `curmaxhp`, `curmaxhp_perhp`, `perpp`, `curpp`, `curmaxpp`, `level_class_perpp`),
