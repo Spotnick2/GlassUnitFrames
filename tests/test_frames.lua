@@ -44,6 +44,7 @@ eq(button("target").health._color[1], 0.85, "hostile target is red")
 eq(button("pet").power._color[1], 1.00, "pet focus coloured")
 eq(textOf(button("pet").valueText), "400/400", "pet: cur/max health")
 eq(button("player").model._modelUnit, "player", "3D portrait set to the unit")
+eq(button("pet").model and button("pet").model._modelUnit, "pet", "pet has its own 3D portrait")
 
 -- A unit event repaints on the next rendered frame, once.
 WoW.units.player.health = 775
@@ -279,6 +280,15 @@ check(infoLine:find("children=2", 1, true), "child count reported")
 check(infoLine:find("explicitly=false", 1, true), "both IsProtected returns reported")
 check(infoLine:find("under GlassUF's hidden parent=true", 1, true), "hidden flag from TotemFrame's own ancestry")
 rawset(_G, "TotemFrame", nil)
+-- /glass frame <Name>: the same report for any global, name kept case-sensitive.
+local pab = CreateFrame("Frame", "PetActionBar", UIParent)
+pab:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 5, 6)
+SlashCmdList.GLASSUNITFRAMES("frame PetActionBar")
+check(WoW.chat[#WoW.chat - 1]:find("PetActionBar parent chain: UIParent", 1, true), "frame probe chain: " .. WoW.chat[#WoW.chat - 1])
+check(WoW.chat[#WoW.chat]:find("anchored to UIParent (BOTTOMLEFT on BOTTOMLEFT, 5, 6)", 1, true), "frame probe anchor: " .. WoW.chat[#WoW.chat])
+SlashCmdList.GLASSUNITFRAMES("frame NoSuchFrame")
+check(WoW.chat[#WoW.chat]:find("no NoSuchFrame global", 1, true), "frame probe without the global")
+rawset(_G, "PetActionBar", nil)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 eq(GlassUnitFramesDB.font, "friz", "font saved")
 eq(p.nameText._font[1], "Fonts\\FRIZQT__.TTF", "font applied to existing text")

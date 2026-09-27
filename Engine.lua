@@ -224,7 +224,8 @@ world:SetScript("OnEvent", function(_, event, unit)
         -- Fires with group tokens (player, partyN, raidN), never target/focus:
         -- refresh every name line so an AFK tag on target or focus follows too.
         Engine.RepaintChannel("name")
-    elseif event == "RAID_TARGET_UPDATE" or event == "PARTY_LEADER_CHANGED" or event == "PARTY_LOOT_METHOD_CHANGED" then
+    elseif event == "RAID_TARGET_UPDATE" or event == "PARTY_LEADER_CHANGED" or event == "PARTY_LOOT_METHOD_CHANGED"
+        or event == "PLAYER_UPDATE_RESTING" then
         Engine.RepaintChannel("indicators")
     elseif event == "PLAYER_ENTERING_WORLD" then
         for u in pairs(framesByUnit) do Engine.RepaintUnit(u) end
@@ -232,7 +233,7 @@ world:SetScript("OnEvent", function(_, event, unit)
 end)
 API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_PET",
                             "GROUP_ROSTER_UPDATE", "PLAYER_FLAGS_CHANGED", "RAID_TARGET_UPDATE",
-                            "PARTY_LEADER_CHANGED", "PARTY_LOOT_METHOD_CHANGED" })
+                            "PARTY_LEADER_CHANGED", "PARTY_LOOT_METHOD_CHANGED", "PLAYER_UPDATE_RESTING" })
 
 -- UNIT_TARGET: registered per base unit so the client filters it (it fires for
 -- every nameplate/party/raid unit otherwise). The unit whose target changed

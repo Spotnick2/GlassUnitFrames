@@ -22,15 +22,16 @@ local GAP = 3    -- between portrait tile and body
 Frames.LAYOUT = {
     player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -110 },
                      portrait = "left", power = true, cast = true, size = "large", groupNumber = true, healPrediction = true,
-                     indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true },
+                     indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true, resting = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
                      portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
                      healPrediction = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
-    pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -190 },
-                     power = true, size = "small", text = { healthRight = "curmaxhp" },
+    -- Left edge flush with the player frame's (x -482.5), 3D portrait on the left too.
+    pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -360, -190 },
+                     portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
                      indicators = { raidTarget = true } },
     -- Below the target's cast lane and two aura rows (they reach ~75 px under it).
     targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -238 },
@@ -285,6 +286,9 @@ Engine.SetPainter("indicators", function(f)
         end
         ind.masterLoot:SetShown(show)
     end
+    if ind.resting then
+        ind.resting:SetShown(u == "player" and plain(IsResting) == true)
+    end
     if ind.pvp then
         local faction = plain(UnitFactionGroup, u)
         if plain(UnitIsPVPFreeForAll, u) == true then
@@ -467,6 +471,53 @@ local function buildCast(b, body, L)
     return c
 end
 
+-- Resting "zzz": Blizzard's own animated PlayerFrame flipbook when the client
+-- has the atlas (a 6x7 sheet, 42 frames in 1.5 s, as Blizzard's PlayerFrame.xml
+-- plays it; SetAtlas, not SetTexture, or the sheet's padding slices into the
+-- frames), else the classic static state icon SUF uses. Sits on the portrait
+-- tile's top-left corner; the animation only runs while it is shown.
+local REST_ATLAS = "UI-HUD-UnitFrame-Player-Rest-Flipbook"
+local function hasAtlas(name)
+    local ct = rawget(_G, "C_Texture")
+    local fn = ct and ct.GetAtlasExists
+    if not fn then return false end
+    local ok, yes = pcall(fn, name)
+    return ok and yes == true
+end
+
+local function buildResting(top, large)
+    local holder = CreateFrame("Frame", nil, top)
+    holder:SetFrameLevel(top:GetFrameLevel() + 1)
+    local s = large and 22 or 16
+    holder:SetSize(s, s)
+    holder:SetPoint("CENTER", top, "TOPLEFT", s * 0.35, -s * 0.35)
+    local tex = holder:CreateTexture(nil, "OVERLAY", nil, 7)
+    if hasAtlas(REST_ATLAS) then
+        tex:SetAtlas(REST_ATLAS)
+        tex:SetSize(s, s * 21 / 16)   -- one flipbook cell is 16x21
+        tex:SetPoint("CENTER", holder, "CENTER", 0, 2)
+        local anim = holder:CreateAnimationGroup()
+        anim:SetLooping("REPEAT")
+        local flip = anim:CreateAnimation("FlipBook")
+        flip:SetTarget(tex)
+        flip:SetDuration(1.5)
+        flip:SetFlipBookRows(7)
+        flip:SetFlipBookColumns(6)
+        flip:SetFlipBookFrames(42)
+        flip:SetFlipBookFrameWidth(0)
+        flip:SetFlipBookFrameHeight(0)
+        holder:SetScript("OnShow", function() anim:Play() end)
+        holder:SetScript("OnHide", function() anim:Stop() end)
+        holder.animated = true
+    else
+        tex:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
+        tex:SetTexCoord(0, 0.5, 0, 0.421875)
+        tex:SetAllPoints(holder)
+    end
+    holder:Hide()
+    return holder
+end
+
 -- Indicator icons on the glass top layer (above the rim). Raid target sits on
 -- the top edge, leader and loot on the top-left corner, PvP on the portrait.
 local function buildIndicators(b, body, g, L, tileGlass)
@@ -507,6 +558,7 @@ local function buildIndicators(b, body, g, L, tileGlass)
             left and s / 2 or -s / 2, s / 2)
         ind.pvp:Hide()
     end
+    if want.resting and tileGlass then ind.resting = buildResting(tileGlass.top, large) end
     b.indicators = ind
 end
 
@@ -612,9 +664,9 @@ local function build(unit)
         tile:SetSize(L.h, L.h)
         tile:SetPoint(L.portrait == "left" and "LEFT" or "RIGHT", b, L.portrait == "left" and "LEFT" or "RIGHT")
         tile:SetFrameLevel(b:GetFrameLevel() + 1)
-        tileGlass = Glass.Apply(tile, "large")
+        tileGlass = Glass.Apply(tile, size)
         local m = CreateFrame("PlayerModel", nil, tile)
-        local mi = Glass.Inset("large") - 1
+        local mi = Glass.Inset(size) - 1
         m:SetPoint("TOPLEFT", tile, "TOPLEFT", mi, -mi)
         m:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", -mi, mi)
         m:SetFrameLevel(Glass.ContentLevel(tile))

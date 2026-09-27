@@ -87,6 +87,8 @@ function WoW.reset()
     WoW.units = {}
     WoW.raid = nil
     WoW.masterLooter = false
+    WoW.resting = false
+    WoW.atlases = { ["UI-HUD-UnitFrame-Player-Rest-Flipbook"] = true }
     WoW.loadedAddOns = {}
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
@@ -449,6 +451,10 @@ function UnitIsPVP(u) return unitField(u, "pvp") end
 function UnitIsPVPFreeForAll(u) return unitField(u, "ffa") end
 function UnitFactionGroup(u) return unitField(u, "faction") end
 function IsMasterLooter() return WoW.masterLooter == true end
+function IsResting() return WoW.resting == true end
+C_Texture = { GetAtlasExists = function(name) return WoW.atlases[name] == true end }
+function Methods.SetAtlas(t, name) t._atlas = name; return true end
+function Methods.Stop(ag) ag._stops = (ag._stops or 0) + 1 end
 C_AddOns = {
     IsAddOnLoaded = function(name) return WoW.loadedAddOns[name] == true, WoW.loadedAddOns[name] == true end,
     LoadAddOn = function(name) WoW.loadedAddOns[name] = true; return true end,
