@@ -6,7 +6,12 @@
 -- whenever it opens or closes, and reparenting back INSIDE that call runs in
 -- Blizzard's secure execution and taints secret-value reads for the session.
 -- So the re-hide is deferred to a timer, waits while Edit Mode is open, and
--- waits for combat to end if the frame is protected.
+-- waits for combat to end (through the addon's one combat queue) if the
+-- frame is protected.
+--
+-- Only frames GlassUF replaces are hidden. ComboFrame stays until GlassUF
+-- draws combo points; focus joins with the focus frame (#8). Target auras go
+-- with TargetFrame until #12 draws them.
 --
 -- Hiding is one-way for a session: /glass blizzard show takes effect after
 -- /reload. Party frames are never touched (the owner uses Cell).
@@ -19,26 +24,16 @@ GlassUF.Blizzard = Blizzard
 Blizzard.FRAMES = {
     player       = { "PlayerFrame" },
     pet          = { "PetFrame" },
-    target       = { "TargetFrame", "ComboFrame" },
+    target       = { "TargetFrame" },
     targettarget = { "TargetFrameToT" },
-    focus        = { "FocusFrame" },
-    focustarget  = { "FocusFrameToT" },
 }
+Blizzard.active = false   -- true once anything was hidden this session
 
 local hiddenParent = CreateFrame("Frame", nil, UIParent)
 hiddenParent:Hide()
 Blizzard.hiddenParent = hiddenParent
 
-local hooked, pending, afterCombat = {}, {}, {}
-
-local regen = CreateFrame("Frame")
-regen:SetScript("OnEvent", function(self)
-    if InCombatLockdown() then return end
-    self:UnregisterEvent("PLAYER_REGEN_ENABLED")
-    local list = afterCombat
-    afterCombat = {}
-    for frame in pairs(list) do Blizzard.Reparent(frame) end
-end)
+local hooked, pending = {}, {}
 
 local function editModeOpen()
     local em = rawget(_G, "EditModeManagerFrame")
@@ -53,8 +48,9 @@ function Blizzard.Reparent(frame)
         pending[frame] = true
         C_Timer.After(0.25, function() Blizzard.Reparent(frame) end)
     elseif InCombatLockdown() and frame:IsProtected() then
-        afterCombat[frame] = true
-        regen:RegisterEvent("PLAYER_REGEN_ENABLED")
+        -- One key per frame: a repeat keeps its slot. Silent: nothing to tell the player.
+        GlassUF.WhenOutOfCombat("blizzard:" .. tostring(frame:GetName()),
+            function() Blizzard.Reparent(frame) end, false)
     else
         frame:SetParent(hiddenParent)
     end
@@ -69,6 +65,7 @@ function Blizzard.HideFrame(name)
     local frame = rawget(_G, name)   -- a Blizzard global may not exist on this client
     if not frame or hooked[frame] then return false end
     hooked[frame] = true
+    Blizzard.active = true
     UnregisterUnitWatch(frame)
     frame:UnregisterAllEvents()
     frame:Hide()
@@ -89,14 +86,9 @@ end
 
 -- Hide the Blizzard counterparts of every unit in `units` (GlassUF's built frames).
 function Blizzard.HideFor(units)
-    local hidden = {}
     for unit in pairs(units) do
-        for _, name in ipairs(Blizzard.FRAMES[unit] or {}) do
-            if Blizzard.HideFrame(name) then hidden[#hidden + 1] = name end
-        end
+        for _, name in ipairs(Blizzard.FRAMES[unit] or {}) do Blizzard.HideFrame(name) end
     end
-    table.sort(hidden)
-    return hidden
 end
 
-Blizzard._test = { hooked = hooked, pending = pending, afterCombat = afterCombat, regen = regen }
+Blizzard._test = { hooked = hooked, pending = pending }

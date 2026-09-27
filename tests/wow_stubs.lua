@@ -216,6 +216,7 @@ function Methods.UnregisterEvent(w, e) w._events[e] = nil; w._unitEvents[e] = ni
 function Methods.UnregisterAllEvents(w) w._events = {}; w._unitEvents = {}; w._silenced = true end
 function Methods.SetParent(w, p) if guard(w, "SetParent") then w._parent = p end end
 function Methods.GetParent(w) return w._parent end
+function Methods.GetName(w) return w._name end
 function Methods.IsProtected(w) return w._protected == true end
 
 -- Secure attributes and clicks.

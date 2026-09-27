@@ -50,17 +50,22 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
 - **`Frames.lua`**: `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
-- **`Blizzard.lua`**: hides Blizzard's frames for every unit GlassUF draws (`FRAMES` map;
-  party never touched, since the owner uses Cell). The steps: `UnregisterUnitWatch`, unregister
-  events, hide, reparent to a hidden frame. A `SetParent` post-hook undoes Edit Mode's reparenting
-  **on a timer, never synchronously**: doing it inside the caller taints secret reads for the
-  session (EllesmereUI's finding). It also waits while Edit Mode is open, and waits for combat to
-  end if the frame is protected. `hideBlizzard` setting; one-way per session.
+- **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
+  - Only frames we draw a replacement for: `ComboFrame` stays until we draw combo points, and
+    focus joins with #8. Party is never touched, since the owner uses Cell.
+  - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.
+  - A `SetParent` post-hook undoes Edit Mode's reparenting **on a timer, never
+    synchronously**: doing it inside the caller taints secret reads for the session
+    (EllesmereUI's finding). It waits while Edit Mode is open, and a protected frame waits for
+    combat to end through `GlassUF.WhenOutOfCombat`.
+  - `Blizzard.active` records whether anything was hidden this session. Hiding is one-way per
+    session.
 - **`GlassUnitFrames.lua`**:
-  - `GlassUnitFramesDB` (`font`, `pos`);
+  - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
-  - actions deferred until combat ends;
-  - `/glass font|reset|secrets`.
+  - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
+    build first, `message = false` for silent. Don't add a second one;
+  - `/glass font|reset|blizzard show|hide|secrets`.
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe.
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla
