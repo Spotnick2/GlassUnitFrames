@@ -88,6 +88,16 @@ WoW.units.targettargettarget.dead = true
 WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
 eq(ttt.health._color[1], 0.50, "a dead name-only unit is greyed")
 WoW.units.targettargettarget.dead = false
+
+-- Death and resurrection WITHOUT a target change: health events recolour.
+local tgt = button("target")
+local hostileR = tgt.health._color[1]
+WoW.units.target.dead = true
+WoW.fire("UNIT_HEALTH", "target"); WoW.tick()
+eq(tgt.health._color[1], 0.50, "death greys the bar on UNIT_HEALTH")
+WoW.units.target.dead = false
+WoW.fire("UNIT_HEALTH", "target"); WoW.tick()
+eq(tgt.health._color[1], hostileR, "resurrection restores the colour on UNIT_HEALTH")
 WoW.units.targettargettarget.health = 5
 WoW.tick(0.6); WoW.tick()
 eq(ttt.health._value, 5, "targettargettarget ticker repaints")
