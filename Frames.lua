@@ -193,21 +193,41 @@ end
 -- Painters
 --------------------------------------------------------------------------------
 
--- Health just lost, in red (Blizzard's player frame does this): a bar with
--- the health bar's geometry takes the SAME values, only later -- held, then
--- eased -- inside a clip frame that starts at the health fill's moving edge,
--- so only the part beyond the current health shows. No Lua maths on the
--- secret values; the closure just hands them on. Snaps with the health bar.
+-- Health just lost (Blizzard's player frame does this): a bar with the
+-- health bar's geometry takes the SAME values, only later, inside a clip
+-- frame that starts at the health fill's moving edge, so only the part
+-- beyond the current health shows. No Lua maths on the secret values.
+--   * The RANGE follows at once, so a max-health change (a buff, a level)
+--     never shows a false loss; only the value lags.
+--   * Throttled, not debounced: the latest value is kept on the frame and one
+--     timer applies it LOSS_HOLD later, so under steady damage the red part
+--     still catches up every LOSS_HOLD instead of growing for the whole fight.
+--   * Snaps with the health bar (new unit), and for dead/offline units.
 local LOSS_HOLD = 0.4
-local function paintLoss(f, maxHp, hp)
-    f.lossToken = (f.lossToken or 0) + 1
-    if f.snap then
-        attempt("health loss", Glass.SetBar, f.lossBar, maxHp, hp, true)
+local function paintLoss(f, maxHp, hp, snap)
+    local interp = (not snap) and Glass.Smooth() or nil
+    if not attempt("health loss range", function()
+        if interp then f.lossBar:SetMinMaxValues(0, maxHp, interp) else f.lossBar:SetMinMaxValues(0, maxHp) end
+    end) then return end
+    if snap then
+        f.lossPending = nil
+        attempt("health loss", function() f.lossBar:SetValue(hp) end)
         return
     end
-    local token = f.lossToken
+    f.lossPending = { hp = hp }
+    if f.lossTimer then return end
+    f.lossTimer = true
     C_Timer.After(LOSS_HOLD, function()
-        if f.lossToken == token then attempt("health loss", Glass.SetBar, f.lossBar, maxHp, hp, false) end
+        f.lossTimer = nil
+        local p = f.lossPending
+        f.lossPending = nil
+        -- Only the value: the range is already current (set on every paint).
+        if p then
+            attempt("health loss", function()
+                local i = Glass.Smooth()
+                if i then f.lossBar:SetValue(p.hp, i) else f.lossBar:SetValue(p.hp) end
+            end)
+        end
     end)
 end
 
@@ -228,10 +248,13 @@ end)
 
 Engine.SetPainter("health", function(f)
     local u = f.unit
-    if not UnitExists(u) then return end
+    if not UnitExists(u) then f.lossPending = nil return end   -- a pending loss must not land on the next unit
     local hp, maxHp = UnitHealth(u), UnitHealthMax(u)
     attempt("health bar", Glass.SetBar, f.health, maxHp, hp, f.snap)
-    if f.lossBar then paintLoss(f, maxHp, hp) end
+    if f.lossBar then
+        local gone = plain(UnitIsConnected, u) == false or plain(UnitIsDeadOrGhost, u) == true
+        paintLoss(f, maxHp, hp, f.snap or gone)
+    end
     paintColor(f, u)
 
     if not f.valueText then return end   -- name-only frames
@@ -641,48 +664,53 @@ local function buildIndicators(b, body, g, L, tileGlass)
     b.indicators = ind
 end
 
--- Incoming heals (#13): a translucent bar with the FULL health-bar width,
--- anchored to the health fill's moving edge and clipped at the bar's
--- boundary, so a heal of X% of max always reads as X% (a bar squeezed into
--- the remaining gap would understate it). No Lua geometry from secrets.
+-- A translucent bar over the health fill, with the FULL health-bar geometry,
+-- in a clip frame at health level + `level` (under the glass overlay at +3).
+-- `fromEdge` clips it to the part past the health fill's moving edge. No Lua
+-- geometry from secrets: the client moves the fill edge, the clip follows.
+local function overlayBar(b, color, level, fromEdge)
+    local clip = CreateFrame("Frame", nil, b.health)
+    if fromEdge then
+        clip:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+        clip:SetPoint("BOTTOMRIGHT", b.health, "BOTTOMRIGHT", 0, 0)
+    else
+        clip:SetAllPoints(b.health)
+    end
+    clip:SetClipsChildren(true)
+    clip:SetFrameLevel(b.health:GetFrameLevel() + level)
+    local bar = CreateFrame("StatusBar", nil, clip)
+    bar:SetFrameLevel(clip:GetFrameLevel())   -- a child would default to +1, tying the overlay
+    bar:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
+    bar:SetStatusBarColor(color[1], color[2], color[3])
+    bar:SetAlpha(color[4])
+    bar:SetMinMaxValues(0, 1)
+    bar:SetValue(0)
+    -- The rounded mask covers the health bar's bounds, so only the far end
+    -- is rounded, never the seam against the fill.
+    bar:GetStatusBarTexture():AddMaskTexture(Glass.Mask(bar, "bar_mask", 8, 0, b.health))
+    return bar
+end
+
+-- Incoming heals (#13): the FULL health-bar width, anchored to the health
+-- fill's moving edge and clipped at the bar's boundary, so a heal of X% of
+-- max always reads as X% (a bar squeezed into the remaining gap would
+-- understate it). Level +2: above the health-loss bar.
 local HEAL_COLOR = { 0.35, 0.95, 0.55, 0.45 }
 local function buildHealPrediction(b)
     local calc = API.NewHealCalculator()
     if not calc then return end
-    -- Level health + 1: over the fill, under the bar's glass overlay (+2).
-    local clip = CreateFrame("Frame", nil, b.health)
-    clip:SetAllPoints(b.health)
-    clip:SetClipsChildren(true)
-    clip:SetFrameLevel(b.health:GetFrameLevel() + 1)
-    local pred = CreateFrame("StatusBar", nil, clip)
+    local pred = overlayBar(b, HEAL_COLOR, 2, false)
     pred:SetSize(b.healthWidth, b.health:GetHeight())
     pred:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
-    pred:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
-    pred:SetStatusBarColor(HEAL_COLOR[1], HEAL_COLOR[2], HEAL_COLOR[3])
-    pred:SetAlpha(HEAL_COLOR[4])
-    pred:SetMinMaxValues(0, 1)
-    pred:SetValue(0)
-    -- The rounded mask covers the health bar's bounds, so only the far end
-    -- is rounded, never the seam against the fill.
-    pred:GetStatusBarTexture():AddMaskTexture(Glass.Mask(pred, "bar_mask", 8, 0, b.health))
     b.healCalc, b.healPred = calc, pred
 end
 
-local LOSS_COLOR = { 0.85, 0.12, 0.12, 0.85 }
+-- Health loss (#40): the health bar's own geometry, clipped from the fill
+-- edge. A light red, so it still reads next to a hostile (red) health fill.
+local LOSS_COLOR = { 1.00, 0.55, 0.50, 0.90 }
 local function buildHealthLoss(b)
-    local clip = CreateFrame("Frame", nil, b.health)
-    clip:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
-    clip:SetPoint("BOTTOMRIGHT", b.health, "BOTTOMRIGHT", 0, 0)
-    clip:SetClipsChildren(true)
-    clip:SetFrameLevel(b.health:GetFrameLevel() + 1)   -- over the fill, under the glass overlay (+2)
-    local loss = CreateFrame("StatusBar", nil, clip)
+    local loss = overlayBar(b, LOSS_COLOR, 1, true)
     loss:SetAllPoints(b.health)
-    loss:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
-    loss:SetStatusBarColor(LOSS_COLOR[1], LOSS_COLOR[2], LOSS_COLOR[3])
-    loss:SetAlpha(LOSS_COLOR[4])
-    loss:SetMinMaxValues(0, 1)
-    loss:SetValue(0)
-    loss:GetStatusBarTexture():AddMaskTexture(Glass.Mask(loss, "bar_mask", 8, 0, b.health))
     b.lossBar = loss
 end
 
