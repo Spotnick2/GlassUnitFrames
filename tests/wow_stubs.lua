@@ -229,6 +229,7 @@ function Methods.GetChildren(w)
     return unpack(kids)
 end
 function Methods.GetObjectType(w) return w._type end
+function Methods.SetClipsChildren(w, v) w._clips = v end
 
 -- Secure attributes and clicks.
 function Methods.SetAttribute(w, k, v) if guard(w, "SetAttribute") then w._attrs[k] = v end end
@@ -472,6 +473,21 @@ local function durationFor(u, channel)
     end }
 end
 function UnitCastingDuration(u) return durationFor(u, false) end
+
+-- Heal prediction: unit field `incoming` (all healers).
+function CreateUnitHealPredictionCalculator()
+    local c = { clamp = nil }
+    function c:SetIncomingHealClampMode(m) self.clamp = m end
+    function c:GetIncomingHeals()
+        return self._incoming, 0, self._incoming, false
+    end
+    function c:GetMaximumHealth() return self._max end
+    return c
+end
+function UnitGetDetailedHealPrediction(u, healer, calc)
+    calc._incoming = unitField(u, "incoming") or 0
+    calc._max = unitField(u, "maxHealth")
+end
 function UnitChannelDuration(u) return durationFor(u, true) end
 function UnitCastingInfo(u)
     local c = WoW.units[u] and WoW.units[u].casting

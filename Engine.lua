@@ -17,7 +17,9 @@ local Engine = {}
 GlassUF.Engine = Engine
 
 Engine.CHANNEL_EVENTS = {
-    health   = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_CONNECTION" },
+    -- UNIT_HEAL_PREDICTION: incoming heals (#13). Never refresh prediction from
+    -- spellcast events: DinoUF saw damage casts show up as heals there.
+    health   = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_CONNECTION", "UNIT_HEAL_PREDICTION" },
     -- The power line can carry level/classification text (target), so it
     -- follows those events too.
     power    = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_LEVEL",

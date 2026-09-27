@@ -21,11 +21,12 @@ local GAP = 3    -- between portrait tile and body
 -- ToT/ToTT and focus are fixed spots: they do not follow a dragged target.
 Frames.LAYOUT = {
     player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -110 },
-                     portrait = "left", power = true, cast = true, size = "large", groupNumber = true,
+                     portrait = "left", power = true, cast = true, size = "large", groupNumber = true, healPrediction = true,
                      indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
                      portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
+                     healPrediction = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
     pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -190 },
@@ -42,7 +43,7 @@ Frames.LAYOUT = {
     -- do not follow a moved target frame.
     focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -48 },
                      power = true, size = "small", text = { healthRight = "curhp" },
-                     indicators = { raidTarget = true, leader = true } },
+                     indicators = { raidTarget = true, leader = true }, healPrediction = true },
     focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -48 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
                      indicators = { raidTarget = true } },
@@ -202,6 +203,14 @@ Engine.SetPainter("health", function(f)
     local hp, maxHp = UnitHealth(u), UnitHealthMax(u)
     attempt("health bar", Glass.SetBar, f.health, maxHp, hp, f.snap)
     paintColor(f, u)
+    if f.healCalc then
+        -- Values straight to the bar, and snapped: an eased cancelled heal
+        -- would leave a misleading residue.
+        attempt("heal prediction", function()
+            local incoming, maxHealth = API.IncomingHeals(u, f.healCalc)
+            Glass.SetBar(f.healPred, maxHealth, incoming, true)
+        end)
+    end
 
     if not f.valueText then return end   -- name-only frames
     if plain(UnitIsConnected, u) == false then f.valueText:SetText("Offline") return end
@@ -489,6 +498,36 @@ local function buildIndicators(b, body, g, L, tileGlass)
     b.indicators = ind
 end
 
+-- Incoming heals (#13): a translucent bar with the FULL health-bar width,
+-- anchored to the health fill's moving edge and clipped at the bar's
+-- boundary, so a heal of X% of max always reads as X% (a bar squeezed into
+-- the remaining gap would understate it). No Lua geometry from secrets.
+local HEAL_COLOR = { 0.35, 0.95, 0.55, 0.45 }
+local function buildHealPrediction(b, L, inset)
+    local calc = API.NewHealCalculator()
+    if not calc then return end
+    local clip = CreateFrame("Frame", nil, b.health)
+    clip:SetAllPoints(b.health)
+    clip:SetClipsChildren(true)
+    local pred = CreateFrame("StatusBar", nil, clip)
+    pred:SetSize(L.w - 2 * inset, b.health:GetHeight())
+    pred:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+    pred:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
+    pred:SetStatusBarColor(HEAL_COLOR[1], HEAL_COLOR[2], HEAL_COLOR[3])
+    pred:SetAlpha(HEAL_COLOR[4])
+    pred:SetMinMaxValues(0, 1)
+    pred:SetValue(0)
+    -- The rounded mask covers the health bar's bounds, so only the far end
+    -- is rounded, never the seam against the fill.
+    local mask = pred:CreateMaskTexture()
+    mask:SetTexture(Glass.MEDIA .. "bar_mask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetPoint("TOPLEFT", b.health, "TOPLEFT")
+    mask:SetPoint("BOTTOMRIGHT", b.health, "BOTTOMRIGHT")
+    mask:SetTextureSliceMargins(8, 8, 8, 8)
+    pred:GetStatusBarTexture():AddMaskTexture(mask)
+    b.healCalc, b.healPred = calc, pred
+end
+
 local function build(unit)
     local L = Frames.LAYOUT[unit]
     local size = L.size
@@ -578,6 +617,7 @@ local function build(unit)
     -- build before RegisterUnitWatch / Engine.Register below, nor the frames
     -- built after it.
     attempt("build indicators", buildIndicators, b, body, g, L, tileGlass)
+    if L.healPrediction then attempt("build heal prediction", buildHealPrediction, b, L, inset) end
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 

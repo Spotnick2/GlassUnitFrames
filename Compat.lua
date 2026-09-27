@@ -128,6 +128,31 @@ function API.FlowLayout()
     return axis, fd and fd.Right, fd and fd.Down
 end
 
+-- Heal prediction (#13). One calculator per frame, clamped to maximum health
+-- when the client offers the mode, so the clip frame does the missing-health
+-- cut. Returns nil when the API is absent.
+function API.NewHealCalculator()
+    -- rawget: an optional API may be absent; a presence check must not assume it.
+    local create = rawget(_G, "CreateUnitHealPredictionCalculator")
+    if not (create and rawget(_G, "UnitGetDetailedHealPrediction")) then return nil end
+    local ok, calc = pcall(create)
+    if not ok or not calc then return nil end
+    local modes = Enum and Enum.UnitIncomingHealClampMode
+    if modes and modes.MaximumHealth ~= nil and calc.SetIncomingHealClampMode then
+        pcall(calc.SetIncomingHealClampMode, calc, modes.MaximumHealth)
+    end
+    return calc
+end
+
+-- Fill `calc` for `unit` and return (all incoming heals, maximum health), both
+-- as the client returns them (secret). GetIncomingHeals' FIRST return is the
+-- processed all-healer total ("player" only selects the per-healer breakdown).
+function API.IncomingHeals(unit, calc)
+    UnitGetDetailedHealPrediction(unit, "player", calc)
+    local incoming = calc:GetIncomingHeals()
+    return incoming, calc:GetMaximumHealth()
+end
+
 -- Cast/channel timing as a LuaDurationObject, or nil. Lua never reads the
 -- start/end numbers; StatusBar:SetTimerDuration animates natively.
 function API.CastDuration(unit)

@@ -41,7 +41,10 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - `ClassColor`;
   - `Fail(key, err)`: the **one** failure recorder (`GlassUF.paintFailures`, read by
     `/glass secrets`). Engine, Frames and Auras all report through it;
-  - `LoadBlizzardAddOn`, `AuraSort` (sort method and direction, both or neither), `FlowLayout`.
+  - `LoadBlizzardAddOn`, `AuraSort` (sort method and direction, both or neither), `FlowLayout`;
+  - `NewHealCalculator` / `IncomingHeals`: heal prediction via `CreateUnitHealPredictionCalculator`
+    and `UnitGetDetailedHealPrediction` (the first return of `GetIncomingHeals`, clamped to max
+    health). Optional APIs are presence-checked with `rawget`.
 
   It also holds `MEASURED_ON_BUILD`.
 - **`Glass.lua`**: the material (see below). Self-contained.
@@ -71,6 +74,11 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   picked per slot by `LAYOUT[unit].text`. **Not a tag language**: every format hands client values
   to `SetFormattedText` / `AbbreviateNumbers`, because health and power are secret. The name
   carries an AFK tag, and a raid group number on the player.
+- **Heal prediction** (player, target, focus) is a translucent bar with the **full health-bar
+  width**, anchored to the health fill's moving edge and clipped at the bar's edge (a bar squeezed
+  into the remaining gap would understate heals). It snaps, and it refreshes on
+  `UNIT_HEAL_PREDICTION` / health events, **never on spellcast events** (DinoUF saw damage casts
+  show up as heals there).
 - **Default positions** in `Frames.LAYOUT` are sized for WoW's UIParent, which is **768 units
   tall at the default UI scale**. Every frame, including the target's cast lane and aura rows,
   stays above y = −280, clear of the action bars. Check new frames against that, not against the
