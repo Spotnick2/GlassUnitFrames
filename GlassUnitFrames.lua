@@ -6,7 +6,7 @@ GlassUF = GlassUF or {}
 local API, Glass, Frames, Blizzard = GlassUF.API, GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 local say = API.Print
 
-local DEFAULTS = { font = "arial", hideBlizzard = true, fill = Glass.STYLE.fillAlpha }
+local DEFAULTS = { font = "arial", hideBlizzard = true, fill = Glass.STYLE.fillAlpha, rim = Glass.STYLE.rimAlpha }
 
 -- Read settings, fill missing keys. Nothing may REQUIRE a value to have
 -- survived: SavedVariables were broken on builds before 70009.
@@ -19,6 +19,7 @@ local function ensureDefaults()
     if type(db.pos) ~= "table" then db.pos = {} end
     if not Glass.FONTS[db.font] then db.font = DEFAULTS.font end
     if not Glass.SetFillAlpha(db.fill) then db.fill = DEFAULTS.fill; Glass.SetFillAlpha(db.fill) end
+    if not Glass.SetRimAlpha(db.rim) then db.rim = DEFAULTS.rim; Glass.SetRimAlpha(db.rim) end
     return db
 end
 
@@ -165,6 +166,7 @@ end
 local HELP = {
     "font arial|friz  - text font (saved)",
     "fill 0.2-1  - bar fill opacity; text stays opaque (saved)",
+    "rim 0.2-1  - brightness of the glass outline (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
@@ -191,6 +193,14 @@ local function slash(msg)
             say("bar fill opacity " .. arg)
         else
             say("fill 0.2-1 (now " .. Glass.STYLE.fillAlpha .. ")")
+        end
+    elseif cmd == "rim" then
+        local a = tonumber(arg)
+        if Glass.SetRimAlpha(a) then
+            GlassUnitFramesDB.rim = a
+            say("glass rim " .. arg)
+        else
+            say("rim 0.2-1 (now " .. Glass.STYLE.rimAlpha .. ")")
         end
     elseif cmd == "reset" then
         whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)

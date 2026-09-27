@@ -36,6 +36,7 @@ Glass.STYLE = {
     wash = 0.18,                         -- top-down white gradient inside the body
     gloss = 0.45,                        -- ADD highlight on bars
     innerShadow = 0.35,                  -- bottom shade on bars
+    rimAlpha = 1.0,                      -- bright outer rim; lower softens the "bulky" outline
     fillAlpha = 0.60,                    -- bar fill opacity: the scene shows through, text stays opaque
     trackTop = 0.45,                     -- the missing part: the bar's own colour, fading
     trackBottom = 0.08,                  -- from this alpha at the bottom to trackTop at the top
@@ -72,6 +73,8 @@ end
 
 -- Apply the material to `host`. Returns a table of the regions it made:
 -- g.top is the frame to parent text and anything that must sit above the rim.
+local rims = {}
+
 function Glass.Apply(host, size)
     local S = Glass.SIZES[size or "large"]
     local st = Glass.STYLE
@@ -123,6 +126,8 @@ function Glass.Apply(host, size)
     rim:SetTexture(Glass.MEDIA .. S.rim)
     rim:SetAllPoints(top)
     slice(rim, S.rimMargin)
+    rim:SetAlpha(st.rimAlpha)
+    table.insert(rims, rim)
     g.rim = rim
 
     return g
@@ -286,6 +291,14 @@ function Glass.Font(parent, size, justify)
     fs:SetWordWrap(false)
     table.insert(fontStrings, { fs = fs, size = size })
     return fs
+end
+
+-- Live-tune the bright rim's opacity on every glass surface built so far.
+function Glass.SetRimAlpha(a)
+    if type(a) ~= "number" or a < 0.2 or a > 1 then return false end
+    Glass.STYLE.rimAlpha = a
+    for _, rim in ipairs(rims) do rim:SetAlpha(a) end
+    return true
 end
 
 -- Live-tune the bar fill opacity on every glass bar built so far.

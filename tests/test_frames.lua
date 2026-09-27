@@ -335,6 +335,14 @@ eq(p.health:GetStatusBarTexture()._alpha, 0.5, "recolouring keeps the fill opaci
 local grad = p.health.track._gradient
 check(grad and grad[1] == "VERTICAL" and grad[2].r == 1 and grad[3].r == 1 and grad[2].a < grad[3].a,
       "missing health: the bar's own colour, fading towards the bottom")
+-- Rim brightness: every glass surface, live, saved.
+eq(p.glass.rim._alpha, 1, "rim at full brightness by default")
+SlashCmdList.GLASSUNITFRAMES("rim 0.7")
+eq(p.glass.rim._alpha, 0.7, "rim softened live")
+eq(button("pet").glass.rim._alpha, 0.7, "on every frame")
+eq(GlassUnitFramesDB.rim, 0.7, "rim saved")
+SlashCmdList.GLASSUNITFRAMES("rim 0")
+eq(GlassUnitFramesDB.rim, 0.7, "out-of-range rim rejected")
 SlashCmdList.GLASSUNITFRAMES("fill 3")
 eq(GlassUnitFramesDB.fill, 0.5, "out-of-range fill rejected")
 SlashCmdList.GLASSUNITFRAMES("font comic")
