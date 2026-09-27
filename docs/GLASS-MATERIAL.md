@@ -113,6 +113,17 @@ A glass bar (`Glass.Bar`) has four parts:
 
 All of them are masked by `bar_mask`.
 
+**Liquid motion:** bars ease to new values with `StatusBar:SetValue(value, interpolation)`
+(`Glass.Smooth()`, `Enum.StatusBarInterpolation.ExponentialEaseOut` when present). The client does
+the easing, so it works with secret values.
+- **Use `Glass.SetBar(bar, max, value, snap)`.** It passes the same interpolation to
+  `SetMinMaxValues`, so a max change doesn't jump the fill and then slide back. If the client
+  rejects the eased call, it falls back to an instant one.
+- **Snap when the *unit* changes** (new target, pet swap, frame shown again), so the bar doesn't
+  slide from the previous unit's value. GlassUnitFrames does this with a `frame.snap` flag set by
+  full repaints. A periodic refresh of the *same* unit eases.
+- **`Enum.StatusBarInterpolation` is not in the API dump:** without it, bars update instantly.
+
 ## 5. Reusing it in another addon
 
 1. Copy `Glass.lua` and the textures it names (`Glass.SIZES`, plus `bar_mask`, `bar_fill`,

@@ -103,6 +103,48 @@ AbbreviateNumbers = realAbbr
 GlassUF.paintFailures = {}
 WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
 
+-- #14 smooth bars. Enum.StatusBarInterpolation is not in the API dump, so
+-- the default stub has none: bars must update instantly without it.
+WoW.units.player.health = 1100
+WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
+eq(p.health._value, 1100, "without the enum, bars still update")
+eq(p.health._interp, nil, "without the enum, no interpolation is passed")
+-- With the enum: an event-driven change eases (range and value alike); a
+-- unit swap snaps; the ticker's refresh of a chained unit eases.
+Enum.StatusBarInterpolation = { Immediate = 0, ExponentialEaseOut = 1 }
+WoW.units.player.health = 1000
+WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
+eq(p.health._interp, Enum.StatusBarInterpolation.ExponentialEaseOut, "damage eases the health bar")
+eq(p.health._minMaxInterp, Enum.StatusBarInterpolation.ExponentialEaseOut, "the range eases with the value (no dip)")
+WoW.units.player.power = 800
+WoW.fire("UNIT_POWER_UPDATE", "player"); WoW.tick()
+eq(p.power._interp, Enum.StatusBarInterpolation.ExponentialEaseOut, "power eases too")
+WoW.SetUnit("target", { name = "Kobold Miner", reaction = 2, health = 40, maxHealth = 90 })
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+eq(button("target").health._interp, nil, "a new target snaps, not eases from the old target's health")
+WoW.units.target.health = 20
+WoW.fire("UNIT_HEALTH", "target"); WoW.tick()
+eq(button("target").health._interp, Enum.StatusBarInterpolation.ExponentialEaseOut, "then eases again")
+WoW.units.targettarget.health = 900
+GlassUF.Engine._test.ticker.elapsed = 0
+WoW.tick(0.6); WoW.tick()
+eq(button("targettarget").health._value, 900, "ticker refreshed targettarget")
+eq(button("targettarget").health._interp, Enum.StatusBarInterpolation.ExponentialEaseOut,
+   "the ticker's refresh eases (same unit), it does not snap")
+-- A client that rejects the eased call falls back to an instant update.
+local realSetValue = p.health.SetValue
+rawset(p.health, "SetValue", function(self, v, interp)
+    if interp then error("interpolation rejected") end
+    return realSetValue(self, v)
+end)
+WoW.units.player.health = 777
+WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
+eq(p.health._value, 777, "rejected easing falls back to an instant update")
+rawset(p.health, "SetValue", nil)
+Enum.StatusBarInterpolation = nil
+WoW.units.player.health, WoW.units.player.power = 1240, 920
+WoW.fire("UNIT_HEALTH", "player"); WoW.fire("UNIT_POWER_UPDATE", "player"); WoW.tick()
+
 -- Dead and offline read as words.
 WoW.units.target.dead = true
 WoW.fire("UNIT_HEALTH", "target"); WoW.tick()
@@ -121,10 +163,11 @@ eq(textOf(button("target").nameText), "Defias Bandit", "new target painted")
 eq(button("target").sheen._plays, plays + 1, "sheen plays on a new target")
 
 -- targettarget has no unit events: the ticker repaints it while shown.
+local ttBefore = button("targettarget").health._value
 WoW.units.targettarget.health = 155
 GlassUF.Engine._test.ticker.elapsed = 0          -- fix the shared ticker's phase
 WoW.tick(0.3); WoW.tick()
-eq(button("targettarget").health._value, 1240, "no repaint before 0.5s")
+eq(button("targettarget").health._value, ttBefore, "no repaint before 0.5s")
 WoW.tick(0.3); WoW.tick()
 eq(button("targettarget").health._value, 155, "ticker repainted targettarget")
 

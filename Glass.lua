@@ -176,6 +176,28 @@ function Glass.Bar(parent, height)
     return bar
 end
 
+-- The client eases a StatusBar to its new value itself (secret values
+-- included: Lua never sees the in-between). Enum names are not in the API
+-- dump, so fall back to an instant change when they are missing.
+function Glass.Smooth()
+    local e = Enum and Enum.StatusBarInterpolation
+    return e and e.ExponentialEaseOut or nil
+end
+
+-- Set a bar's range and value, eased unless `snap`. Both calls take the same
+-- interpolation, so a max change doesn't jump the fill and then slide. If the
+-- client rejects the eased call, fall back to an instant one rather than
+-- leaving the bar frozen.
+function Glass.SetBar(bar, maxValue, value, snap)
+    local interp = (not snap) and Glass.Smooth() or nil
+    if interp and pcall(function()
+        bar:SetMinMaxValues(0, maxValue, interp)
+        bar:SetValue(value, interp)
+    end) then return end
+    bar:SetMinMaxValues(0, maxValue)
+    bar:SetValue(value)
+end
+
 -- A diagonal highlight that sweeps across the body once per Play(). Clipped
 -- by its own mask on g.top, which stays put while the texture translates.
 -- Returns the AnimationGroup; call :Stop() then :Play() to sweep.
