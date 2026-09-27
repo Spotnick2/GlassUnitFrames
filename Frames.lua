@@ -22,9 +22,10 @@ local GAP = 3    -- between portrait tile and body
 Frames.LAYOUT = {
     player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -110 },
                      portrait = "left", power = true, cast = true, size = "large", groupNumber = true, healPrediction = true,
-                     -- Own spot, centred above the action bars like Blizzard's cast bar:
-                     -- the pet frame sits right under the player now (#34 makes it movable).
-                     castPoint = { "CENTER", "UIParent", "CENTER", 0, -230 },
+                     -- SUF-style: the cast bar is a row INSIDE the frame, shown only while
+                     -- casting; health and power shrink to make room (the pet frame sits
+                     -- right under the player, so nothing may hang below it).
+                     castInside = true,
                      indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true, resting = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
@@ -445,14 +446,44 @@ function Frames.ResetPositions()
     for _, b in pairs(Frames.byUnit) do applyPosition(b) end
 end
 
-local function buildCast(b, body, L)
+-- Bar heights inside a large body (inner height 50): idle, and while an
+-- inside cast bar shows. No secure frame is touched, so this works in combat.
+local ROWS = { idle = { health = 34, gap = 4, power = 12 },
+               casting = { health = 22, gap = 2, power = 10, cast = 14 } }
+
+local function layoutRows(b, casting)
+    local r = casting and ROWS.casting or ROWS.idle
+    b.health:SetHeight(r.health)
+    if b.healPred then b.healPred:SetHeight(r.health) end
+    b.power:ClearAllPoints()
+    b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -r.gap)
+    b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -r.gap)
+    b.power:SetHeight(r.power)
+end
+
+-- The cast bar either rides in its own glass pill under the body (target), or
+-- is a row inside the body that appears only while casting (player, SUF's
+-- auto-hiding cast bar): health and power shrink while it shows.
+local function castHost(b, body, L)
+    if L.castInside then
+        local host = CreateFrame("Frame", nil, body)
+        host:SetAllPoints(body)
+        host:SetFrameLevel(Glass.ContentLevel(body))
+        local bar = Glass.Bar(host, ROWS.casting.cast)
+        bar:SetPoint("TOPLEFT", b.power, "BOTTOMLEFT", 0, -ROWS.casting.gap)
+        bar:SetPoint("TOPRIGHT", b.power, "BOTTOMRIGHT", 0, -ROWS.casting.gap)
+        bar:SetFrameLevel(Glass.ContentLevel(body))
+        -- Text above the bar's glass overlay (+2); hides with the host.
+        local txt = CreateFrame("Frame", nil, host)
+        txt:SetAllPoints(bar)
+        txt:SetFrameLevel(bar:GetFrameLevel() + 3)
+        host:SetScript("OnShow", function() layoutRows(b, true) end)
+        host:SetScript("OnHide", function() layoutRows(b, false) end)
+        return host, bar, txt, 10
+    end
     local host = CreateFrame("Frame", nil, b)
     host:SetSize(L.w, 20)
     host:SetPoint("TOP", body, "BOTTOM", 0, -6)
-    if L.castPoint then
-        host:ClearAllPoints()
-        host:SetPoint(unpack(L.castPoint))
-    end
     host:SetFrameLevel(b:GetFrameLevel() + 1)
     local g = Glass.Apply(host, "small")
     local inset = Glass.Inset("small")
@@ -460,9 +491,14 @@ local function buildCast(b, body, L)
     bar:SetPoint("TOPLEFT", host, "TOPLEFT", inset, -inset)
     bar:SetPoint("TOPRIGHT", host, "TOPRIGHT", -inset, -inset)
     bar:SetFrameLevel(Glass.ContentLevel(host))
-    local spell = Glass.Font(g.top, 11, "LEFT")
+    return host, bar, g.top, 11
+end
+
+local function buildCast(b, body, L)
+    local host, bar, textLayer, fontSize = castHost(b, body, L)
+    local spell = Glass.Font(textLayer, fontSize, "LEFT")
     spell:SetPoint("LEFT", bar, "LEFT", 6, 0)
-    local time = Glass.Font(g.top, 11, "RIGHT")
+    local time = Glass.Font(textLayer, fontSize, "RIGHT")
     time:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
     spell:SetPoint("RIGHT", time, "LEFT", -6, 0)
     host:Hide()

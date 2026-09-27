@@ -173,7 +173,12 @@ end
 
 -- Visibility / layout (guarded on protected frames).
 function Methods.Show(w) if guard(w, "Show") then w._shown = true; if w._scripts.OnShow then w._scripts.OnShow(w) end end end
-function Methods.Hide(w) if guard(w, "Hide") then w._shown = false end end
+function Methods.Hide(w)
+    if not guard(w, "Hide") then return end
+    local was = w._shown
+    w._shown = false
+    if was and w._scripts.OnHide then w._scripts.OnHide(w) end   -- the client fires it only on a visible->hidden change
+end
 function Methods.SetShown(w, v) if v then Methods.Show(w) else Methods.Hide(w) end end
 function Methods.IsShown(w) return w._shown end
 function Methods.IsVisible(w)

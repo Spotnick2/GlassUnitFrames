@@ -47,16 +47,27 @@ eq(button("player").model._modelUnit, "player", "3D portrait set to the unit")
 eq(button("pet").model and button("pet").model._modelUnit, "pet", "pet has its own 3D portrait")
 eq(button("pet")._width, button("player")._width, "pet as wide as the player frame (portrait included)")
 eq(GlassUF.Frames.LAYOUT.pet.point[4], GlassUF.Frames.LAYOUT.player.point[4], "pet centred under the player")
--- The player's cast bar has its own spot (the pet frame took the space under
--- the player): centred, above the action bars, clear of the pet frame.
+-- The player's cast bar is a row inside the frame (SUF's auto-hiding cast
+-- bar): idle, health and power fill the body; while casting they shrink and
+-- the cast row shows under them. The target keeps its pill under the frame.
 do
-    local LT = GlassUF.Frames.LAYOUT
-    local cp = button("player").cast.host._points[1]
-    eq(cp[2], "UIParent", "player cast bar anchored to the screen, not under the player")
-    eq(cp[4], 0, "centred horizontally")
-    local petBottom = LT.pet.point[5] - LT.pet.h / 2
-    check(cp[5] + 10 < petBottom and cp[5] - 10 > -280, "below the pet frame, above the action bars")
-    check(button("target").cast.host._points[1][2] ~= "UIParent", "target cast bar still follows the target frame")
+    local pl = button("player")
+    local c = pl.cast
+    check(c.host:GetParent() ~= pl, "player cast row lives inside the body")
+    eq(pl.health._height, 34, "idle: full-height health bar")
+    WoW.units.player.casting = { name = "Shadow Bolt" }
+    WoW.fire("UNIT_SPELLCAST_START", "player"); WoW.tick()
+    check(c.host._shown, "cast row shown while casting")
+    eq(pl.health._height, 22, "casting: health shrinks")
+    eq(pl.power._height, 10, "casting: power shrinks")
+    eq(c.bar._points[1][2], pl.power, "cast row sits under the power bar")
+    if pl.healPred then eq(pl.healPred._height, 22, "heal prediction follows the health bar") end
+    WoW.units.player.casting = nil
+    WoW.fire("UNIT_SPELLCAST_STOP", "player"); WoW.tick()
+    check(not c.host._shown, "cast row hidden after the cast")
+    eq(pl.health._height, 34, "health back to full height")
+    eq(pl.power._height, 12, "power back to full height")
+    eq(button("target").cast.host:GetParent(), button("target"), "target keeps its cast pill")
 end
 
 -- A unit event repaints on the next rendered frame, once.
