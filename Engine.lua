@@ -18,6 +18,9 @@ GlassUF.Engine = Engine
 
 Engine.CHANNEL_EVENTS = {
     health   = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_CONNECTION" },
+    -- Incoming heals (#13), only on frames that predict them. Never refresh
+    -- from spellcast events: DinoUF saw damage casts show up as heals there.
+    heal     = { "UNIT_HEAL_PREDICTION", "UNIT_MAXHEALTH", "UNIT_HEALTH", "UNIT_CONNECTION" },
     -- The power line can carry level/classification text (target), so it
     -- follows those events too.
     power    = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_LEVEL",
@@ -33,7 +36,7 @@ Engine.CHANNEL_EVENTS = {
                  "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
                  "UNIT_SPELLCAST_CHANNEL_STOP" },
 }
-Engine.ORDER = { "name", "health", "power", "portrait", "indicators", "cast" }
+Engine.ORDER = { "name", "health", "heal", "power", "portrait", "indicators", "cast" }
 
 local painters = {}
 local framesByUnit = {}      -- unit -> { frame, ... }

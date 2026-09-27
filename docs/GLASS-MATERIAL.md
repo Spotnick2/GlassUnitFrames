@@ -111,7 +111,14 @@ A glass bar (`Glass.Bar`) has four parts:
 - `gloss` (ADD, 0.45);
 - an inner shadow (bottom 45%, black 0.35 → 0) and `bar_edge`.
 
-All of them are masked by `bar_mask`.
+All of them are masked by `bar_mask`. The gloss, inner shadow and edge live on **`bar.overlay`**, a
+child frame two levels above the bar, with its own mask. Anything drawn over the fill at bar
+level + 1 (GlassUnitFrames' heal prediction) therefore sits *under* the glass layers, like the
+fill itself. A hook keeps the overlay at +2 when the bar's level changes.
+
+`Glass.Mask(host, file, margin, inset, anchor)` takes an optional `anchor`. A mask masks the
+textures of its own frame, so a child frame gets its own mask anchored to the shape it must
+follow.
 
 **Liquid motion:** bars ease to new values with `StatusBar:SetValue(value, interpolation)`
 (`Glass.Smooth()`, `Enum.StatusBarInterpolation.ExponentialEaseOut` when present). The client does

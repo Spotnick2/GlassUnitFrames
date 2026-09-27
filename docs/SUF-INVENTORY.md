@@ -58,7 +58,7 @@ flash; drag positioning.
        health. (S–M)
 5. [x] Indicators: raid target and leader (+ PvP, master looter as defaults had them). (S)
 6. [x] Target buffs and debuffs via the managed AuraContainer (no filtering possible). (M)
-7. [ ] Incoming heal bar via the heal calculator (Paladin). (M)
+7. [x] Incoming heal bar via the heal calculator (Paladin). (M)
 8. [x] Smooth bar animation via StatusBar interpolation. (S)
 
 **Dropped on evidence:** cast bar spell icon (`icon = HIDE` everywhere), combat/rest status icon
