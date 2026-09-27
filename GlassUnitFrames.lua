@@ -121,7 +121,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         if arg1 ~= ADDON then return end
         local db = ensureDefaults()
         Glass.SetFont(db.font)
-        Frames.Build(db)
+        -- Secure frames cannot be set up under lockdown. Loading normally runs
+        -- before it applies, but do not bet the whole addon on that.
+        whenOutOfCombat("build", function() Frames.Build(db) end)
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- arg1 = isInitialLogin: warn at a real login, never on /reload.
         if arg1 and API.ClientBuild() ~= GlassUF.MEASURED_ON_BUILD then
@@ -132,6 +134,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         Frames.StopMoving()
     elseif event == "PLAYER_REGEN_ENABLED" then
         if InCombatLockdown() then return end   -- trust the lockdown state, not the event
+        Frames.StopMoving()                     -- finish a drag combat caught mid-way
         local run = pending
         pending = {}
         for _, fn in pairs(run) do fn() end

@@ -51,5 +51,34 @@ WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
 check(c.host._shown, "new target already casting: pill shown")
 eq(textOf(c.spell), "Frostbolt", "new target's spell")
 
+-- Review regressions (PR #2, Codex):
+-- A FAILED for a rejected attempt must not replace a cast that carries on.
+WoW.SetUnit("target", { name = "Mage", reaction = 2, casting = { name = "Frostbolt" } })
+WoW.fire("UNIT_SPELLCAST_START", "target")
+WoW.fire("UNIT_SPELLCAST_FAILED", "target")
+eq(textOf(c.spell), "Frostbolt", "FAILED during an ongoing cast keeps the cast")
+WoW.flushTimers()
+check(c.host._shown, "ongoing cast still shown after the old timer")
+
+-- A queued full repaint must not erase an interrupt flash.
+WoW.units.target.casting = nil
+GlassUF.Engine.FullRepaint(button("target"))
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target")
+WoW.tick()                                   -- the queued repaint flushes now
+check(c.host._shown, "flash survives a queued full repaint")
+eq(textOf(c.spell), "Interrupted", "flash text intact")
+WoW.flushTimers()
+check(not c.host._shown, "flash gone after its timer")
+
+-- Colour is applied after the timer is attached.
+WoW.units.target.casting = { name = "Fireball" }
+local order = {}
+local bar = c.bar
+local realTimer, realColor = bar.SetTimerDuration, bar.SetStatusBarColor
+rawset(bar, "SetTimerDuration", function(self, ...) order[#order + 1] = "timer"; return realTimer(self, ...) end)
+rawset(bar, "SetStatusBarColor", function(self, ...) order[#order + 1] = "color"; return realColor(self, ...) end)
+WoW.fire("UNIT_SPELLCAST_START", "target")
+eq(table.concat(order, ","), "timer,color", "colour re-applied after SetTimerDuration")
+
 eq(next(GlassUF.paintFailures), nil, "no paint failures")
 done("test_cast")

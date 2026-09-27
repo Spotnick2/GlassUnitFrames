@@ -52,11 +52,14 @@ function API.RegisterUnitEvents(frame, events, unit)
     end
 end
 
--- Secure buttons register BOTH mouse edges; the client acts on exactly one,
--- per ActionButtonUseKeyDown (measured in Priestly, see the porting guide).
--- Never set "typerelease" on these buttons: that double-acts.
-function API.ClickEdges()
-    return "LeftButtonDown", "LeftButtonUp", "RightButtonDown", "RightButtonUp"
+-- Unit buttons register the UP edge only ("AnyUp"), as SUF and DinoUF (which
+-- ships on this client) do. The porting guide's both-edges rule was measured
+-- on SecureActionButtonTemplate, whose handler picks one edge; the
+-- SecureUnitButtonTemplate handler dispatches on every registered edge, so
+-- both edges could open the menu on press and toggle it shut on release.
+-- Never set "typerelease" either.
+function API.UnitButtonClicks()
+    return "AnyUp"
 end
 
 -- 0..1 fraction -> 0..100, evaluated by the client so a secret health value

@@ -228,9 +228,12 @@ not port cleanly.
   off screen at alpha 0 doesn't work either. Record the request and apply it on
   `PLAYER_REGEN_ENABLED`. A mid-combat roster change can point a `party2`/`raid3` token at a
   different player; nothing fixes that until combat ends.
-- **Register secure buttons for both mouse edges** (all four `RegisterForClicks` names). The
-  client acts on exactly one, according to `ActionButtonUseKeyDown`. **Never set `typerelease`**,
-  because that double-casts.
+- **Click edges depend on the template.** For `SecureActionButtonTemplate` (spell buttons),
+  register **both** mouse edges: its handler acts on exactly one, according to
+  `ActionButtonUseKeyDown` (measured in Priestly). For **`SecureUnitButtonTemplate`** (our unit
+  frames), register **`"AnyUp"`** only, as SUF and DinoUF do. That handler dispatches on every
+  registered edge, so both edges could open the menu on press and toggle it shut on release.
+  **Never set `typerelease`** on either.
 - **`UnitName(unit)` returns only the first name**, with the surname where the realm should be.
   Characters have surnames and first names aren't unique. Display with `GetUnitName(unit, false)`
   and key caches on `UnitGUID`.

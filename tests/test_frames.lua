@@ -5,8 +5,6 @@ dofile("tests/harness.lua")
 standardUnits()
 loadAddon()
 
-local EDGES = { "LeftButtonDown", "LeftButtonUp", "RightButtonDown", "RightButtonUp" }
-
 for _, unit in ipairs({ "player", "target", "pet", "targettarget" }) do
     local b = button(unit)
     check(b ~= nil, unit .. " frame built")
@@ -18,8 +16,10 @@ for _, unit in ipairs({ "player", "target", "pet", "targettarget" }) do
     for k in pairs(b._attrs) do
         check(not k:find("typerelease"), unit .. " never sets typerelease (double-acts): " .. k)
     end
-    eq(#(b._clicks or {}), 4, unit .. " registers both mouse edges")
-    for i, e in ipairs(EDGES) do eq(b._clicks[i], e, unit .. " click edge " .. i) end
+    -- Unit buttons: up edge only, as SUF/DinoUF. The unit-button handler acts
+    -- on every registered edge, so both edges could toggle the menu twice.
+    eq(#(b._clicks or {}), 1, unit .. " registers one click spec")
+    eq(b._clicks[1], "AnyUp", unit .. " clicks on the up edge")
     check(WoW.unitWatch[b], unit .. " is under RegisterUnitWatch")
 end
 

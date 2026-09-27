@@ -42,6 +42,29 @@ WoW.fire("PLAYER_REGEN_ENABLED")
 eq(GlassUnitFramesDB.pos.player, nil, "deferred reset ran after combat")
 eq(p._points[1][4], -300, "player back at the default position")
 
+-- A drag that combat caught mid-way is finished when combat ends.
+WoW.shift = true
+p._scripts.OnDragStart(p)
+WoW.combat = true
+WoW.fire("PLAYER_REGEN_DISABLED")           -- worst case: lockdown already on
+check(p.moving, "drag cannot be stopped under lockdown")
+WoW.combat = false
+WoW.fire("PLAYER_REGEN_ENABLED")
+check(not p.moving and not p._moving, "drag finished after combat")
+eq(#WoW.blocked, 0, "nothing touched while locked: " .. table.concat(WoW.blocked, ", "))
+
+-- Loaded under lockdown: the build waits for combat to end.
+WoW.reset()
+standardUnits()
+GlassUF = nil
+WoW.combat = true
+loadAddon()
+eq(next(GlassUF.Frames.byUnit), nil, "no secure frames built under lockdown")
+eq(#WoW.blocked, 0, "nothing blocked while deferring the build")
+WoW.combat = false
+WoW.fire("PLAYER_REGEN_ENABLED")
+check(button("player") ~= nil, "frames built once combat ends")
+
 -- A saved position is applied at load.
 WoW.reset()
 standardUnits()

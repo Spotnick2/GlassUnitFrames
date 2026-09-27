@@ -138,52 +138,79 @@ end)
 local CAST_STOP = { UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_CHANNEL_STOP = true }
 local CAST_FAIL = { UNIT_SPELLCAST_FAILED = "Failed", UNIT_SPELLCAST_INTERRUPTED = "Interrupted" }
 
--- event nil = full repaint: show whatever the unit is casting right now.
-Engine.SetPainter("cast", function(f, event)
-    local c = f.cast
-    if not c then return end
+-- What the unit is casting right now: DurationObject + channel flag, or nil.
+local function currentCast(u)
+    if not UnitExists(u) then return nil end
+    local ok, d, channel = pcall(API.CastDuration, u)
+    if ok and d then return d, channel end
+    return nil
+end
 
-    if CAST_FAIL[event] then
-        c.token = c.token + 1
-        local token = c.token
-        c.duration = nil
-        c.bar:SetStatusBarColor(FAILED[1], FAILED[2], FAILED[3])
-        c.bar:SetMinMaxValues(0, 1)
-        c.bar:SetValue(1)
-        c.spell:SetText(CAST_FAIL[event])
-        c.time:SetText("")
-        c.host:Show()
-        C_Timer.After(0.5, function() if c.token == token then c.host:Hide() end end)
-        return
-    end
-
-    if CAST_STOP[event] then
-        -- A STOP also follows FAILED/INTERRUPTED: leave that flash up.
-        if c.duration then c.duration = nil; c.host:Hide() end
-        return
-    end
-
-    local okD, d, channel = false, nil, false
-    if UnitExists(f.unit) then okD, d, channel = pcall(API.CastDuration, f.unit) end
-    if not (okD and d) then
-        if event ~= nil then GlassUF.paintFailures["cast duration"] = GlassUF.paintFailures["cast duration"] or "no DurationObject on " .. event end
-        c.duration = nil
-        c.host:Hide()
-        return
-    end
-
+local function showCast(f, c, d, channel)
     c.token = c.token + 1
-    local col = channel and CHANNEL or CAST
-    c.bar:SetStatusBarColor(col[1], col[2], col[3])
+    c.flashing = false
     if not attempt("cast timer", c.bar.SetTimerDuration, c.bar, d, nil, API.TimerDirection(channel)) then
         c.duration = nil
         c.host:Hide()
         return
     end
+    -- Colour AFTER attaching the timer: attaching can reset the bar's visual
+    -- state (DinoUF re-applies it afterwards too, modules/cast.lua).
+    local col = channel and CHANNEL or CAST
+    c.bar:SetStatusBarColor(col[1], col[2], col[3])
     c.duration = d
     local info = channel and UnitChannelInfo or UnitCastingInfo
     if not attempt("cast name", function() c.spell:SetText((info(f.unit))) end) then c.spell:SetText("") end
     c.host:Show()
+end
+
+local function flash(c, text)
+    c.token = c.token + 1
+    local token = c.token
+    c.flashing = true
+    c.duration = nil
+    c.bar:SetMinMaxValues(0, 1)
+    c.bar:SetValue(1)
+    c.bar:SetStatusBarColor(FAILED[1], FAILED[2], FAILED[3])
+    c.spell:SetText(text)
+    c.time:SetText("")
+    c.host:Show()
+    C_Timer.After(0.5, function()
+        if c.token == token then
+            c.flashing = false
+            c.host:Hide()
+        end
+    end)
+end
+
+-- Every event re-reads what the unit is casting NOW rather than trusting the
+-- event alone: FAILED also fires for a rejected attempt while another cast
+-- carries on, and a STOP can land after the next cast began.
+-- event nil = full repaint.
+Engine.SetPainter("cast", function(f, event)
+    local c = f.cast
+    if not c then return end
+    local d, channel = currentCast(f.unit)
+
+    if d then
+        showCast(f, c, d, channel)
+        return
+    end
+
+    if CAST_FAIL[event] then
+        flash(c, CAST_FAIL[event])
+        return
+    end
+
+    if event ~= nil and not CAST_STOP[event] then
+        GlassUF.paintFailures["cast duration"] = GlassUF.paintFailures["cast duration"]
+            or ("no DurationObject on " .. event)
+    end
+    -- Nothing casting: hide, unless an interrupt/fail flash is still up.
+    if not c.flashing then
+        c.duration = nil
+        c.host:Hide()
+    end
 end)
 
 --------------------------------------------------------------------------------
@@ -270,7 +297,7 @@ local function build(unit)
     b:SetAttribute("unit", unit)
     b:SetAttribute("*type1", "target")
     b:SetAttribute("*type2", "togglemenu")
-    b:RegisterForClicks(API.ClickEdges())
+    b:RegisterForClicks(API.UnitButtonClicks())
     b:SetClampedToScreen(true)
     b:SetMovable(true)
     b:RegisterForDrag("LeftButton")
@@ -341,6 +368,7 @@ end
 -- A fresh target sweeps the sheen across its frame.
 Engine.OnTargetChanged = function()
     local t = Frames.byUnit.target
+    if t and t.cast then t.cast.flashing = false end   -- the old target's flash is not the new one's
     if t and t.sheen and UnitExists("target") then
         t.sheen:Stop()
         t.sheen:Play()
