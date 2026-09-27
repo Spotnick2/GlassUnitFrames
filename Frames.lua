@@ -66,6 +66,7 @@ end
 
 local function unitColor(u)
     if plain(UnitIsConnected, u) == false then return GREY end
+    if plain(UnitIsDeadOrGhost, u) == true then return GREY end   -- dead reads as dead even on name-only frames
     if plain(UnitIsPlayer, u) == true then
         local ok, _, classFile = pcall(UnitClass, u)
         if ok then
@@ -301,7 +302,8 @@ local function build(unit)
 
     local b = CreateFrame("Button", "GlassUF_" .. unit, UIParent, "SecureUnitButtonTemplate")
     b.unit, b.layout = unit, L
-    b.channels = { name = true, health = true, power = L.power or nil,
+    local hasPower = L.power and not L.nameOnly   -- nameOnly: just the name over a health bar
+    b.channels = { name = true, health = true, power = hasPower or nil,
                    portrait = L.portrait and true or nil, cast = L.cast or nil }
     b:SetSize(L.w + tileW, L.h)
     b:SetAttribute("unit", unit)
@@ -327,12 +329,12 @@ local function build(unit)
     local inset = Glass.Inset(size)
     local large = size == "large"
     local gap = large and 4 or 2
-    local healthH = L.power and (large and 34 or 17) or (L.h - 2 * inset)
+    local healthH = hasPower and (large and 34 or 17) or (L.h - 2 * inset)
     b.health = Glass.Bar(body, healthH)
     b.health:SetPoint("TOPLEFT", body, "TOPLEFT", inset, -inset)
     b.health:SetPoint("TOPRIGHT", body, "TOPRIGHT", -inset, -inset)
     b.health:SetFrameLevel(Glass.ContentLevel(body))
-    if L.power then
+    if hasPower then
         b.power = Glass.Bar(body, L.h - 2 * inset - healthH - gap)
         b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -gap)
         b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -gap)
@@ -350,7 +352,7 @@ local function build(unit)
         b.valueText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
         b.nameText:SetPoint("RIGHT", b.valueText, "LEFT", -6, 0)
     end
-    if L.power and large then
+    if hasPower and large then
         b.powerText = Glass.Font(g.top, 11, "RIGHT")
         b.powerText:SetPoint("RIGHT", b.power, "RIGHT", -7, 0)
     end
