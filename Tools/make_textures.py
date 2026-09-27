@@ -168,10 +168,11 @@ def main():
     write_tga("bar_fill", fill)
 
     # Track fade: 256x8 horizontal alpha ramp for a bar's missing part, as in
-    # the mockup: full for the first 20% of the bar, fading to clear at 80%,
-    # clear after. Colour comes from SetVertexColor (the bar's own colour).
+    # the mockup: full for the first 30% of the bar, easing (smoothstep) to
+    # clear at 85%, clear after. Colour comes from SetVertexColor.
     xs = (np.arange(256) + 0.5) / 256.0
-    ramp = np.clip((0.8 - xs) / 0.6, 0, 1)
+    t = np.clip((xs - 0.3) / 0.55, 0, 1)
+    ramp = 1 - (3 * t ** 2 - 2 * t ** 3)
     write_tga("track_fade", white(np.tile(ramp[None, :], (8, 1))))
 
     # Grain: 128x128 tileable noise, white with tiny alpha.

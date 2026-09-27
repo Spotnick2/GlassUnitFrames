@@ -334,7 +334,7 @@ p.health:SetStatusBarColor(1, 0, 0)
 eq(p.health:GetStatusBarTexture()._alpha, 0.5, "recolouring keeps the fill opacity")
 local vc = p.health.track._vertex
 eq(p.health.track._file, GlassUF.Glass.MEDIA .. "track_fade", "missing health: the fading ramp")
-check(vc and vc[1] == 1 and vc[2] == 0 and vc[4] == 0.45, "tinted with the bar's own colour")
+check(vc and vc[1] == 1 and vc[2] == 0 and vc[4] == 0.75, "tinted with the bar's own colour")
 -- Rim brightness: every glass surface, live, saved.
 eq(p.glass.rim._alpha, 0.7, "rim softened by default (owner-picked)")
 eq(GlassUnitFramesDB.rim, nil, "the default is not written into the saved settings")

@@ -107,8 +107,8 @@ On a host frame, bottom to top:
 
 A glass bar (`Glass.Bar`) has four parts:
 - a black 0.15 background, and over it a **track**: `track_fade` (256x8, alpha 1 over the first
-  20% of the bar, fading to 0 at 80%, clear after) tinted with the bar's own colour at
-  `STYLE.trackTop` 0.45 by `SetVertexColor`, so the missing part fades into clear glass towards
+  30% of the bar, easing (smoothstep) to 0 at 85%, clear after) tinted with the bar's own colour at
+  `STYLE.trackTop` 0.75 (intensified after an in-game look) by `SetVertexColor`, so the missing part fades into clear glass towards
   the bar's end, as in the mockup (`Glass.SetTrackAlpha(a)`); plus a white frost (0 → `STYLE.frost` 0.10 at the top), so the missing part reads as a faint tint
   of the fill, as in the mockup. A `SetStatusBarColor` hook keeps it in step; no arithmetic on
   the colour, so a secret can't throw there;

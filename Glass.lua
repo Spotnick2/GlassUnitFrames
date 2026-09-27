@@ -39,7 +39,7 @@ Glass.STYLE = {
     rimAlpha = 0.7,                      -- outer rim, softened (owner-picked; 1.0 read as bulky)
     fillAlpha = 0.60,                    -- bar fill opacity: the scene shows through, text stays opaque
     fillEnd = 1.0,                       -- optional left-to-right fade of the fill (1 = none, as the mockup)
-    trackTop = 0.45,                     -- the missing part: the bar's colour fading to clear across the bar
+    trackTop = 0.75,                     -- the missing part: the bar's colour fading to clear across the bar
     frost = 0.10,                        -- plus a white frost, 0 at the bottom to this at the top
     sheenAlpha = 0.8,
 }
