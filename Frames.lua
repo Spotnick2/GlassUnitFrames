@@ -25,12 +25,12 @@ Frames.LAYOUT = {
                      -- SUF-style: the cast bar is a row INSIDE the frame, shown only while
                      -- casting; health and power shrink to make room (the pet frame sits
                      -- right under the player, so nothing may hang below it).
-                     castInside = true,
+                     castInside = true, healthLoss = true,
                      indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true, resting = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
                      portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
-                     healPrediction = true,
+                     healPrediction = true, healthLoss = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
     -- Same total width as the player frame and centred on it (portrait 32 + gap 3
@@ -193,6 +193,24 @@ end
 -- Painters
 --------------------------------------------------------------------------------
 
+-- Health just lost, in red (Blizzard's player frame does this): a bar with
+-- the health bar's geometry takes the SAME values, only later -- held, then
+-- eased -- inside a clip frame that starts at the health fill's moving edge,
+-- so only the part beyond the current health shows. No Lua maths on the
+-- secret values; the closure just hands them on. Snaps with the health bar.
+local LOSS_HOLD = 0.4
+local function paintLoss(f, maxHp, hp)
+    f.lossToken = (f.lossToken or 0) + 1
+    if f.snap then
+        attempt("health loss", Glass.SetBar, f.lossBar, maxHp, hp, true)
+        return
+    end
+    local token = f.lossToken
+    C_Timer.After(LOSS_HOLD, function()
+        if f.lossToken == token then attempt("health loss", Glass.SetBar, f.lossBar, maxHp, hp, false) end
+    end)
+end
+
 -- The health bar's colour depends on death and connection as well as class
 -- and reaction, so both the name and the health painters apply it: a unit
 -- revived (UNIT_HEALTH) must lose its dead grey without waiting for a name event.
@@ -213,6 +231,7 @@ Engine.SetPainter("health", function(f)
     if not UnitExists(u) then return end
     local hp, maxHp = UnitHealth(u), UnitHealthMax(u)
     attempt("health bar", Glass.SetBar, f.health, maxHp, hp, f.snap)
+    if f.lossBar then paintLoss(f, maxHp, hp) end
     paintColor(f, u)
 
     if not f.valueText then return end   -- name-only frames
@@ -649,6 +668,24 @@ local function buildHealPrediction(b)
     b.healCalc, b.healPred = calc, pred
 end
 
+local LOSS_COLOR = { 0.85, 0.12, 0.12, 0.85 }
+local function buildHealthLoss(b)
+    local clip = CreateFrame("Frame", nil, b.health)
+    clip:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+    clip:SetPoint("BOTTOMRIGHT", b.health, "BOTTOMRIGHT", 0, 0)
+    clip:SetClipsChildren(true)
+    clip:SetFrameLevel(b.health:GetFrameLevel() + 1)   -- over the fill, under the glass overlay (+2)
+    local loss = CreateFrame("StatusBar", nil, clip)
+    loss:SetAllPoints(b.health)
+    loss:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
+    loss:SetStatusBarColor(LOSS_COLOR[1], LOSS_COLOR[2], LOSS_COLOR[3])
+    loss:SetAlpha(LOSS_COLOR[4])
+    loss:SetMinMaxValues(0, 1)
+    loss:SetValue(0)
+    loss:GetStatusBarTexture():AddMaskTexture(Glass.Mask(loss, "bar_mask", 8, 0, b.health))
+    b.lossBar = loss
+end
+
 local function build(unit)
     local L = Frames.LAYOUT[unit]
     local size = L.size
@@ -742,6 +779,7 @@ local function build(unit)
     -- build before RegisterUnitWatch / Engine.Register below, nor the frames
     -- built after it.
     attempt("build indicators", buildIndicators, b, body, g, L, tileGlass)
+    if L.healthLoss then attempt("build health loss", buildHealthLoss, b) end
     if L.healPrediction then attempt("build heal prediction", buildHealPrediction, b) end
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
