@@ -104,12 +104,58 @@ local function secretsReport()
 end
 
 --------------------------------------------------------------------------------
+-- /glass totem: where Blizzard's TotemFrame lives on this client (#18). Works
+-- on any class; the answer decides how a shaman's totem bar survives hiding
+-- PlayerFrame.
+--------------------------------------------------------------------------------
+
+-- Every client call guarded the same way: a report that throws prints nothing.
+local function safe(f, method, ...)
+    local fn = f and f[method]
+    if type(fn) ~= "function" then return nil end
+    return select(2, pcall(fn, f, ...))
+end
+
+local function frameName(f)
+    if f == Blizzard.hiddenParent then return "GlassUF.hiddenParent" end
+    return safe(f, "GetName") or ((safe(f, "GetObjectType") or "?") .. "(anonymous)")
+end
+
+local function totemReport()
+    local tf = rawget(_G, "TotemFrame")
+    if not tf then
+        say("totem: no TotemFrame global on this client")
+        return
+    end
+    local chain, p, underHidden = {}, tf, false
+    for _ = 1, 8 do
+        local parent = safe(p, "GetParent")
+        if not parent then break end
+        if parent == Blizzard.hiddenParent then underHidden = true end
+        chain[#chain + 1] = frameName(parent)
+        p = parent
+    end
+    if #chain == 0 then chain[1] = "(none)"
+    elseif safe(p, "GetParent") then chain[#chain + 1] = "..." end
+    -- IsProtected returns (protected, explicitly): explicit means TotemFrame
+    -- itself is secure (reparenting it is combat-locked), implicit means only
+    -- through its relationships.
+    local okP, prot, explicit = pcall(tf.IsProtected, tf)
+    local _, _, anchorTo = pcall(tf.GetPoint, tf, 1)   -- ok, point, relativeTo
+    local okC, n = pcall(function() return select("#", tf:GetChildren()) end)
+    say("totem: TotemFrame parent chain: " .. table.concat(chain, " > "))
+    say(string.format("totem: anchored to %s; protected=%s explicitly=%s; shown=%s visible=%s; children=%s; under GlassUF's hidden parent=%s",
+        (type(anchorTo) == "table") and frameName(anchorTo) or tostring(anchorTo),
+        tostring(okP and prot), tostring(okP and explicit), tostring(safe(tf, "IsShown")),
+        tostring(safe(tf, "IsVisible")), tostring(okC and n or "?"), tostring(underHidden)))
+end
 
 local HELP = {
     "font arial|friz  - text font (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
+    "totem  - where Blizzard's totem bar lives (measurement for shaman support)",
     "Shift-drag a frame to move it (out of combat).",
 }
 
@@ -140,6 +186,8 @@ local function slash(msg)
         end
     elseif cmd == "secrets" then
         secretsReport()
+    elseif cmd == "totem" then
+        totemReport()
     else
         for _, line in ipairs(HELP) do say("/glass " .. line) end
     end

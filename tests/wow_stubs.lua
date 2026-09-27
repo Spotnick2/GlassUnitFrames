@@ -222,7 +222,13 @@ function Methods.UnregisterAllEvents(w) w._events = {}; w._unitEvents = {}; w._s
 function Methods.SetParent(w, p) if guard(w, "SetParent") then w._parent = p end end
 function Methods.GetParent(w) return w._parent end
 function Methods.GetName(w) return w._name end
-function Methods.IsProtected(w) return w._protected == true end
+function Methods.IsProtected(w) return w._protected == true, w._explicit == true end
+function Methods.GetChildren(w)
+    local kids = {}
+    for _, f in ipairs(WoW.frames) do if f._parent == w then kids[#kids + 1] = f end end
+    return unpack(kids)
+end
+function Methods.GetObjectType(w) return w._type end
 
 -- Secure attributes and clicks.
 function Methods.SetAttribute(w, k, v) if guard(w, "SetAttribute") then w._attrs[k] = v end end

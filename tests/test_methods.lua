@@ -38,6 +38,9 @@ SlashCmdList.GLASSUNITFRAMES("reset")
 -- The client builds aura buttons and calls initializeFrame: exercise it.
 local aurasC = button("target").auraContainers[1]
 aurasC._groups.glass_debuffs.spec.initializeFrame(CreateFrame("Button", nil, aurasC))
+local tf = CreateFrame("Frame", "TotemFrame", PlayerFrame)
+CreateFrame("Button", nil, tf)
+SlashCmdList.GLASSUNITFRAMES("totem")
 
 -- Methods the dump cannot list: Blizzard_AuraContainer is a load-on-demand
 -- Blizzard addon the dump did not capture. Evidence they exist on Forever:
