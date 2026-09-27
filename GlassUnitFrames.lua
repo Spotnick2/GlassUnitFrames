@@ -3,10 +3,10 @@
 
 local ADDON = ...
 GlassUF = GlassUF or {}
-local API, Glass, Frames = GlassUF.API, GlassUF.Glass, GlassUF.Frames
+local API, Glass, Frames, Blizzard = GlassUF.API, GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 local say = API.Print
 
-local DEFAULTS = { font = "arial" }
+local DEFAULTS = { font = "arial", hideBlizzard = true }
 
 -- Read settings, fill missing keys. Nothing may REQUIRE a value to have
 -- survived: SavedVariables were broken on builds before 70009.
@@ -101,6 +101,7 @@ end
 local HELP = {
     "font arial|friz  - text font (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
+    "blizzard on|off  - hide Blizzard's frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
     "Shift-drag a frame to move it (out of combat).",
 }
@@ -117,6 +118,14 @@ local function slash(msg)
         end
     elseif cmd == "reset" then
         whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+    elseif cmd == "blizzard" then
+        if arg == "on" or arg == "off" then
+            GlassUnitFramesDB.hideBlizzard = (arg == "on")
+            say("Blizzard frames will be " .. (arg == "on" and "hidden" or "shown") .. " after /reload")
+        else
+            say("Blizzard frames: " .. (GlassUnitFramesDB.hideBlizzard and "hidden" or "shown")
+                .. ". /glass blizzard on|off, then /reload")
+        end
     elseif cmd == "secrets" then
         secretsReport()
     else
@@ -135,7 +144,10 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         Glass.SetFont(db.font)
         -- Secure frames cannot be set up under lockdown. Loading normally runs
         -- before it applies, but do not bet the whole addon on that.
-        whenOutOfCombat("build", function() Frames.Build(db) end, "frames will appear when combat ends")
+        whenOutOfCombat("build", function()
+            Frames.Build(db)
+            if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
+        end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- arg1 = isInitialLogin: warn at a real login, never on /reload.
         if arg1 and API.ClientBuild() ~= GlassUF.MEASURED_ON_BUILD then

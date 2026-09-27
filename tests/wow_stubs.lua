@@ -85,6 +85,8 @@ function WoW.reset()
     WoW.shift = false
     WoW.secretFields = {}     -- field -> true: that unit field comes back secret for every unit
     WoW.units = {}
+    rawset(_G, "EditModeManagerFrame", nil)
+    if UIParent then WoW.CreateBlizzardFrames() end
 end
 
 -- Unit fields: exists, health, maxHealth, power, maxPower, powerToken, name,
@@ -211,6 +213,10 @@ function Methods.RegisterUnitEvent(w, e, unit)
     return true
 end
 function Methods.UnregisterEvent(w, e) w._events[e] = nil; w._unitEvents[e] = nil end
+function Methods.UnregisterAllEvents(w) w._events = {}; w._unitEvents = {}; w._silenced = true end
+function Methods.SetParent(w, p) if guard(w, "SetParent") then w._parent = p end end
+function Methods.GetParent(w) return w._parent end
+function Methods.IsProtected(w) return w._protected == true end
 
 -- Secure attributes and clicks.
 function Methods.SetAttribute(w, k, v) if guard(w, "SetAttribute") then w._attrs[k] = v end end
@@ -300,6 +306,46 @@ function GetBuildInfo() return "1.60.1", "70009", "Sep 23 2026", 16001 end
 function InCombatLockdown() return WoW.combat end
 function IsShiftKeyDown() return WoW.shift end
 function RegisterUnitWatch(frame) WoW.unitWatch[frame] = true end
+function UnregisterUnitWatch(frame) WoW.unitWatch[frame] = nil; frame._unwatched = true end
+
+-- Post-hook a method, as the client does: the original runs first.
+function hooksecurefunc(t, name, fn)
+    local orig = t[name]
+    rawset(t, name, function(self, ...)
+        local r = orig(self, ...)
+        fn(self, ...)
+        return r
+    end)
+end
+
+-- Blizzard's own unit frames: secure (protected) buttons under UIParent,
+-- watched by the client. EditModeManagerFrame stays absent unless a test
+-- opens Edit Mode with WoW.SetEditMode.
+-- name -> unit the client watches it for (ComboFrame is not unit-watched).
+local BLIZZARD_FRAMES = { { "PlayerFrame", "player" }, { "PetFrame", "pet" }, { "TargetFrame", "target" },
+                          { "ComboFrame" }, { "TargetFrameToT", "targettarget" },
+                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget" } }
+function WoW.CreateBlizzardFrames()
+    for _, spec in ipairs(BLIZZARD_FRAMES) do
+        local f = CreateFrame("Button", spec[1], UIParent, "SecureUnitButtonTemplate")
+        f._blizzard = true
+        f.healthbar = CreateFrame("StatusBar", nil, f)
+        f.manabar = CreateFrame("StatusBar", nil, f)
+        if spec[2] then
+            f._attrs.unit = spec[2]
+            WoW.unitWatch[f] = true
+        end
+        f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    end
+    UIParent._protected = nil   -- the client's UIParent is not protected by its children
+end
+function WoW.SetEditMode(open)
+    if open and not rawget(_G, "EditModeManagerFrame") then
+        rawset(_G, "EditModeManagerFrame", newWidget("Frame", UIParent, "EditModeManagerFrame"))
+    end
+    local em = rawget(_G, "EditModeManagerFrame")
+    if em then em._shown = open end
+end
 
 C_Timer = { After = function(s, fn) table.insert(WoW.timers, fn) end }
 function WoW.flushTimers()
