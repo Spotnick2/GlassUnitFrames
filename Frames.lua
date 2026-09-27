@@ -253,12 +253,17 @@ Engine.SetPainter("indicators", function(f)
     local ind, u = f.indicators, f.unit
     if not (ind and UnitExists(u)) then return end
     if ind.raidTarget then
-        local idx = plain(GetRaidTargetIndex, u)
-        if type(idx) == "number" then
-            SetRaidTargetIconTexture(ind.raidTarget, idx)
-            ind.raidTarget:Show()
+        -- The mark index is SECRET for other units on Forever (measured: mark=S
+        -- on a marked target). SetRaidTargetIconTexture does the texcoord maths
+        -- in Lua, which a secret would break; SetSpriteSheetCell lets the
+        -- client pick the cell from the index itself. The marker texture is a
+        -- 4x4 sheet with marks 1-8 in reading order, as Blizzard's maths assumes.
+        local okIdx, idx = pcall(GetRaidTargetIndex, u)
+        local icon = ind.raidTarget
+        if okIdx and (API.IsSecret(idx) or type(idx) == "number") then
+            if pcall(icon.SetSpriteSheetCell, icon, idx, 4, 4) then icon:Show() else icon:Hide() end
         else
-            ind.raidTarget:Hide()
+            icon:Hide()   -- plain nil: no mark
         end
     end
     if ind.leader then

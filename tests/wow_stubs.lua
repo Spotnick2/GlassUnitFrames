@@ -413,6 +413,7 @@ end
 -- ffa, faction. WoW.masterLooter: the player is master looter.
 function GetRaidTargetIndex(u) return unitField(u, "raidTarget") end
 function SetRaidTargetIconTexture(tex, index) tex._raidIndex = index end
+function Methods.SetSpriteSheetCell(t, cell, rows, cols) t._raidIndex, t._sheet = cell, { rows, cols } end
 function UnitIsGroupLeader(u) return unitField(u, "leader") end
 function UnitIsGroupAssistant(u) return unitField(u, "assistant") end
 function UnitIsPVP(u) return unitField(u, "pvp") end

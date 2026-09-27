@@ -37,6 +37,20 @@ check(line and line:find("mark=ok", 1, true) and line:find("markIcon=shown", 1, 
 WoW.units.target.raidTarget = nil
 WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
 
+-- The mark index is secret for other units on Forever: it goes straight to
+-- the client (SetSpriteSheetCell), never through Lua maths.
+WoW.units.target.raidTarget = 8
+WoW.secretFields.raidTarget = true
+WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
+check(t.indicators.raidTarget._shown, "a secret mark index still shows the icon")
+check(WoW.IsSecret(t.indicators.raidTarget._raidIndex), "the secret index is handed to the client untouched")
+eq(t.indicators.raidTarget._sheet[1], 4, "4x4 marker sheet")
+WoW.units.target.raidTarget = nil
+WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
+check(not t.indicators.raidTarget._shown, "no mark (plain nil): hidden")
+WoW.secretFields.raidTarget = nil
+eq(next(GlassUF.paintFailures), nil, "no paint failures with a secret mark")
+
 -- Leader / assistant follow PARTY_LEADER_CHANGED.
 WoW.units.player.leader = true
 WoW.fire("PARTY_LEADER_CHANGED"); WoW.tick()
@@ -84,19 +98,20 @@ check(t.indicators.raidTarget._shown and p.indicators.leader._shown and p.indica
       "plain facts: icons shown (precondition)")
 for _, fld in ipairs({ "raidTarget", "leader", "assistant", "pvp", "ffa", "faction" }) do WoW.secretFields[fld] = true end
 WoW.fire("RAID_TARGET_UPDATE"); WoW.fire("PARTY_LEADER_CHANGED"); WoW.fire("UNIT_FACTION", "player"); WoW.tick()
-check(not t.indicators.raidTarget._shown and not p.indicators.leader._shown and not p.indicators.pvp._shown,
-      "secret facts: icons hidden")
+check(not p.indicators.leader._shown and not p.indicators.pvp._shown,
+      "secret leader/PvP facts: icons hidden")
+check(t.indicators.raidTarget._shown, "a secret mark still shows (the client picks the cell)")
 eq(next(GlassUF.paintFailures), nil, "no paint failures")
 
 -- A painter that throws is recorded and does not take the flush down.
 WoW.secretFields = {}
-local realSet = SetRaidTargetIconTexture
-SetRaidTargetIconTexture = function() error("boom") end
-WoW.units.target.raidTarget = 1
+rawset(p.indicators.leader, "SetTexture", function() error("boom") end)
+WoW.units.player.leader = true
 WoW.units.player.health = 321
-WoW.fire("RAID_TARGET_UPDATE"); WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
+WoW.fire("PARTY_LEADER_CHANGED"); WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
 check(GlassUF.paintFailures["painter indicators"] ~= nil, "a throwing painter is recorded")
 eq(p.health._value, 321, "and the rest of the flush still paints")
-SetRaidTargetIconTexture = realSet
+rawset(p.indicators.leader, "SetTexture", nil)
+WoW.units.player.leader = false
 
 done("test_indicators")
