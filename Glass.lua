@@ -53,13 +53,16 @@ local function slice(tex, m)
     tex:SetTextureSliceMode((modes and modes.Stretched) or 0)
 end
 
--- A 9-sliced rounded mask covering `host`, inset by `inset` px.
-function Glass.Mask(host, file, margin, inset)
+-- A 9-sliced rounded mask owned by `host`, covering `anchor` (default: host)
+-- inset by `inset` px. A mask masks textures of its own frame: give a child
+-- its own mask anchored to the shape it must follow.
+function Glass.Mask(host, file, margin, inset, anchor)
     local m = host:CreateMaskTexture()
     m:SetTexture(Glass.MEDIA .. file, MASK_WRAP, MASK_WRAP)
     inset = inset or 0
-    m:SetPoint("TOPLEFT", host, "TOPLEFT", inset, -inset)
-    m:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -inset, inset)
+    anchor = anchor or host
+    m:SetPoint("TOPLEFT", anchor, "TOPLEFT", inset, -inset)
+    m:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", -inset, inset)
     slice(m, margin)
     return m
 end
@@ -135,6 +138,9 @@ end
 -- A glass StatusBar: masked rounded fill, ADD gloss, inner shadow, thin edge.
 -- Colour it with bar:SetStatusBarColor(r, g, b). Values may be secret:
 -- SetMinMaxValues/SetValue take them without Lua touching them.
+-- The gloss, shade and edge live on bar.overlay (frame level bar + 2), so
+-- anything added over the fill at level bar + 1 (e.g. heal prediction) sits
+-- UNDER the glass layers, like the fill itself.
 function Glass.Bar(parent, height)
     local st = Glass.STYLE
     local bar = CreateFrame("StatusBar", nil, parent)
@@ -153,26 +159,34 @@ function Glass.Bar(parent, height)
     bar:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
     bar:GetStatusBarTexture():AddMaskTexture(mask)
 
-    local gloss = bar:CreateTexture(nil, "OVERLAY", nil, 1)
+    local over = CreateFrame("Frame", nil, bar)
+    over:SetAllPoints(bar)
+    over:SetFrameLevel(bar:GetFrameLevel() + 2)
+    bar.overlay = over
+    local omask = Glass.Mask(over, "bar_mask", 8)
+
+    local gloss = over:CreateTexture(nil, "OVERLAY", nil, 1)
     gloss:SetAllPoints(bar)
     gloss:SetTexture(Glass.MEDIA .. "gloss")
     gloss:SetBlendMode("ADD")
     gloss:SetAlpha(st.gloss)
-    gloss:AddMaskTexture(mask)
+    gloss:AddMaskTexture(omask)
 
-    local inner = bar:CreateTexture(nil, "OVERLAY", nil, 2)
+    local inner = over:CreateTexture(nil, "OVERLAY", nil, 2)
     inner:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT")
     inner:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT")
     inner:SetHeight(math.max(3, math.floor(height * 0.45)))
     inner:SetColorTexture(1, 1, 1, 1)
     inner:SetGradient("VERTICAL", CreateColor(0, 0, 0, st.innerShadow), CreateColor(0, 0, 0, 0))
-    inner:AddMaskTexture(mask)
+    inner:AddMaskTexture(omask)
 
-    local edge = bar:CreateTexture(nil, "OVERLAY", nil, 3)
+    local edge = over:CreateTexture(nil, "OVERLAY", nil, 3)
     edge:SetAllPoints(bar)
     edge:SetTexture(Glass.MEDIA .. "bar_edge")
     slice(edge, 8)
 
+    -- Keep the overlay two levels above the bar when the caller moves the bar.
+    hooksecurefunc(bar, "SetFrameLevel", function(self, level) over:SetFrameLevel(level + 2) end)
     return bar
 end
 

@@ -474,10 +474,13 @@ local function durationFor(u, channel)
 end
 function UnitCastingDuration(u) return durationFor(u, false) end
 
+function UnitChannelDuration(u) return durationFor(u, true) end
+
 -- Heal prediction: unit field `incoming` (all healers).
 function CreateUnitHealPredictionCalculator()
     local c = { clamp = nil }
     function c:SetIncomingHealClampMode(m) self.clamp = m end
+    function c:SetIncomingHealOverflowPercent(p) self.overflow = p end
     function c:GetIncomingHeals()
         return self._incoming, 0, self._incoming, false
     end
@@ -488,7 +491,6 @@ function UnitGetDetailedHealPrediction(u, healer, calc)
     calc._incoming = unitField(u, "incoming") or 0
     calc._max = unitField(u, "maxHealth")
 end
-function UnitChannelDuration(u) return durationFor(u, true) end
 function UnitCastingInfo(u)
     local c = WoW.units[u] and WoW.units[u].casting
     if not c or c.channel then return nil end

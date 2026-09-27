@@ -203,14 +203,6 @@ Engine.SetPainter("health", function(f)
     local hp, maxHp = UnitHealth(u), UnitHealthMax(u)
     attempt("health bar", Glass.SetBar, f.health, maxHp, hp, f.snap)
     paintColor(f, u)
-    if f.healCalc then
-        -- Values straight to the bar, and snapped: an eased cancelled heal
-        -- would leave a misleading residue.
-        attempt("heal prediction", function()
-            local incoming, maxHealth = API.IncomingHeals(u, f.healCalc)
-            Glass.SetBar(f.healPred, maxHealth, incoming, true)
-        end)
-    end
 
     if not f.valueText then return end   -- name-only frames
     if plain(UnitIsConnected, u) == false then f.valueText:SetText("Offline") return end
@@ -305,6 +297,26 @@ Engine.SetPainter("indicators", function(f)
             ind.pvp:Hide()
         end
     end
+end)
+
+-- Incoming heals: values straight to the bar, snapped (an eased cancelled
+-- heal would leave a residue). Cleared for offline/dead units, and whenever
+-- the read fails, so a previous unit's heal never lingers.
+local function clearHeal(f) f.healPred:SetMinMaxValues(0, 1); f.healPred:SetValue(0) end
+
+local function paintHeal(f, u)
+    local incoming, maxHealth = API.IncomingHeals(u, f.healCalc)
+    Glass.SetBar(f.healPred, maxHealth, incoming, true)
+end
+
+Engine.SetPainter("heal", function(f)
+    local u = f.unit
+    if not (f.healCalc and UnitExists(u)) then return end
+    if plain(UnitIsConnected, u) == false or plain(UnitIsDeadOrGhost, u) == true then
+        clearHeal(f)
+        return
+    end
+    if not attempt("heal prediction", paintHeal, f, u) then clearHeal(f) end
 end)
 
 local CAST_STOP = { UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_CHANNEL_STOP = true }
@@ -503,14 +515,16 @@ end
 -- boundary, so a heal of X% of max always reads as X% (a bar squeezed into
 -- the remaining gap would understate it). No Lua geometry from secrets.
 local HEAL_COLOR = { 0.35, 0.95, 0.55, 0.45 }
-local function buildHealPrediction(b, L, inset)
+local function buildHealPrediction(b)
     local calc = API.NewHealCalculator()
     if not calc then return end
+    -- Level health + 1: over the fill, under the bar's glass overlay (+2).
     local clip = CreateFrame("Frame", nil, b.health)
     clip:SetAllPoints(b.health)
     clip:SetClipsChildren(true)
+    clip:SetFrameLevel(b.health:GetFrameLevel() + 1)
     local pred = CreateFrame("StatusBar", nil, clip)
-    pred:SetSize(L.w - 2 * inset, b.health:GetHeight())
+    pred:SetSize(b.healthWidth, b.health:GetHeight())
     pred:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
     pred:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
     pred:SetStatusBarColor(HEAL_COLOR[1], HEAL_COLOR[2], HEAL_COLOR[3])
@@ -519,12 +533,7 @@ local function buildHealPrediction(b, L, inset)
     pred:SetValue(0)
     -- The rounded mask covers the health bar's bounds, so only the far end
     -- is rounded, never the seam against the fill.
-    local mask = pred:CreateMaskTexture()
-    mask:SetTexture(Glass.MEDIA .. "bar_mask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    mask:SetPoint("TOPLEFT", b.health, "TOPLEFT")
-    mask:SetPoint("BOTTOMRIGHT", b.health, "BOTTOMRIGHT")
-    mask:SetTextureSliceMargins(8, 8, 8, 8)
-    pred:GetStatusBarTexture():AddMaskTexture(mask)
+    pred:GetStatusBarTexture():AddMaskTexture(Glass.Mask(pred, "bar_mask", 8, 0, b.health))
     b.healCalc, b.healPred = calc, pred
 end
 
@@ -537,6 +546,7 @@ local function build(unit)
     b.unit, b.layout = unit, L
     local hasPower = L.power and not L.nameOnly   -- nameOnly: just the name over a health bar
     b.channels = { name = true, health = true, power = hasPower or nil, indicators = L.indicators and true or nil,
+                   heal = L.healPrediction or nil,
                    portrait = L.portrait and true or nil, cast = L.cast or nil }
     b:SetSize(L.w + tileW, L.h)
     b:SetAttribute("unit", unit)
@@ -564,6 +574,7 @@ local function build(unit)
     local gap = large and 4 or 2
     local healthH = hasPower and (large and 34 or 17) or (L.h - 2 * inset)
     b.health = Glass.Bar(body, healthH)
+    b.healthWidth = L.w - 2 * inset   -- the health bar's width (anchored inset on both sides)
     b.health:SetPoint("TOPLEFT", body, "TOPLEFT", inset, -inset)
     b.health:SetPoint("TOPRIGHT", body, "TOPRIGHT", -inset, -inset)
     b.health:SetFrameLevel(Glass.ContentLevel(body))
@@ -617,7 +628,7 @@ local function build(unit)
     -- build before RegisterUnitWatch / Engine.Register below, nor the frames
     -- built after it.
     attempt("build indicators", buildIndicators, b, body, g, L, tileGlass)
-    if L.healPrediction then attempt("build heal prediction", buildHealPrediction, b, L, inset) end
+    if L.healPrediction then attempt("build heal prediction", buildHealPrediction, b) end
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 

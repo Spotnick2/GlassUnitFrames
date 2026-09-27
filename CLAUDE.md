@@ -78,7 +78,9 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   width**, anchored to the health fill's moving edge and clipped at the bar's edge (a bar squeezed
   into the remaining gap would understate heals). It snaps, and it refreshes on
   `UNIT_HEAL_PREDICTION` / health events, **never on spellcast events** (DinoUF saw damage casts
-  show up as heals there).
+  show up as heals there). Its own `heal` channel exists only on frames that predict. The
+  calculator gets `SetIncomingHealOverflowPercent(1)`: DinoUF recorded an empty bar on Forever
+  without it. The bar is cleared on a failed read and for offline or dead units.
 - **Default positions** in `Frames.LAYOUT` are sized for WoW's UIParent, which is **768 units
   tall at the default UI scale**. Every frame, including the target's cast lane and aura rows,
   stays above y = −280, clear of the action bars. Check new frames against that, not against the
