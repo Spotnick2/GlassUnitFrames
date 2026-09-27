@@ -1,0 +1,272 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+GlassUnitFrames is a **unit frames addon for World of Warcraft: Forever 1.60.1** (Interface
+`16001`), written in **Lua 5.1**. Single owner (Spotnick), same stack and conventions as the
+sibling Forever addons `..\AltStable` and `..\Priestly`. When this file doesn't cover
+something, check how those two handle it before you invent a new idiom. For unit-frame
+technique, the reference is DinoUnitFrames (see "Reference addons" below).
+
+**Goal, in two parts:**
+1. A **proof of concept for "liquid glass" unit frames**, per `docs/mockup.png`. Real backdrop
+   blur and refraction are expected to be impossible for an addon, so the glass is faked with
+   layered textures: a translucent tint, a 9-sliced specular rim, masked rounded bars, gloss and
+   an animated sheen. `docs/POC-PLAN.md` is the plan, already reviewed by Codex.
+2. A **streamlined Shadowed Unit Frames**. The owner uses a small fraction of SUF, so keep only
+   what earns its place. Don't port SUF's module zoo, tag DSL or options tree by default.
+
+**Status: greenfield.** The repository started empty (2026-09-27). The layout, tooling and test
+harness below follow the sibling projects and are the plan. Once real files exist, update this
+section to describe what is actually here.
+
+Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla
+content and the Retail API. `WOW_PROJECT_ID == WOW_PROJECT_MAINLINE`. Advice that cites a TBC or
+Classic API is usually stale.
+
+## References: read these before touching an unfamiliar API
+
+- `C:\Projects\References\PORTING-TBC-TO-FOREVER.md` holds the canonical addon-agnostic field
+  notes, measured on the live client. Treat them as fact; don't re-derive them. Other sessions
+  edit this file, so write new addon-agnostic findings there, not into a copy in this repo.
+- `C:\Projects\References\forever-api-1.60.1.70009.md` is the full API dump for the current
+  build: documented functions and events, enums, **widget methods** (the only list of those), and
+  the `_G` walk. It proves a name exists, not that it works. **Presence is not a contract.**
+- For a live check in game: `/api search <name>`, `/api system list`, `/api <system> list`
+  (system names omit `C_`).
+- Use the Retail branch of `Gethe/wow-ui-source` for Blizzard FrameXML. Stock `Blizzard_*` code
+  lives inside CASC, not on disk.
+
+## Reference addons
+
+These live in `C:\Projects\References`. They show what works on this client *in practice*,
+which the dump can't tell you. Reason about what they do rather than copying it. **None is
+licensed for reuse:** SUF and DinoUF ship no license, and EllesmereUI is "all rights reserved".
+Write our own code.
+
+- **`ShadowedUnitFrames` is the design reference.** It's upstream SUF, cloned from
+  `github.com/Nevcairiel/ShadowedUnitFrames` (`master` targets Retail 11.x; there's also a
+  `classic` branch). It's the source of truth for *what* a unit frame addon does and how SUF
+  structures it. It doesn't run on Forever: `units.lua` uses `SecureHandlerBaseTemplate`,
+  `WrapScript` and `RegisterStateDriver`, which are all broken here.
+- **`DinoUnitFrames_Forever_Beta_v3.0` is the Forever reference.** It's SUF's classic branch
+  (`ShadowUF` namespace) ported to this client. Read it for *how* to make each SUF piece work on
+  Forever; diff it against upstream to isolate the port. There's one module per element in
+  `DinoUnitFrames\modules\`: `units.lua` handles frame lifecycle and headers, plus
+  `health.lua`, `power.lua`, `cast.lua`, `auras.lua`, `incheal.lua`, `tags.lua` and others.
+  Options are a separate load-on-demand addon, `DinoUF_Options`, built on AceConfig. The
+  Forever-specific code is gated on `ShadowUF_Forever` and commented `Forever:`, so grep for
+  those. `CHANGELOG.md` records its port history, including which approaches broke and which
+  worked. Don't inherit these parts:
+  - It injects shims into `_G` (`ForeverCompat.lua`); we use a namespace adapter instead.
+  - It ships a `_Camelot.toc`, which only the packager uses.
+  - `ForeverPersistence.lua` mirrors the profile into CVars. It's dead code (not in the TOC)
+    and obsolete now that SavedVariables work.
+  - The `1.42` "render correction" scales frames to match imported TBC profiles, not a
+    property of the client.
+- **`EllesmereUI-v9.3` is for inspiration** on architecture and visual style. It's a
+  Retail-first suite with Forever support (`## Interface: …, 16001`, `EllesmereUI.IS_FOREVER`
+  from `EllesmereUI_ClientGate.lua`). The useful part is `EllesmereUIUnitFrames\`, especially
+  `EUI_UnitFrames_Engine.lua`, a clean update engine:
+  - one tracker frame per unit token, using `RegisterUnitEvent` so the client filters events;
+  - events grouped into *channels* (health, power, text, …), each with a registered painter;
+  - repeated triggers in the same frame collapse into one paint;
+  - one shared 0.5 s ticker for event-less units (`targettarget`), idle while hidden.
+
+  `EllesmereUIRaidFrames\` covers party and raid frames. `EllesmereUI_ForeverLayout.lua` shows
+  default positions coexisting with Edit Mode.
+
+Keep a `MEASURED_ON_BUILD` constant in the source, matching the dump's build (`1.60.1.70009`),
+and warn at login when `GetBuildInfo()` differs, as the siblings do. Bump it only after
+re-measuring in game. Matching dumps don't prove runtime behaviour.
+
+## Toolchain and commands
+
+There is no build system, compiler or package manager; the client interprets the Lua directly.
+The Lua 5.1 toolchain is at `C:\Program Files (x86)\Lua\5.1\` (`lua.exe`, `luac.exe`). Use it,
+not a newer Lua that may be first on `PATH`.
+
+```powershell
+& 'C:\Program Files (x86)\Lua\5.1\luac.exe' -p File.lua             # syntax check; silent on success
+pwsh tests\run.ps1                                                   # luac -p on TOC files + every tests\test_*.lua
+& 'C:\Program Files (x86)\Lua\5.1\lua.exe' tests\test_frames.lua    # one test, run from the repo root
+python Tools\make_textures.py                                        # regenerate Media\*.tga (Pillow + numpy)
+pwsh Tools\deploy.ps1                                                # copy GlassProbe + Media into AddOns (-Late adds late.tga)
+```
+
+`tests\run.ps1` doesn't exist yet; model it on Priestly's. `Tools\GlassProbe\` is the throwaway
+visual probe (`/gprobe help` in game). Textures are generated, never hand-edited: change
+`Tools\make_textures.py` and rerun it. On 70009 a **new texture file loads after `/reload`**
+(measured, `docs\FOREVER-PROBE.md`); only a brand-new addon folder needs a full client restart.
+
+- **Default AddOns path:** `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns`.
+  The deploy script takes `-AddOnsPath`.
+- **Deploy** rewrites `## Version: @project-version@` to `dev` in the deployed copy only. Never
+  commit a literal version over that token; the packager needs it.
+- **In game:** `/console scriptErrors 1` first, because errors are off by default. Then `/reload`.
+  Check the AddOns list shows the addon enabled **and not flagged out of date**. The client
+  doesn't block a wrong interface number, so "it loaded" proves nothing. Error delivery stops
+  after 100 errors in a session. BugGrabber + BugSack capture locals, which helps with
+  secret-value bugs.
+
+## Addon basics
+
+- One plain `GlassUnitFrames.toc`, with no `_Forever` or `_Camelot` suffix, because the client
+  ignores `_Forever`. Use `## Interface: 16001` (`%d%02d%02d` of 1.60.1). **`11601` is a
+  transposed-digit bug** seen in the wild.
+- One global namespace table. Every file starts `GlassUnitFrames = GlassUnitFrames or {}`, and
+  the TOC order is the load order.
+- Put a compat or adapter layer first (like the siblings' `Compat.lua` → `<Addon>.API`) for any
+  API that moved from Classic. Consumers reach it through the namespace, not by injecting
+  globals into `_G`. Read the porting guide's "False friends" section before aliasing anything:
+  some moved APIs keep their name but return a struct instead of a tuple, and positional
+  destructuring then fails silently.
+- If a shared library is ever used (LibGroupBuffs is the precedent), don't copy its functions
+  into locals (`local F = API.F`). A newer embedded copy upgrades the table in place, and a copy
+  keeps the old version. Call through the table, or wrap it.
+- Keep a `_test` seam table at the bottom of a file to expose file-local internals to tests.
+  Don't promote internals to globals.
+
+## Forever facts that matter for unit frames
+
+These are measured or declared on this client. They are what makes a Classic unit frame addon
+not port cleanly.
+
+- **Secret values.** Some unit numbers come back as values you can hold but not read.
+  Arithmetic, comparison, `tostring`, concatenation and **truth-testing** all throw, and a
+  `x or 0` guard doesn't help. `UnitHealthMax` was measured secret for the player's own
+  character. Retail's answer is to hand the secret straight back to the client, and both
+  reference addons do this:
+  - **Bars:** `StatusBar:SetMinMaxValues` / `SetValue` accept secrets directly.
+  - **Percent and colour:** `UnitHealthPercent(unit, usePredicted, curve)` /
+    `UnitPowerPercent` with `C_CurveUtil.CreateCurve` / `CreateColorCurve`. Use this instead of
+    dividing health by max health.
+  - **Text:** `FontString:SetFormattedText` and `AbbreviateNumbers`. EllesmereUI also passes
+    percents through `string.format` and relies on a `CurveConstants.ScaleTo100` global. The
+    dump lists neither as secret-safe, so measure before relying on them.
+  - **Cast bars:** `UnitCastingDuration` / `UnitChannelDuration` return a `LuaDurationObject`.
+    Pass it to `StatusBar:SetTimerDuration`, and read time left with `GetRemainingDuration`
+    into `SetFormattedText`. Never read start/end times in Lua. See DinoUF `modules\cast.lua`.
+  - **Heal prediction:** `CreateUnitHealPredictionCalculator` +
+    `UnitGetDetailedHealPrediction(unit, healer, calc)`, feeding the calculator's values
+    straight into a StatusBar. See DinoUF `modules\incheal.lua`.
+
+  Test with `issecretvalue(v)` and query policy under `C_Secrets` (`ShouldUnitHealthMaxBeSecret`,
+  `ShouldUnitPowerBeSecret`, `ShouldUnitSpellCastingBeSecret`, …). Which unit APIs are secret,
+  for which units and when, is **per-API and largely unmeasured**. Probe it; don't assume.
+  Store `nil` for unknown, never `0`.
+- **Auras are unreadable in combat for every unit**, not just the player.
+  `C_UnitAuras.GetAuraDataByIndex` throws; `GetAuraDataBySpellName` quietly returns nil, which
+  looks like "not buffed". The `UNIT_AURA` payload is secret too (`isFullUpdate`,
+  `updatedAuraInstanceIDs`). Every touch of client data goes **inside one `pcall`**, and
+  checking the result a line later is too late. **For unit frame aura icons, don't read auras
+  in Lua at all.** Both references use Blizzard's managed container:
+  `CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")`. The client picks,
+  sorts and renders the auras. The addon supplies the button look (`SetIcon`,
+  `SetDurationCooldown`) and options processed through `C_AuraContainerUtil.*`. See DinoUF
+  `modules\auras.lua` (`ForeverEnsureAuraContainer`) and EllesmereUI
+  `EUI_UnitFrames_AuraContainers.lua`. A GUID-keyed cache with an "unknown" state is only
+  needed for logic that must *know* about an aura.
+- **Secure snippets are broken.** `loadstring_untainted` is missing, so
+  `SecureHandlerWrapScript`, `_onstate-*` attributes and `RegisterStateDriver` throw. **Don't
+  introduce a `SecureHandler*`.** Plain `SecureActionButtonTemplate` + `SetAttribute` + insecure
+  `PreClick`/`PostClick` **works**, in and out of combat.
+- **Single-unit frames:** `SecureUnitButtonTemplate` + `RegisterUnitWatch(frame)` for
+  show/hide. Both references ship this on Forever, and DinoUF's changelog calls its UnitWatch
+  path the stable baseline. We haven't measured it ourselves.
+- **Party and raid headers: the evidence conflicts. Measure before choosing.** DinoUF found
+  that `SecureGroupHeaderTemplate` can't run its restricted `initialConfigFunction` on Forever.
+  It builds party and raid children by hand instead: `SecureUnitButtonTemplate` buttons bound
+  to fixed `party1-4` / `raid1-40` tokens, with roster-driven visibility and explicit anchoring
+  (`modules\units.lua`, changelog v2.10–v2.34). EllesmereUI's raid frames do use
+  `SecureGroupHeaderTemplate` with `initialConfigFunction` and claim 16001 support. Probe
+  whether a header spawns children on the current build. The manual approach needs every
+  layout change deferred out of combat.
+- **Combat lockdown:** `SetAttribute` does nothing under `InCombatLockdown()`. A frame that
+  parents secure buttons is protected: hiding, moving, re-anchoring or unclamping it in combat
+  is silently refused, with `ADDON_ACTION_BLOCKED` blamed on someone else's taint. Parking it
+  off screen at alpha 0 doesn't work either. Record the request and apply it on
+  `PLAYER_REGEN_ENABLED`. A mid-combat roster change can point a `party2`/`raid3` token at a
+  different player; nothing fixes that until combat ends.
+- **Register secure buttons for both mouse edges** (all four `RegisterForClicks` names). The
+  client acts on exactly one, according to `ActionButtonUseKeyDown`. **Never set `typerelease`**,
+  because that double-casts.
+- **`UnitName(unit)` returns only the first name**, with the surname where the realm should be.
+  Characters have surnames and first names aren't unique. Display with `GetUnitName(unit, false)`
+  and key caches on `UnitGUID`.
+- **`RegisterEvent` throws on unknown names and returns `false` for refusals.** Wrap it, treat
+  both as failures, and report them. Registering `COMBAT_LOG_EVENT_UNFILTERED` is forbidden, so
+  use `UNIT_DIED` for deaths.
+- No talent spec API. `MAX_PLAYER_LEVEL` is nil, so use `GetMaxPlayerLevel()` (60). The live
+  beta cap is lower, so never hardcode it. `MouseIsOver` is absent (use `frame:IsMouseOver()`).
+  `ReloadUI()` is protected. `SetRaidTarget` is protected.
+- `GetInstanceInfo()` returns the continent outdoors, so gate on `instanceType ~= "none"`.
+- Options use the Retail `Settings.RegisterAddOnCategory`, not `InterfaceOptions_AddCategory`.
+  Tooltips use `TooltipDataProcessor`: hooking `OnTooltipSetItem` at load can abort
+  registration. **Edit Mode is live**, so Blizzard's player and target frames can be moved or
+  reset out from under anything anchored to them.
+- **SavedVariables persist as of 70009** (broken through 69977). Code may read them but must cope
+  when they're absent. CVar persistence has not been re-measured. **Verify persistence only
+  with a full client exit**, never `/reload` or by reading the SV file. Count loads inside the
+  addon, or check a key that defaults to nil.
+
+## Testing
+
+Follow Priestly's `tests\` harness: plain Lua 5.1 scripts with no dependencies, a
+`tests\wow_stubs.lua` API mock driven through an exported `WoW` table, and `tests\run.ps1` to run
+them all.
+
+- **The stub is an allowlist and must model the client's absences.** It should fail on any read
+  of an unstubbed global. Before stubbing one, confirm it exists in the current API dump and
+  copy its exact signature. Defining something Forever lacks (like `MouseIsOver`) lets a broken
+  call pass.
+- **Stub secrets as `newproxy(true)` userdata with metamethods that error.** Don't use a table,
+  which `type(v) == "table"` filters would skip. Don't use a coroutine either: it only throws on
+  arithmetic and ordering. The proxy also throws on `tostring`, concatenation and
+  `string.format` (verified in Lua 5.1). **No Lua 5.1 value can make a truth test or `==`
+  throw**, so the stub can't catch `if secret then` or `secret == x`. Those are caught only by
+  in-game combat testing and review.
+- **Strict globals don't cover methods.** A catch-all `__index` swallows calls to widget methods
+  this client lacks. For handlers built on widget methods, **run the handler and assert what it
+  produced**, and check the method against the dump's widget-method section.
+- Keep one test file that executes every script handler and event the addon installs, because
+  strict globals only catch code that actually runs.
+- Offline tests can't cover secure clicks, combat lockdown, real secret behaviour or rendering.
+  Those need an in-game checklist and a throwaway probe addon under `Tools\`, like the siblings'
+  `PriestlyProbe`.
+
+## Workflow and releasing (sibling conventions)
+
+- Issue → branch off `main` → PR with `Closes #N` → review → squash-merge. Never commit to `main`.
+  Commit or push only when asked. Before committing, `luac -p` must be clean and the tests green.
+- Review policy: use the shared `$wow-addon-review` skill for PR reviews.
+- **Adversarial review is mandatory** for plans and significant diffs. Run it through the
+  project's `/codex-consult` skill (`.claude/skills/codex-consult/`), because Codex is a
+  different model family and so has different blind spots. Always hand it `CLAUDE.md` and the
+  porting guide. If Codex is unavailable, fall back to Fable. Then reconcile:
+  - Verify its claims before acting. It has been right, and it has been confidently wrong.
+  - Take its bug-catching seriously.
+  - Push back when it adds complexity to a single-owner addon.
+- **Fable** is worth using for long-context reading across many files, such as the SUF-vs-DinoUF
+  feature inventory. Review use is default-on. Implementation use needs the owner's explicit
+  approval each turn.
+- Releases are built by **CurseForge's own packager from the tag webhook**, reading `.pkgmeta`.
+  Don't add a GitHub release workflow. CI (`package-check.yml`) only dry-runs
+  `BigWigsMods/packager` with `-d`. The packager derives the `forever` flavor from
+  `## Interface: 16001`.
+- **Every tag needs a `CHANGELOG.md` entry committed first**, written for players. The tag name
+  sets the channel: `alpha` / `beta` / anything else → Release. That's a distribution channel,
+  not a stability claim.
+- `.pkgmeta` ignores `.github`, `docs`, `tests`, `Tools`, `AGENTS.md`, `CLAUDE.md`, `README.md`,
+  `CHANGELOG.md` and `LICENSE`.
+
+## Conventions
+
+- **Right-size for a single maintainer.** Do the simplest thing that works, with no speculative
+  abstraction or config.
+- **Measured beats reasoned.** If a claim about the client can be checked in game, check it. The
+  porting guide has already had to reverse reasoned conclusions (click-casting, "park it off
+  screen", persistence).
+- Match the surrounding code's idiom. Keep pure refactors in their own commit.
