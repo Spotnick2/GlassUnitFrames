@@ -22,15 +22,22 @@ local GAP = 3    -- between portrait tile and body
 Frames.LAYOUT = {
     player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -110 },
                      portrait = "left", power = true, cast = true, size = "large", groupNumber = true, healPrediction = true,
-                     indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true },
+                     -- SUF-style: the cast bar is a row INSIDE the frame, shown only while
+                     -- casting; health and power shrink to make room (the pet frame sits
+                     -- right under the player, so nothing may hang below it).
+                     castInside = true,
+                     indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true, resting = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
                      portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
                      healPrediction = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
-    pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -190 },
-                     power = true, size = "small", text = { healthRight = "curmaxhp" },
+    -- Same total width as the player frame and centred on it (portrait 32 + gap 3
+    -- + body 330 = 365), 5 px under it (player bottom -141, pet top -146), as the
+    -- owner's SUF had it.
+    pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -162 },
+                     portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
                      indicators = { raidTarget = true } },
     -- The target cluster, SUF-style: targettarget and targettargettarget side by
     -- side ABOVE the target body (x 117.5..417.5, top at -79), 12 px up so the
@@ -289,6 +296,9 @@ Engine.SetPainter("indicators", function(f)
         end
         ind.masterLoot:SetShown(show)
     end
+    if ind.resting then
+        ind.resting:SetShown(plain(IsResting) == true)
+    end
     if ind.pvp then
         local faction = plain(UnitFactionGroup, u)
         if plain(UnitIsPVPFreeForAll, u) == true then
@@ -440,7 +450,49 @@ function Frames.ResetPositions()
     for _, b in pairs(Frames.byUnit) do applyPosition(b) end
 end
 
-local function buildCast(b, body, L)
+-- An inside cast row: CAST_ROW px plus CAST_GAP above it and between
+-- health and power. The idle heights come from build() (b.rows.idle); the
+-- casting ones are derived from them, so a different frame height still
+-- fills its body. No secure frame is touched, so this works in combat.
+local CAST_ROW, CAST_GAP = 14, 2
+
+local function castingRows(idle)
+    local inner = idle.health + idle.gap + idle.power
+    local power = math.max(8, idle.power - 2)
+    return { health = inner - CAST_ROW - 2 * CAST_GAP - power, gap = CAST_GAP, power = power }
+end
+
+local function layoutRows(b, casting)
+    local r = casting and b.rows.casting or b.rows.idle
+    b.health:SetHeight(r.health)
+    if b.healPred then b.healPred:SetHeight(r.health) end
+    b.power:ClearAllPoints()
+    b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -r.gap)
+    b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -r.gap)
+    b.power:SetHeight(r.power)
+end
+
+-- The cast bar either rides in its own glass pill under the body (target), or
+-- is a row inside the body that appears only while casting (player, SUF's
+-- auto-hiding cast bar): health and power shrink while it shows.
+local function castHost(b, body, L)
+    -- Needs a power bar to sit under; a frame without one keeps the pill.
+    if L.castInside and b.power then
+        local host = CreateFrame("Frame", nil, body)
+        host:SetAllPoints(body)
+        host:SetFrameLevel(Glass.ContentLevel(body))
+        local bar = Glass.Bar(host, CAST_ROW)
+        bar:SetPoint("TOPLEFT", b.power, "BOTTOMLEFT", 0, -CAST_GAP)
+        bar:SetPoint("TOPRIGHT", b.power, "BOTTOMRIGHT", 0, -CAST_GAP)
+        bar:SetFrameLevel(Glass.ContentLevel(body))
+        -- Text above the bar's glass overlay (+2); hides with the host.
+        local txt = CreateFrame("Frame", nil, host)
+        txt:SetAllPoints(bar)
+        txt:SetFrameLevel(bar:GetFrameLevel() + 3)
+        host:SetScript("OnShow", function() layoutRows(b, true) end)
+        host:SetScript("OnHide", function() layoutRows(b, false) end)
+        return host, bar, txt, 10
+    end
     local host = CreateFrame("Frame", nil, b)
     host:SetSize(L.w, 20)
     -- Under the aura rows when the frame has them (target), else right under the body.
@@ -452,9 +504,14 @@ local function buildCast(b, body, L)
     bar:SetPoint("TOPLEFT", host, "TOPLEFT", inset, -inset)
     bar:SetPoint("TOPRIGHT", host, "TOPRIGHT", -inset, -inset)
     bar:SetFrameLevel(Glass.ContentLevel(host))
-    local spell = Glass.Font(g.top, 11, "LEFT")
+    return host, bar, g.top, 11
+end
+
+local function buildCast(b, body, L)
+    local host, bar, textLayer, fontSize = castHost(b, body, L)
+    local spell = Glass.Font(textLayer, fontSize, "LEFT")
     spell:SetPoint("LEFT", bar, "LEFT", 6, 0)
-    local time = Glass.Font(g.top, 11, "RIGHT")
+    local time = Glass.Font(textLayer, fontSize, "RIGHT")
     time:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
     spell:SetPoint("RIGHT", time, "LEFT", -6, 0)
     host:Hide()
@@ -470,6 +527,55 @@ local function buildCast(b, body, L)
         attempt("cast time", function() c.time:SetFormattedText("%.1fs", d:GetRemainingDuration()) end)
     end)
     return c
+end
+
+-- Resting "zzz": Blizzard's own animated PlayerFrame flipbook when the client
+-- has the atlas (a 6x7 sheet, 42 frames in 1.5 s, as Blizzard's PlayerFrame.xml
+-- plays it; SetAtlas, not SetTexture, or the sheet's padding slices into the
+-- frames), else the classic static state icon SUF uses. Sits on the portrait
+-- tile's top-left corner; the animation only runs while it is shown.
+local REST_ATLAS = "UI-HUD-UnitFrame-Player-Rest-Flipbook"
+local function hasAtlas(name)
+    local ct = rawget(_G, "C_Texture")
+    local fn = ct and ct.GetAtlasExists
+    if not fn then return false end
+    local ok, yes = pcall(fn, name)
+    return ok and yes == true
+end
+
+local function buildResting(top, large)
+    local holder = CreateFrame("Frame", nil, top)
+    holder:SetFrameLevel(top:GetFrameLevel() + 1)
+    local s = large and 22 or 16
+    holder:SetSize(s, s)
+    -- Tucked into the corner so it reads as attached to the portrait (the
+    -- flipbook's Zs rise up and right from the bottom-left of its cell).
+    holder:SetPoint("CENTER", top, "TOPLEFT", s * 0.5, -s * 0.6)
+    local tex = holder:CreateTexture(nil, "OVERLAY", nil, 7)
+    if hasAtlas(REST_ATLAS) then
+        tex:SetAtlas(REST_ATLAS)
+        tex:SetSize(s, s * 21 / 16)   -- one flipbook cell is 16x21
+        tex:SetPoint("CENTER", holder, "CENTER", 0, 0)
+        local anim = holder:CreateAnimationGroup()
+        anim:SetLooping("REPEAT")
+        local flip = anim:CreateAnimation("FlipBook")
+        flip:SetTarget(tex)
+        flip:SetDuration(1.5)
+        flip:SetFlipBookRows(7)
+        flip:SetFlipBookColumns(6)
+        flip:SetFlipBookFrames(42)
+        flip:SetFlipBookFrameWidth(0)
+        flip:SetFlipBookFrameHeight(0)
+        holder:SetScript("OnShow", function() anim:Play() end)
+        holder:SetScript("OnHide", function() anim:Stop() end)
+        holder.animated = true
+    else
+        tex:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
+        tex:SetTexCoord(0, 0.5, 0, 0.421875)
+        tex:SetAllPoints(holder)
+    end
+    holder:Hide()
+    return holder
 end
 
 -- Indicator icons on the glass top layer (above the rim). Raid target sits on
@@ -512,6 +618,7 @@ local function buildIndicators(b, body, g, L, tileGlass)
             left and s / 2 or -s / 2, s / 2)
         ind.pvp:Hide()
     end
+    if want.resting and tileGlass then ind.resting = buildResting(tileGlass.top, large) end
     b.indicators = ind
 end
 
@@ -572,7 +679,7 @@ local function build(unit)
     body:SetPoint(L.portrait == "left" and "RIGHT" or "LEFT", b, L.portrait == "left" and "RIGHT" or "LEFT")
     body:SetFrameLevel(b:GetFrameLevel() + 1)
     local g = Glass.Apply(body, size)
-    b.glass = g
+    b.glass, b.body = g, body
 
     local inset = Glass.Inset(size)
     local large = size == "large"
@@ -588,6 +695,8 @@ local function build(unit)
         b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -gap)
         b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -gap)
         b.power:SetFrameLevel(Glass.ContentLevel(body))
+        local idle = { health = healthH, gap = gap, power = L.h - 2 * inset - healthH - gap }
+        b.rows = { idle = idle, casting = castingRows(idle) }
     end
 
     local textSize = large and 15 or 11
@@ -617,9 +726,9 @@ local function build(unit)
         tile:SetSize(L.h, L.h)
         tile:SetPoint(L.portrait == "left" and "LEFT" or "RIGHT", b, L.portrait == "left" and "LEFT" or "RIGHT")
         tile:SetFrameLevel(b:GetFrameLevel() + 1)
-        tileGlass = Glass.Apply(tile, "large")
+        tileGlass = Glass.Apply(tile, size)
         local m = CreateFrame("PlayerModel", nil, tile)
-        local mi = Glass.Inset("large") - 1
+        local mi = Glass.Inset(size) - 1
         m:SetPoint("TOPLEFT", tile, "TOPLEFT", mi, -mi)
         m:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", -mi, mi)
         m:SetFrameLevel(Glass.ContentLevel(tile))

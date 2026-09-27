@@ -114,4 +114,22 @@ eq(p.health._value, 321, "and the rest of the flush still paints")
 rawset(p.indicators.leader, "SetTexture", nil)
 WoW.units.player.leader = false
 
+-- Resting (player only): Blizzard's animated flipbook, shown while resting.
+local rest = p.indicators.resting
+check(rest and rest.animated, "player has the animated rest icon")
+check(not t.indicators.resting, "no rest icon on the target")
+check(not rest._shown, "hidden when not resting")
+WoW.resting = true
+WoW.fire("PLAYER_UPDATE_RESTING"); WoW.tick()
+check(rest._shown, "shown while resting")
+WoW.resting = false
+WoW.fire("PLAYER_UPDATE_RESTING"); WoW.tick()
+check(not rest._shown, "hidden after leaving the inn")
+-- A client without the atlas: the static state icon instead.
+WoW.reset(); standardUnits(); GlassUF = nil
+WoW.atlases = {}
+loadAddon()
+local r2 = button("player").indicators.resting
+check(r2 and not r2.animated, "static fallback without the flipbook atlas")
+
 done("test_indicators")

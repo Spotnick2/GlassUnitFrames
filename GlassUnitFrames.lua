@@ -121,10 +121,13 @@ local function frameName(f)
     return safe(f, "GetName") or ((safe(f, "GetObjectType") or "?") .. "(anonymous)")
 end
 
-local function totemReport()
-    local tf = rawget(_G, "TotemFrame")
-    if not tf then
-        say("totem: no TotemFrame global on this client")
+-- Where a Blizzard frame lives: parent chain, first anchor, protection,
+-- visibility. /glass totem is this for TotemFrame; /glass frame <Name> for
+-- any global frame (names are case sensitive), e.g. PetActionBar.
+local function frameReport(name, label)
+    local tf = rawget(_G, name)
+    if type(tf) ~= "table" then
+        say(label .. ": no " .. name .. " global on this client")
         return
     end
     local chain, p, underHidden = {}, tf, false
@@ -137,17 +140,25 @@ local function totemReport()
     end
     if #chain == 0 then chain[1] = "(none)"
     elseif safe(p, "GetParent") then chain[#chain + 1] = "..." end
-    -- IsProtected returns (protected, explicitly): explicit means TotemFrame
+    -- IsProtected returns (protected, explicitly): explicit means the frame
     -- itself is secure (reparenting it is combat-locked), implicit means only
     -- through its relationships.
-    local okP, prot, explicit = pcall(tf.IsProtected, tf)
-    local _, _, anchorTo = pcall(tf.GetPoint, tf, 1)   -- ok, point, relativeTo
+    -- Every read and every formatting of a client value inside pcall: a
+    -- restricted frame can hand back secret offsets, which tostring rejects.
+    local okP, prot, explicit = pcall(function() return tf:IsProtected() end)
+    local okA, anchor = pcall(function()
+        local point, anchorTo, relPoint, x, y = tf:GetPoint(1)
+        if not point then return "(no anchor)" end
+        return string.format("to %s (%s on %s, %s, %s)",
+            (type(anchorTo) == "table") and frameName(anchorTo) or tostring(anchorTo or "screen"),
+            tostring(point), tostring(relPoint), tostring(x), tostring(y))
+    end)
+    if not okA then anchor = "(unreadable anchor)" end
     local okC, n = pcall(function() return select("#", tf:GetChildren()) end)
-    say("totem: TotemFrame parent chain: " .. table.concat(chain, " > "))
-    say(string.format("totem: anchored to %s; protected=%s explicitly=%s; shown=%s visible=%s; children=%s; under GlassUF's hidden parent=%s",
-        (type(anchorTo) == "table") and frameName(anchorTo) or tostring(anchorTo),
-        tostring(okP and prot), tostring(okP and explicit), tostring(safe(tf, "IsShown")),
-        tostring(safe(tf, "IsVisible")), tostring(okC and n or "?"), tostring(underHidden)))
+    say(label .. ": " .. name .. " parent chain: " .. table.concat(chain, " > "))
+    say(string.format("%s: anchored %s; points=%s; protected=%s explicitly=%s; shown=%s visible=%s; children=%s; under GlassUF's hidden parent=%s",
+        label, anchor, tostring(safe(tf, "GetNumPoints")), tostring(okP and prot), tostring(okP and explicit),
+        tostring(safe(tf, "IsShown")), tostring(safe(tf, "IsVisible")), tostring(okC and n or "?"), tostring(underHidden)))
 end
 
 local HELP = {
@@ -156,11 +167,13 @@ local HELP = {
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
     "totem  - where Blizzard's totem bar lives (measurement for shaman support)",
+    "frame <Name>  - where any Blizzard frame lives, e.g. /glass frame PetActionBar",
     "Shift-drag a frame to move it (out of combat).",
 }
 
 local function slash(msg)
     local cmd, arg = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
+    local rawArg = arg
     cmd, arg = cmd:lower(), arg:lower()
     if cmd == "font" then
         if Glass.SetFont(arg) then
@@ -187,7 +200,9 @@ local function slash(msg)
     elseif cmd == "secrets" then
         secretsReport()
     elseif cmd == "totem" then
-        totemReport()
+        frameReport("TotemFrame", "totem")
+    elseif cmd == "frame" and rawArg ~= "" then
+        frameReport(rawArg, "frame")
     else
         for _, line in ipairs(HELP) do say("/glass " .. line) end
     end

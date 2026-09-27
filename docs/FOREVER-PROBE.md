@@ -132,3 +132,4 @@ sweep) was not inspected.
 | Leader crown (`UnitIsGroupLeader`) in a party | **Works**: shown on the player frame's top-left corner |
 | Neutral NPC in combat | Stays yellow: reaction stays neutral (as in SUF). Blizzard's red nameplate comes from threat |
 | NPC with no mana | Power line reads `level  0%` and `0/0`: max power is secret for others, so it can't be tested for 0 |
+| Rested icon: atlas `UI-HUD-UnitFrame-Player-Rest-Flipbook` + a `FlipBook` animation (7 rows x 6 columns, 42 frames, 1.5 s, `SetAtlas`) | **Works** (PR #36): `C_Texture.GetAtlasExists` is true and the animated gold "zzz" plays on the player portrait's corner while resting |

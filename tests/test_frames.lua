@@ -44,6 +44,32 @@ eq(button("target").health._color[1], 0.85, "hostile target is red")
 eq(button("pet").power._color[1], 1.00, "pet focus coloured")
 eq(textOf(button("pet").valueText), "400/400", "pet: cur/max health")
 eq(button("player").model._modelUnit, "player", "3D portrait set to the unit")
+eq(button("pet").model and button("pet").model._modelUnit, "pet", "pet has its own 3D portrait")
+eq(button("pet")._width, button("player")._width, "pet as wide as the player frame (portrait included)")
+eq(GlassUF.Frames.LAYOUT.pet.point[4], GlassUF.Frames.LAYOUT.player.point[4], "pet centred under the player")
+-- The player's cast bar is a row inside the frame (SUF's auto-hiding cast
+-- bar): idle, health and power fill the body; while casting they shrink and
+-- the cast row shows under them. The target keeps its pill under the frame.
+do
+    local pl = button("player")
+    local c = pl.cast
+    eq(c.host:GetParent(), pl.body, "player cast row lives inside the body")
+    eq(pl.health._height, 34, "idle: full-height health bar")
+    WoW.units.player.casting = { name = "Shadow Bolt" }
+    WoW.fire("UNIT_SPELLCAST_START", "player"); WoW.tick()
+    check(c.host._shown, "cast row shown while casting")
+    eq(pl.health._height, 22, "casting: health shrinks")
+    eq(pl.power._height, 10, "casting: power shrinks")
+    eq(c.bar._points[1][2], pl.power, "cast row sits under the power bar")
+    check(pl.healPred ~= nil, "player has heal prediction")
+    eq(pl.healPred._height, 22, "heal prediction follows the health bar")
+    WoW.units.player.casting = nil
+    WoW.fire("UNIT_SPELLCAST_STOP", "player"); WoW.tick()
+    check(not c.host._shown, "cast row hidden after the cast")
+    eq(pl.health._height, 34, "health back to full height")
+    eq(pl.power._height, 12, "power back to full height")
+    eq(button("target").cast.host:GetParent(), button("target"), "target keeps its cast pill")
+end
 
 -- A unit event repaints on the next rendered frame, once.
 WoW.units.player.health = 775
@@ -279,6 +305,21 @@ check(infoLine:find("children=2", 1, true), "child count reported")
 check(infoLine:find("explicitly=false", 1, true), "both IsProtected returns reported")
 check(infoLine:find("under GlassUF's hidden parent=true", 1, true), "hidden flag from TotemFrame's own ancestry")
 rawset(_G, "TotemFrame", nil)
+-- /glass frame <Name>: the same report for any global, name kept case-sensitive.
+local pab = CreateFrame("Frame", "PetActionBar", UIParent)
+pab:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 5, 6)
+SlashCmdList.GLASSUNITFRAMES("frame PetActionBar")
+check(WoW.chat[#WoW.chat - 1]:find("PetActionBar parent chain: UIParent", 1, true), "frame probe chain: " .. WoW.chat[#WoW.chat - 1])
+check(WoW.chat[#WoW.chat]:find("anchored to UIParent (BOTTOMLEFT on BOTTOMLEFT, 5, 6)", 1, true), "frame probe anchor: " .. WoW.chat[#WoW.chat])
+SlashCmdList.GLASSUNITFRAMES("frame NoSuchFrame")
+check(WoW.chat[#WoW.chat]:find("no NoSuchFrame global", 1, true), "frame probe without the global")
+rawset(_G, "PetActionBar", nil)
+-- A restricted frame can return secret offsets: the report degrades, never throws.
+local rf = CreateFrame("Frame", "RestrictedThing", UIParent)
+rawset(rf, "GetPoint", function() return "TOP", UIParent, "TOP", WoW.Secret("x"), WoW.Secret("y") end)
+SlashCmdList.GLASSUNITFRAMES("frame RestrictedThing")
+check(WoW.chat[#WoW.chat]:find("(unreadable anchor)", 1, true), "secret offsets: unreadable, no error")
+rawset(_G, "RestrictedThing", nil)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 eq(GlassUnitFramesDB.font, "friz", "font saved")
 eq(p.nameText._font[1], "Fonts\\FRIZQT__.TTF", "font applied to existing text")
