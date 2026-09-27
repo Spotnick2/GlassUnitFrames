@@ -71,3 +71,29 @@ player channelling Drain Life.
 Still open for the post-review build: which values are secret (`/glass secrets` in and out of
 combat), right-click menu with `"AnyUp"`, cast interrupt/fail flash, target switch mid-cast, and
 the creature 3D portrait looking desaturated.
+
+### Post-review build (PR #2 at 63d264e), same day
+
+| Question | Result |
+|---|---|
+| Right-click on a `SecureUnitButtonTemplate` registered `"AnyUp"`, `*type2 = togglemenu` | **Opens the unit menu once** (Forest Spider: Target Marker Icon / Set Focus / Edit Mode) |
+| Interrupt flash (`UNIT_SPELLCAST_INTERRUPTED` → red pill) | **Works**, alongside Blizzard's own "Interrupted" bar |
+| Creature 3D portraits (spider, Defias Bandit, cow) | Vivid; the washed-out wolf was that model, not the code |
+| Reaction colours | Hostile red, neutral yellow (cow), friendly green |
+| Painting secrets: `SetFormattedText("%s \| %.0f%%", AbbreviateNumbers(secret), secretPct)`, `SetText(secret)`, StatusBar values | **Accepted**, with zero paint failures |
+
+**`/glass secrets`, OUT of combat** (S = secret, ok = plain):
+
+| unit | hp | hpMax | hpPct | hpAbbr | pw | pwMax | pwType | name | class | react | dead |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| player | S | ok | S | S | S | ok | ok | ok | ok | ok | ok |
+| pet | S | ok | S | S | S | ok | ok | ok | ok | ok | ok |
+| target (hostile NPC) | S | S | S | S | S | S | ok | ok | ok | ok | ok |
+
+**Current health and power are secret even out of combat, for every unit, the player included.**
+Maxima are plain for the player's own units and secret for others. Identity (name, class,
+reaction, dead, power type) is plain out of combat. Consequence: a unit frame on this client
+cannot do health/power arithmetic in Lua at all, and cannot hide an empty power bar by testing
+`UnitPowerMax(target) == 0`.
+
+Still open: the same report **in combat**, and switching target mid-cast.
