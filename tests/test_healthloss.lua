@@ -19,11 +19,12 @@ eq(clip._points[1][3], "TOPRIGHT", "at the fill's right edge")
 eq(clip._points[2][2], p.health, "and ends with the health bar")
 eq(loss._points[1][2], p.health, "the loss bar has the health bar's geometry")
 
--- Levels: loss +1, heal +2, both under the glass overlay (+3).
+-- Levels: glass track +1, loss +2, heal +3, all under the glass overlay (+4).
 local hl = p.health:GetFrameLevel()
-eq(loss:GetFrameLevel(), hl + 1, "loss bar at health + 1")
-eq(p.healPred:GetFrameLevel(), hl + 2, "heal prediction above it, at health + 2")
-eq(p.health.overlay:GetFrameLevel(), hl + 3, "glass overlay above both")
+eq(p.health.trackClip:GetFrameLevel(), hl + 1, "glass track at health + 1")
+eq(loss:GetFrameLevel(), hl + 2, "loss bar above the track, at health + 2")
+eq(p.healPred:GetFrameLevel(), hl + 3, "heal prediction above it, at health + 3")
+eq(p.health.overlay:GetFrameLevel(), hl + 4, "glass overlay above them all")
 
 WoW.flushTimers()
 eq(loss._value, 1240, "starts at current health (first paint snaps)")

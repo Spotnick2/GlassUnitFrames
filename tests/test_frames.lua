@@ -354,6 +354,30 @@ check(fg and fg[1] == "HORIZONTAL" and fg[2].a == 1 and fg[3].a == 1 and fg[3].r
 SlashCmdList.GLASSUNITFRAMES("fade 0.5")
 eq(p.health:GetStatusBarTexture()._gradient[3].a, 0.5, "fade retuned live")
 eq(GlassUnitFramesDB.fade, 0.5, "fade saved")
+-- The track only shows past the fill: its clip starts at the fill's moving
+-- edge, so a full bar stays even and the ramp never sits under the fill.
+local tc = p.health.trackClip
+eq(tc._points[1][2], p.health:GetStatusBarTexture(), "track clip starts at the fill's edge")
+eq(tc._points[1][3], "TOPRIGHT", "at the fill's right edge")
+eq(tc._points[2][2], p.health, "and ends with the bar")
+check(tc._clips == true, "the track is clipped")
+eq(p.health.track:GetParent(), tc, "the track lives in the clip")
+-- NaN fails every comparison: it must not slip through a range check.
+SlashCmdList.GLASSUNITFRAMES("fill nan")
+eq(GlassUnitFramesDB.fill, 0.5, "NaN fill rejected")
+check(not GlassUF.Glass.SetTrackAlpha(0 / 0), "NaN track rejected")
+-- A client visual reset of the fill's alpha is undone on the next recolour.
+local fillTex = p.health:GetStatusBarTexture()
+fillTex:SetAlpha(1)
+p.health:SetStatusBarColor(0, 1, 0)
+eq(fillTex._alpha, 0.5, "fill opacity re-applied after a reset")
+-- A caller's alpha is honoured by the fill gradient.
+p.health:SetStatusBarColor(0, 1, 0, 0.5)
+eq(fillTex._gradient[2].a, 0.5, "SetStatusBarColor's alpha kept")
+-- The same colour again does no work (painters recolour on every event).
+fillTex._gradient = nil
+p.health:SetStatusBarColor(0, 1, 0, 0.5)
+eq(fillTex._gradient, nil, "unchanged colour: no re-tint")
 SlashCmdList.GLASSUNITFRAMES("fill 3")
 eq(GlassUnitFramesDB.fill, 0.5, "out-of-range fill rejected")
 SlashCmdList.GLASSUNITFRAMES("font comic")

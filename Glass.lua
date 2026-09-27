@@ -147,28 +147,37 @@ end
 -- A glass StatusBar: masked rounded fill, ADD gloss, inner shadow, thin edge.
 -- Colour it with bar:SetStatusBarColor(r, g, b). Values may be secret:
 -- SetMinMaxValues/SetValue take them without Lua touching them.
--- The gloss, shade and edge live on bar.overlay (frame level bar + 3), so
--- anything added over the fill at level bar + 1 or + 2 (health loss, heal
--- prediction) sits UNDER the glass layers, like the fill itself.
-Glass.OVERLAY_LEVEL = 3
+-- Levels above the bar: the track's clip frame at +1 (Glass.TRACK_LEVEL);
+-- callers' overlays over the fill at +2 and +3 (GlassUnitFrames: health loss,
+-- heal prediction); the gloss, shade and edge on bar.overlay at +4, so all of
+-- them sit UNDER the glass layers, like the fill itself.
+Glass.TRACK_LEVEL = 1
+Glass.OVERLAY_LEVEL = 4
 local bars = {}
 
--- Re-applied after every SetStatusBarColor: the fill (optionally) fades from
--- its colour to STYLE.fillEnd at its moving edge (the gradient spans the fill
--- quad), and the track takes the bar's colour at STYLE.trackTop over its
--- horizontal ramp. No arithmetic on the colour.
+-- Range check that also rejects NaN (it fails every comparison).
+local function inRange(a, lo, hi)
+    return type(a) == "number" and a >= lo and a <= hi
+end
+
+-- Re-applied after every colour change: the fill (optionally) fades from its
+-- colour to STYLE.fillEnd at its moving edge (the gradient spans the fill
+-- quad) and keeps STYLE.fillAlpha; the track takes the bar's colour at
+-- STYLE.trackTop over its horizontal ramp. No arithmetic on the colour
+-- beyond the caller's own (plain) alpha.
 local function tintTrack(bar)
     local c, st = bar.trackColor, Glass.STYLE
     if not c then return end
     local fill = bar:GetStatusBarTexture()
+    fill:SetAlpha(st.fillAlpha)   -- a client visual reset (SetTimerDuration) must not leave it opaque
     pcall(fill.SetGradient, fill, "HORIZONTAL",
-        CreateColor(c[1], c[2], c[3], 1), CreateColor(c[1], c[2], c[3], st.fillEnd))
+        CreateColor(c[1], c[2], c[3], c[4]), CreateColor(c[1], c[2], c[3], c[4] * st.fillEnd))
     pcall(bar.track.SetVertexColor, bar.track, c[1], c[2], c[3], st.trackTop)
 end
 
 -- Live-tune how far the fill fades towards its edge (1 = no fade).
 function Glass.SetFillEnd(a)
-    if type(a) ~= "number" or a < 0 or a > 1 then return false end
+    if not inRange(a, 0, 1) then return false end
     Glass.STYLE.fillEnd = a
     for _, bar in ipairs(bars) do tintTrack(bar) end
     return true
@@ -176,7 +185,7 @@ end
 
 -- Live-tune how strongly the missing part shows the bar's colour (top alpha).
 function Glass.SetTrackAlpha(a)
-    if type(a) ~= "number" or a < 0 or a > 1 then return false end
+    if not inRange(a, 0, 1) then return false end
     Glass.STYLE.trackTop = a
     for _, bar in ipairs(bars) do tintTrack(bar) end
     return true
@@ -197,21 +206,6 @@ function Glass.Bar(parent, height)
     bg:SetColorTexture(0, 0, 0, 0.15)
     bg:AddMaskTexture(mask)
 
-    -- The missing health/power, as in the mockup: the bar's own colour, full
-    -- over the first 20% of the bar, fading to clear glass by 80% (the
-    -- track_fade ramp spans the whole bar; the fill covers its left part).
-    -- It follows every SetStatusBarColor.
-    local track = bar:CreateTexture(nil, "BACKGROUND", nil, 1)
-    track:SetAllPoints(bar)
-    track:SetTexture(Glass.MEDIA .. "track_fade")
-    track:SetVertexColor(1, 1, 1, 0)
-    track:AddMaskTexture(mask)
-    bar.track = track
-    hooksecurefunc(bar, "SetStatusBarColor", function(self, r, g, b)
-        self.trackColor = { r, g, b }
-        tintTrack(self)
-    end)
-
     local frost = bar:CreateTexture(nil, "BACKGROUND", nil, 2)
     frost:SetAllPoints(bar)
     frost:SetColorTexture(1, 1, 1, 1)
@@ -225,6 +219,34 @@ function Glass.Bar(parent, height)
     -- not on the bar, so it stays fully opaque.
     bar:GetStatusBarTexture():SetAlpha(st.fillAlpha)
     table.insert(bars, bar)
+
+    -- (After the fill exists: the clip anchors to its moving edge.)
+    -- The missing health/power, as in the mockup: the bar's own colour, full
+    -- over the first 30% of the bar, easing to clear glass by 85%. The ramp
+    -- spans the whole bar but lives in a clip frame that starts at the fill's
+    -- moving edge, so it only shows past the fill: a full bar stays even, and
+    -- the ramp never doubles up under the translucent fill.
+    local trackClip = CreateFrame("Frame", nil, bar)
+    trackClip:SetPoint("TOPLEFT", bar:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+    trackClip:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+    trackClip:SetClipsChildren(true)
+    trackClip:SetFrameLevel(bar:GetFrameLevel() + Glass.TRACK_LEVEL)
+    local track = trackClip:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints(bar)
+    track:SetTexture(Glass.MEDIA .. "track_fade")
+    track:SetVertexColor(1, 1, 1, 0)
+    track:AddMaskTexture(Glass.Mask(trackClip, "bar_mask", 8, 0, bar))
+    bar.track, bar.trackClip = track, trackClip
+    -- Only re-tint on an actual change: painters recolour on every health and
+    -- power event. A 4th (alpha) argument is honoured.
+    hooksecurefunc(bar, "SetStatusBarColor", function(self, r, g, b, a)
+        a = a or 1
+        local c = self.trackColor
+        if c and c[1] == r and c[2] == g and c[3] == b and c[4] == a then return end
+        self.trackColor = { r, g, b, a }
+        tintTrack(self)
+    end)
+
 
     local over = CreateFrame("Frame", nil, bar)
     over:SetAllPoints(bar)
@@ -257,8 +279,11 @@ function Glass.Bar(parent, height)
     edge:SetTexture(Glass.MEDIA .. "bar_edge")
     slice(edge, 8)
 
-    -- Keep the overlay two levels above the bar when the caller moves the bar.
-    hooksecurefunc(bar, "SetFrameLevel", function(self, level) over:SetFrameLevel(level + Glass.OVERLAY_LEVEL) end)
+    -- Keep the overlay and the track's clip at their offsets when the caller moves the bar.
+    hooksecurefunc(bar, "SetFrameLevel", function(self, level)
+        over:SetFrameLevel(level + Glass.OVERLAY_LEVEL)
+        trackClip:SetFrameLevel(level + Glass.TRACK_LEVEL)
+    end)
     return bar
 end
 
@@ -333,7 +358,7 @@ end
 
 -- Live-tune the bright rim's opacity on every glass surface built so far.
 function Glass.SetRimAlpha(a)
-    if type(a) ~= "number" or a < 0.2 or a > 1 then return false end
+    if not inRange(a, 0.2, 1) then return false end
     Glass.STYLE.rimAlpha = a
     for _, rim in ipairs(rims) do rim:SetAlpha(a) end
     return true
@@ -341,7 +366,7 @@ end
 
 -- Live-tune the bar fill opacity on every glass bar built so far.
 function Glass.SetFillAlpha(a)
-    if type(a) ~= "number" or a < 0.2 or a > 1 then return false end
+    if not inRange(a, 0.2, 1) then return false end
     Glass.STYLE.fillAlpha = a
     for _, bar in ipairs(bars) do bar:GetStatusBarTexture():SetAlpha(a) end
     return true

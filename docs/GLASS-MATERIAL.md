@@ -105,27 +105,26 @@ On a host frame, bottom to top:
 | Rim | OVERLAY 6 | `g.top` | 9-sliced, at `STYLE.rimAlpha` (0.7, picked in game; `Glass.SetRimAlpha(a)` retunes every surface) |
 | Text | OVERLAY 7 | `g.top` | `Glass.Font` |
 
-A glass bar (`Glass.Bar`) has four parts:
-- a black 0.15 background, and over it a **track**: `track_fade` (256x8, alpha 1 over the first
-  30% of the bar, easing (smoothstep) to 0 at 85%, clear after) tinted with the bar's own colour at
-  `STYLE.trackTop` 0.75 (intensified after an in-game look) by `SetVertexColor`, so the missing part fades into clear glass towards
-  the bar's end, as in the mockup (`Glass.SetTrackAlpha(a)`); plus a white frost (0 → `STYLE.frost` 0.10 at the top), so the missing part reads as a faint tint
-  of the fill, as in the mockup. A `SetStatusBarColor` hook keeps it in step; no arithmetic on
-  the colour, so a secret can't throw there;
-- a masked `bar_fill` that can **fade left to right** (vertex gradient from the bar colour to
-  `STYLE.fillEnd`, 1.0 = off by default since the mockup's fill is even; the gradient spans the fill quad, so it always ends at the current
-  value; `Glass.SetFillEnd(a)`), at `STYLE.fillAlpha` (0.60, picked in game; the texture's own alpha, so `SetStatusBarColor`
-  never resets it; text sits on the host's `g.top`, so it stays opaque).
-  `Glass.SetFillAlpha(a)` retunes every bar built so far;
-- `gloss` (ADD, 0.45);
-- an inner shadow (bottom 45%, black 0.35 → 0; a `SetHeight` hook keeps it at 45% when the bar is
-  resized) and `bar_edge`.
+A glass bar (`Glass.Bar`), bottom to top:
 
-All of them are masked by `bar_mask`. The gloss, inner shadow and edge live on **`bar.overlay`**, a
-child frame three levels above the bar (`Glass.OVERLAY_LEVEL`), with its own mask. Anything drawn
-over the fill at bar level + 1 or + 2 (GlassUnitFrames' health-loss and heal-prediction bars)
-therefore sits *under* the glass layers, like the fill itself. A hook keeps the overlay at +3 when
-the bar's level changes.
+| Part | Where | Notes |
+|---|---|---|
+| Background | bar, BACKGROUND | black 0.15, masked |
+| Frost | bar, BACKGROUND 2 | white vertical gradient, 0 at the bottom → `STYLE.frost` 0.10 at the top |
+| Fill | bar's StatusBar texture | `bar_fill`, masked, at `STYLE.fillAlpha` 0.60 (the texture's own alpha, re-applied after every colour change). Optional left-to-right fade to `STYLE.fillEnd` (1.0 = off, since the mockup's fill is even; `Glass.SetFillEnd`). Text sits on the host's `g.top`, so it stays opaque |
+| Track | clip frame at bar + `Glass.TRACK_LEVEL` (1) | `track_fade` (256x8: alpha 1 over the first 30% of the bar, smoothstep to 0 at 85%) in the bar's own colour at `STYLE.trackTop` 0.75 via `SetVertexColor`. The ramp spans the whole bar, but its **clip frame starts at the fill's moving edge**, so it only shows past the fill: a full bar stays even, and it never doubles up under the translucent fill (`Glass.SetTrackAlpha`) |
+| Caller overlays | bar + 2, + 3 | e.g. GlassUnitFrames' health-loss and heal-prediction bars |
+| Gloss, inner shadow, edge | `bar.overlay`, bar + `Glass.OVERLAY_LEVEL` (4) | `gloss` (ADD, 0.45); inner shadow (bottom 45%, black 0.35 → 0; a `SetHeight` hook keeps it at 45% when the bar is resized); `bar_edge` |
+
+A `SetStatusBarColor` hook re-tints the fill and the track only when the colour actually changes
+(painters recolour on every health and power event), honours a 4th alpha argument, and does no
+arithmetic on the colour beyond that plain alpha, so a secret can't throw there. The tuning
+setters (`SetFillAlpha`, `SetRimAlpha`, `SetTrackAlpha`, `SetFillEnd`) reject NaN.
+
+All of them are masked by `bar_mask` (each child frame with its own mask anchored to the bar). The
+gloss, inner shadow and edge live on **`bar.overlay`**, so anything drawn over the fill at bar
+level + 2 or + 3 sits *under* the glass layers, like the fill itself. A hook keeps the overlay and
+the track's clip at their offsets when the bar's level changes.
 
 `Glass.Mask(host, file, margin, inset, anchor)` takes an optional `anchor`. A mask masks the
 textures of its own frame, so a child frame gets its own mask anchored to the shape it must
