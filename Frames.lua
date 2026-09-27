@@ -87,12 +87,19 @@ end
 -- Painters
 --------------------------------------------------------------------------------
 
+-- The health bar's colour depends on death and connection as well as class
+-- and reaction, so both the name and the health painters apply it: a unit
+-- revived (UNIT_HEALTH) must lose its dead grey without waiting for a name event.
+local function paintColor(f, u)
+    local c = unitColor(u)
+    f.health:SetStatusBarColor(c[1], c[2], c[3])
+end
+
 Engine.SetPainter("name", function(f)
     local u = f.unit
     if not UnitExists(u) then return end
     attempt("name text", function() f.nameText:SetText(GetUnitName(u, false)) end)
-    local c = unitColor(u)
-    f.health:SetStatusBarColor(c[1], c[2], c[3])
+    paintColor(f, u)
 end)
 
 Engine.SetPainter("health", function(f)
@@ -103,6 +110,7 @@ Engine.SetPainter("health", function(f)
         f.health:SetMinMaxValues(0, maxHp)
         f.health:SetValue(hp)
     end)
+    paintColor(f, u)
 
     if not f.valueText then return end   -- name-only frames
     if plain(UnitIsConnected, u) == false then f.valueText:SetText("Offline") return end
