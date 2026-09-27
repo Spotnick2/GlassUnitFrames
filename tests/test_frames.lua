@@ -268,9 +268,16 @@ SlashCmdList.GLASSUNITFRAMES("secrets")
 SlashCmdList.GLASSUNITFRAMES("totem")                    -- no TotemFrame in the stub
 check(WoW.chat[#WoW.chat]:find("no TotemFrame", 1, true), "totem report without a TotemFrame")
 local tf = CreateFrame("Frame", "TotemFrame", PlayerFrame)
+tf:SetPoint("TOPLEFT", PlayerFrame, "BOTTOMLEFT", 0, 0)
 CreateFrame("Button", nil, tf); CreateFrame("Button", nil, tf)
 SlashCmdList.GLASSUNITFRAMES("totem")
-check(WoW.chat[#WoW.chat - 1]:find("PlayerFrame", 1, true), "totem report names the parent chain: " .. WoW.chat[#WoW.chat - 1])
+local chainLine, infoLine = WoW.chat[#WoW.chat - 1], WoW.chat[#WoW.chat]
+check(chainLine:find("PlayerFrame > GlassUF.hiddenParent > UIParent", 1, true),
+      "chain names PlayerFrame and GlassUF's own hidden parent: " .. chainLine)
+check(infoLine:find("anchored to PlayerFrame", 1, true), "anchor target reported: " .. infoLine)
+check(infoLine:find("children=2", 1, true), "child count reported")
+check(infoLine:find("explicitly=false", 1, true), "both IsProtected returns reported")
+check(infoLine:find("under GlassUF's hidden parent=true", 1, true), "hidden flag from TotemFrame's own ancestry")
 rawset(_G, "TotemFrame", nil)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 eq(GlassUnitFramesDB.font, "friz", "font saved")
