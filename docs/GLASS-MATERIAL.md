@@ -102,7 +102,7 @@ On a host frame, bottom to top:
 | *content* | frame level host+2 | caller's bars, models, etc. | inset by `Glass.Inset(size)` (6 / 3px) |
 | Dark rim | OVERLAY 4 | `g.top` (level host+10) | 9-sliced |
 | Sheen | OVERLAY 5 | `g.top`, own mask | optional |
-| Rim | OVERLAY 6 | `g.top` | 9-sliced, at `STYLE.rimAlpha` (1.0; `Glass.SetRimAlpha(a)` retunes every surface) |
+| Rim | OVERLAY 6 | `g.top` | 9-sliced, at `STYLE.rimAlpha` (0.7, picked in game; `Glass.SetRimAlpha(a)` retunes every surface) |
 | Text | OVERLAY 7 | `g.top` | `Glass.Font` |
 
 A glass bar (`Glass.Bar`) has four parts:

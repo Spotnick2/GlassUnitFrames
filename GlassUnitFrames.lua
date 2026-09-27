@@ -6,7 +6,7 @@ GlassUF = GlassUF or {}
 local API, Glass, Frames, Blizzard = GlassUF.API, GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 local say = API.Print
 
-local DEFAULTS = { font = "arial", hideBlizzard = true, fill = Glass.STYLE.fillAlpha, rim = Glass.STYLE.rimAlpha }
+local DEFAULTS = { font = "arial", hideBlizzard = true }
 
 -- Read settings, fill missing keys. Nothing may REQUIRE a value to have
 -- survived: SavedVariables were broken on builds before 70009.
@@ -18,8 +18,10 @@ local function ensureDefaults()
     end
     if type(db.pos) ~= "table" then db.pos = {} end
     if not Glass.FONTS[db.font] then db.font = DEFAULTS.font end
-    if not Glass.SetFillAlpha(db.fill) then db.fill = DEFAULTS.fill; Glass.SetFillAlpha(db.fill) end
-    if not Glass.SetRimAlpha(db.rim) then db.rim = DEFAULTS.rim; Glass.SetRimAlpha(db.rim) end
+    -- Material tweaks are saved only once the player sets them, so a new
+    -- default (STYLE) still reaches everyone who never touched it.
+    if db.fill ~= nil and not Glass.SetFillAlpha(db.fill) then db.fill = nil end
+    if db.rim ~= nil and not Glass.SetRimAlpha(db.rim) then db.rim = nil end
     return db
 end
 
