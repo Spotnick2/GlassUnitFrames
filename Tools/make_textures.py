@@ -83,6 +83,32 @@ def normals(d):
     return gx / n, gy / n
 
 
+def glass_rim(size, radius, k, light=1.0):
+    """The style-4 glass rim and its dark companion, at any size.
+
+    k scales every distance (bevel width, lips, glints) from the 64px design,
+    so a 32px, radius-7 texture with k=0.5 is the same material, smaller.
+    light scales every highlight (not the dark companion).
+    Returns (rim, dark) as RGBA float arrays.
+    """
+    d = rounded_rect_sdf(size, size, 0.5, radius)
+    nx, ny = normals(d)
+    top, bottom, left = np.maximum(-ny, 0), np.maximum(ny, 0), np.maximum(-nx, 0)
+    ys, xs = np.mgrid[0:size, 0:size].astype(np.float64) + 0.5
+    outer = band(d, -1.4 * k, -0.3 * k, 0.5) * (0.28 + 0.72 * top ** 0.5 + 0.35 * left ** 1.5 + 0.30 * bottom ** 2)
+    inner = band(d, -7.6 * k, -6.6 * k, 0.5) * (0.14 + 0.45 * bottom ** 0.7 + 0.18 * top ** 2)
+    vert = 1 - ys / size                          # 1 at the top, 0 at the bottom
+    slab = band(d, -7.0 * k, -0.5 * k, 0.6) * (0.05 + 0.13 * vert ** 1.5 + 0.06 * top)
+    glint = np.zeros_like(d)
+    c = 6.5 * k                                   # glint centre: on the top corner arcs, near the outer lip
+    for gx, gy in ((c, c), (size - c, c)):
+        glint += np.exp(-(((xs - gx) ** 2 + (ys - gy) ** 2) / (2 * (2.2 * k) ** 2))) * 0.85
+    glint *= band(d, -3.5 * k, -0.2 * k, 0.6)
+    rim = white(np.clip(np.maximum.reduce([outer, inner, slab, glint]) * light, 0, 1))
+    dark = black(np.clip(band(d, -0.6 * k, 0.3 * k, 0.5) * 0.45 + band(d, -8.8 * k, -7.6 * k, 0.6) * 0.18, 0, 1))
+    return rim, dark
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     print("Writing", OUT)
@@ -184,17 +210,28 @@ def main():
     # catch-light on the inner lip at the bottom (light passing through the
     # slab), a slab that brightens toward the top, and small specular glints
     # where the top edge turns into the corners.
-    ys, xs = np.mgrid[0:64, 0:64].astype(np.float64) + 0.5
-    outer4 = band(d, -1.4, -0.3, 0.5) * (0.28 + 0.72 * top ** 0.5 + 0.35 * left ** 1.5 + 0.30 * bottom ** 2)
-    inner4 = band(d, -7.6, -6.6, 0.5) * (0.14 + 0.45 * bottom ** 0.7 + 0.18 * top ** 2)
-    vert = 1 - ys / 64.0                          # 1 at the top, 0 at the bottom
-    slab4 = band(d, -7.0, -0.5, 0.6) * (0.05 + 0.13 * vert ** 1.5 + 0.06 * top)
-    glint = np.zeros_like(d)
-    for gx, gy in ((6.5, 6.5), (57.5, 6.5)):     # on the corner arcs, near the outer lip
-        glint += np.exp(-(((xs - gx) ** 2 + (ys - gy) ** 2) / (2 * 2.2 ** 2))) * 0.85
-    glint *= band(d, -3.5, -0.2, 0.6)
-    write_tga("rim4", white(np.clip(np.maximum.reduce([outer4, inner4, slab4, glint]), 0, 1)))
-    write_tga("rim_dark4", black(np.clip(band(d, -0.6, 0.3, 0.5) * 0.45 + band(d, -8.8, -7.6, 0.6) * 0.18, 0, 1)))
+    rim4, dark4 = glass_rim(64, 14, 1.0)
+    write_tga("rim4", rim4)
+    write_tga("rim_dark4", dark4)
+
+    # Small variants of the style-4 material, for frames too short for 16px
+    # slice margins (cast pill, pet, target-of-target): 32x32, radius 7,
+    # bevel scaled by 0.5, slice margins 8.
+    rim, dark = glass_rim(32, 7, 0.5)
+    write_tga("rim4_small", rim)
+    write_tga("rim_dark4_small", dark)
+    write_tga("body_mask_small", mask(coverage(rounded_rect_sdf(32, 32, 0.5, 7))))
+    d = rounded_rect_sdf(64, 64, 16, 7)
+    write_tga("shadow_small", black(0.50 / (1 + np.exp(d / (5.0 * 0.55)))))
+
+    # Style 5 = style 4 after an outside design review (2026-09-27): "thick and
+    # bright enough to look like a clear plastic case". Same material, bevel at
+    # 0.72x width and highlights at 0.8x. The glass content inset follows the
+    # bevel: 6px on large frames, 3px on small (Glass.SIZES in Glass.lua).
+    for name, size, radius, k in (("rim5", 64, 14, 0.72), ("rim5_small", 32, 7, 0.36)):
+        rim, dark = glass_rim(size, radius, k, light=0.8)
+        write_tga(name, rim)
+        write_tga(name.replace("rim5", "rim_dark5"), dark)
 
     # Softer, narrower sheen that does not wash out text.
     ys, xs = np.mgrid[0:64, 0:256].astype(np.float64) + 0.5
