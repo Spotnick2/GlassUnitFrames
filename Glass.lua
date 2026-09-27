@@ -36,6 +36,7 @@ Glass.STYLE = {
     wash = 0.18,                         -- top-down white gradient inside the body
     gloss = 0.45,                        -- ADD highlight on bars
     innerShadow = 0.35,                  -- bottom shade on bars
+    fillAlpha = 0.75,                    -- bar fill opacity: the scene shows through, text stays opaque
     sheenAlpha = 0.8,
 }
 
@@ -142,6 +143,8 @@ end
 -- anything added over the fill at level bar + 1 or + 2 (health loss, heal
 -- prediction) sits UNDER the glass layers, like the fill itself.
 Glass.OVERLAY_LEVEL = 3
+local bars = {}
+
 function Glass.Bar(parent, height)
     local st = Glass.STYLE
     local bar = CreateFrame("StatusBar", nil, parent)
@@ -159,6 +162,11 @@ function Glass.Bar(parent, height)
 
     bar:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
     bar:GetStatusBarTexture():AddMaskTexture(mask)
+    -- Translucent fill: the texture's own alpha, so SetStatusBarColor (which
+    -- sets vertex colour) never resets it. Text lives on the host's g.top,
+    -- not on the bar, so it stays fully opaque.
+    bar:GetStatusBarTexture():SetAlpha(st.fillAlpha)
+    table.insert(bars, bar)
 
     local over = CreateFrame("Frame", nil, bar)
     over:SetAllPoints(bar)
@@ -261,6 +269,14 @@ function Glass.Font(parent, size, justify)
     fs:SetWordWrap(false)
     table.insert(fontStrings, { fs = fs, size = size })
     return fs
+end
+
+-- Live-tune the bar fill opacity on every glass bar built so far.
+function Glass.SetFillAlpha(a)
+    if type(a) ~= "number" or a < 0.2 or a > 1 then return false end
+    Glass.STYLE.fillAlpha = a
+    for _, bar in ipairs(bars) do bar:GetStatusBarTexture():SetAlpha(a) end
+    return true
 end
 
 function Glass.SetFont(key)

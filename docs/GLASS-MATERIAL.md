@@ -107,7 +107,9 @@ On a host frame, bottom to top:
 
 A glass bar (`Glass.Bar`) has four parts:
 - a black 0.35 background;
-- a masked `bar_fill`;
+- a masked `bar_fill` at `STYLE.fillAlpha` (0.75, the texture's own alpha, so `SetStatusBarColor`
+  never resets it; text sits on the host's `g.top`, so it stays opaque).
+  `Glass.SetFillAlpha(a)` retunes every bar built so far;
 - `gloss` (ADD, 0.45);
 - an inner shadow (bottom 45%, black 0.35 → 0; a `SetHeight` hook keeps it at 45% when the bar is
   resized) and `bar_edge`.

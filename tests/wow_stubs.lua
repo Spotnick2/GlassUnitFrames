@@ -267,6 +267,8 @@ end
 function Methods.CreateAnimation(ag, atype) return newWidget(atype or "Animation", ag) end
 function Methods.Play(ag) ag._plays = (ag._plays or 0) + 1 end
 function Methods.SetTexture(t, file) t._file = file; return true end
+function Methods.SetAlpha(w, a) w._alpha = a end
+function Methods.GetAlpha(w) return w._alpha or 1 end
 function Methods.AddMaskTexture(t, m) t._masks = t._masks or {}; table.insert(t._masks, m) end
 function Methods.SetGradient(t, orientation, c1, c2)
     assert(type(c1) == "table" and type(c2) == "table", "SetGradient takes color objects on this API")
