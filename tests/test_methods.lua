@@ -36,11 +36,27 @@ p._scripts.OnDragStart(p); p._scripts.OnDragStop(p)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 SlashCmdList.GLASSUNITFRAMES("reset")
 
+-- Methods the dump cannot list: Blizzard_AuraContainer is a load-on-demand
+-- Blizzard addon the dump did not capture. Evidence they exist on Forever:
+-- DinoUnitFrames (ships on this client) calls every one of them
+-- (modules/auras.lua ForeverEnsureAuraContainer / ForeverInitAuraButton).
+-- Keep this list exact: anything else missing from the dump still fails.
+local AURA_CONTAINER_API = {
+    AddAuraGroup = true, UpdateAllAuras = true, SetUnit = true, SetAuraGroupLayout = true,
+    SetFlowLayoutAnchorPoint = true, SetFlowLayoutAxis = true, SetFlowLayoutMaximumLineSize = true,
+    SetFlowLayoutGrowthDirection = true, SetFlowLayoutPadding = true,
+    -- on the buttons the container creates
+    SetIcon = true, SetDurationCooldown = true, SetDurationText = true, SetApplicationCount = true,
+}
+
 local n = 0
 for name in pairs(WoW.methodsCalled) do
     n = n + 1
     local method = name:match(":(%a+)$")
-    check(widget[name] or documented[method], "method exists on Forever: " .. name)
+    local wtype = name:match("^(%a+):")
+    local ok = widget[name] or documented[method]
+        or (wtype == "AuraContainer" and (AURA_CONTAINER_API[method] or widget["Frame:" .. method]))
+    check(ok, "method exists on Forever: " .. name)
 end
 check(n > 40, "recorded a realistic number of methods (" .. n .. ")")
 done("test_methods")

@@ -21,17 +21,18 @@ Frames.LAYOUT = {
                      indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -190 },
-                     portrait = "right", power = true, cast = true, sheen = true, size = "large",
+                     portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
     pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -275 },
                      power = true, size = "small", text = { healthRight = "curmaxhp" },
                      indicators = { raidTarget = true } },
-    targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -275 },
+    -- Below the target's cast lane and two aura rows (they reach ~75 px under it).
+    targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -320 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
                      indicators = { raidTarget = true } },
     -- Below targettarget (fits narrow screens too); name only, as the owner's SUF profile had it.
-    targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -305 },
+    targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -350 },
                      size = "small", ticker = true, nameOnly = true, indicators = { raidTarget = true } },
     -- Fixed spots near the target frame (above it, focustarget to the right); they
     -- do not follow a moved target frame.
@@ -573,6 +574,7 @@ local function build(unit)
 
     if L.cast then b.cast = buildCast(b, body, L) end
     buildIndicators(b, body, g, L, tileGlass)
+    if L.auras then GlassUF.Auras.Attach(b, body) end
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     RegisterUnitWatch(b)
@@ -586,6 +588,7 @@ end
 Engine.OnTokenChanged = function(base)
     if base ~= "target" then return end
     local t = Frames.byUnit.target
+    if t and t.auraContainers then GlassUF.Auras.Refresh(t) end
     if t and t.cast then t.cast.flashing = false end   -- the old target's flash is not the new one's
     if t and t.sheen and UnitExists("target") then
         t.sheen:Stop()

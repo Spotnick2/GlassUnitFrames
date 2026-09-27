@@ -29,8 +29,8 @@ GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
 ## Layout
 
-TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `Blizzard.lua` →
-`GlassUnitFrames.lua`.
+TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `Auras.lua` →
+`Blizzard.lua` → `GlassUnitFrames.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
   - `IsSecret`;
@@ -71,6 +71,18 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
 - **`Frames.lua`** (frames): `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
+- **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
+  (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
+  `Blizzard_AuraContainer`). The client picks, sorts and draws the auras, so secret aura data
+  never reaches Lua.
+  - **Order matters:** `AddAuraGroup` first, then `SetUnit`, then `UpdateAllAuras`. Binding the
+    unit first leaves `UNIT_AURA` unregistered.
+  - `UpdateAllAuras()` on every target change.
+  - We only style the client's buttons (`SetIcon`, `SetDurationCooldown`, `SetDurationText`,
+    `SetApplicationCount`). **No scripts on them, no aura reads, no filtering** (impossible
+    under secrecy).
+  - The container API isn't in the dump; `test_methods.lua` allowlists exactly those methods,
+    with DinoUF as the evidence.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
   - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
     `ComboFrame` stays until we draw combo points. Party is never touched, since the owner uses
