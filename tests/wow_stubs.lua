@@ -270,9 +270,9 @@ function Methods.SetFont(fs, file, size, flags) fs._font = { file, size, flags }
 function Methods.GetFont(fs) if fs._font then return fs._font[1], fs._font[2], fs._font[3] end end
 
 -- StatusBar: takes values (secret or not) without inspecting them.
-function Methods.SetMinMaxValues(b, lo, hi) b._min, b._max = lo, hi end
+function Methods.SetMinMaxValues(b, lo, hi, interp) b._min, b._max, b._minMaxInterp = lo, hi, interp end
 function Methods.GetMinMaxValues(b) return b._min, b._max end
-function Methods.SetValue(b, v) b._value = v end
+function Methods.SetValue(b, v, interp) b._value = v; b._interp = interp end
 function Methods.GetValue(b) return b._value end
 function Methods.SetStatusBarTexture(b, file)
     b._fill = b._fill or newWidget("Texture", b)
@@ -372,6 +372,12 @@ C_CurveUtil = { CreateCurve = function()
 end }
 
 function UnitExists(u) return WoW.units[u] ~= nil end
+function UnitGUID(u)
+    local un = WoW.units[u]
+    if not un then return nil end
+    if WoW.secretFields.guid then return WoW.Secret(u .. ".guid") end
+    return un.guid or ("GUID-" .. tostring(un.name))
+end
 function UnitHealth(u) return unitField(u, "health") end
 function UnitHealthMax(u) return unitField(u, "maxHealth") end
 function UnitPower(u) return unitField(u, "power") end

@@ -75,6 +75,7 @@ flusher:SetScript("OnUpdate", function(self)
         for _, channel in ipairs(Engine.ORDER) do
             if chans[channel] then paint(frame, channel, nil) end
         end
+        frame.snap = nil
     end
 end)
 
@@ -86,8 +87,21 @@ end
 
 -- Every channel the frame uses, including cast (painted with a nil event,
 -- which means "look at the unit now").
-function Engine.FullRepaint(frame)
+-- Every channel of a frame, same unit: values may ease (the ticker's refresh).
+function Engine.RefreshAll(frame)
     for channel in pairs(frame.channels) do Engine.MarkDirty(frame, channel) end
+end
+
+-- A full repaint means the unit may have changed (new target, pet swap,
+-- shown again): bars snap to the new values instead of easing from the old
+-- unit's. frame.snap is cleared once the flush has painted the frame.
+function Engine.FullRepaint(frame)
+    frame.snap = true
+    -- Remember who this frame shows, so the ticker can tell a later identity
+    -- change (no event) from a plain refresh of the same unit.
+    local ok, guid = pcall(UnitGUID, frame.unit)
+    frame.lastGUID = (ok and not API.IsSecret(guid)) and guid or nil
+    Engine.RefreshAll(frame)
 end
 
 -- One channel on every frame that uses it (group-wide events). `only`, if
@@ -144,7 +158,20 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
     if self.elapsed < 0.5 then return end
     self.elapsed = 0
     for _, frame in ipairs(ticked) do
-        if frame:IsVisible() then Engine.FullRepaint(frame) end
+        if frame:IsVisible() then
+            -- A chained token can change identity with no event at all (e.g.
+            -- targettargettarget when targettarget retargets). Compare the
+            -- GUID: same unit eases; a different unit, or a GUID we cannot
+            -- compare (secret, unreadable), snaps. Conservative on purpose.
+            local ok, guid = pcall(UnitGUID, frame.unit)
+            if not ok or API.IsSecret(guid) then guid = nil end
+            if guid ~= nil and guid == frame.lastGUID then
+                Engine.RefreshAll(frame)
+            else
+                Engine.FullRepaint(frame)
+            end
+            frame.lastGUID = guid
+        end
     end
 end)
 

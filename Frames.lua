@@ -198,10 +198,7 @@ Engine.SetPainter("health", function(f)
     local u = f.unit
     if not UnitExists(u) then return end
     local hp, maxHp = UnitHealth(u), UnitHealthMax(u)
-    attempt("health bar", function()
-        f.health:SetMinMaxValues(0, maxHp)
-        f.health:SetValue(hp)
-    end)
+    attempt("health bar", Glass.SetBar, f.health, maxHp, hp, f.snap)
     paintColor(f, u)
 
     if not f.valueText then return end   -- name-only frames
@@ -215,10 +212,7 @@ Engine.SetPainter("power", function(f)
     local u = f.unit
     if not (f.power and UnitExists(u)) then return end
     local pow, maxPow = UnitPower(u), UnitPowerMax(u)
-    attempt("power bar", function()
-        f.power:SetMinMaxValues(0, maxPow)
-        f.power:SetValue(pow)
-    end)
+    attempt("power bar", Glass.SetBar, f.power, maxPow, pow, f.snap)
     local ok, _, token = pcall(UnitPowerType, u)
     if not ok or API.IsSecret(token) then token = nil end
     local c = (token and POWER_COLORS[token]) or POWER_COLORS.MANA
