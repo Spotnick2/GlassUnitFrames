@@ -27,7 +27,8 @@ GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
 ## Layout
 
-TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `GlassUnitFrames.lua`.
+TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `Blizzard.lua` →
+`GlassUnitFrames.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
   - `IsSecret`;
@@ -46,14 +47,25 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - the cast channel painted immediately with its event;
   - a 0.5 s ticker for `targettarget`;
   - full repaints on `PLAYER_TARGET_CHANGED` / `UNIT_TARGET` / `UNIT_PET` / `OnShow`.
-- **`Frames.lua`**: `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, both click edges,
+- **`Frames.lua`**: `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
+- **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
+  - Only frames we draw a replacement for: `ComboFrame` stays until we draw combo points, and
+    focus joins with #8. Party is never touched, since the owner uses Cell.
+  - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.
+  - A `SetParent` post-hook undoes Edit Mode's reparenting **on a timer, never
+    synchronously**: doing it inside the caller taints secret reads for the session
+    (EllesmereUI's finding). It waits while Edit Mode is open, and a protected frame waits for
+    combat to end through `GlassUF.WhenOutOfCombat`.
+  - `Blizzard.active` records whether anything was hidden this session. Hiding is one-way per
+    session.
 - **`GlassUnitFrames.lua`**:
-  - `GlassUnitFramesDB` (`font`, `pos`);
+  - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
-  - actions deferred until combat ends;
-  - `/glass font|reset|secrets`.
+  - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
+    build first, `message = false` for silent. Don't add a second one;
+  - `/glass font|reset|blizzard show|hide|secrets`.
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe.
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla
@@ -250,7 +262,8 @@ not port cleanly.
 - Options use the Retail `Settings.RegisterAddOnCategory`, not `InterfaceOptions_AddCategory`.
   Tooltips use `TooltipDataProcessor`: hooking `OnTooltipSetItem` at load can abort
   registration. **Edit Mode is live**, so Blizzard's player and target frames can be moved or
-  reset out from under anything anchored to them.
+  reset out from under anything anchored to them, and Edit Mode reparents the frames we hide
+  (see `Blizzard.lua`).
 - **SavedVariables persist as of 70009** (broken through 69977). Code may read them but must cope
   when they're absent. CVar persistence has not been re-measured. **Verify persistence only
   with a full client exit**, never `/reload` or by reading the SV file. Count loads inside the

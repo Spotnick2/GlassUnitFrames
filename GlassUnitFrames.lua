@@ -3,10 +3,10 @@
 
 local ADDON = ...
 GlassUF = GlassUF or {}
-local API, Glass, Frames = GlassUF.API, GlassUF.Glass, GlassUF.Frames
+local API, Glass, Frames, Blizzard = GlassUF.API, GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 local say = API.Print
 
-local DEFAULTS = { font = "arial" }
+local DEFAULTS = { font = "arial", hideBlizzard = true }
 
 -- Read settings, fill missing keys. Nothing may REQUIRE a value to have
 -- survived: SavedVariables were broken on builds before 70009.
@@ -26,15 +26,17 @@ end
 -- build always runs first: every other action assumes the frames exist.
 local pending, order = {}, {}
 
+-- message: text to print when deferred; nil = a default; false = silent.
 local function whenOutOfCombat(key, fn, message)
     if InCombatLockdown() then
         if not pending[key] then order[#order + 1] = key end
         pending[key] = fn
-        say(message or "will do that when combat ends")
+        if message ~= false then say(message or "will do that when combat ends") end
         return
     end
     fn()
 end
+GlassUF.WhenOutOfCombat = whenOutOfCombat   -- the addon's one combat queue (Blizzard.lua uses it)
 
 local function runPending()
     local run, keys = pending, order
@@ -101,13 +103,14 @@ end
 local HELP = {
     "font arial|friz  - text font (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
+    "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
     "Shift-drag a frame to move it (out of combat).",
 }
 
 local function slash(msg)
     local cmd, arg = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
-    cmd = cmd:lower()
+    cmd, arg = cmd:lower(), arg:lower()
     if cmd == "font" then
         if Glass.SetFont(arg) then
             GlassUnitFramesDB.font = arg
@@ -117,6 +120,19 @@ local function slash(msg)
         end
     elseif cmd == "reset" then
         whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+    elseif cmd == "blizzard" then
+        -- Named for what happens to BLIZZARD's frames: "show" brings them back.
+        if arg == "show" or arg == "hide" then
+            GlassUnitFramesDB.hideBlizzard = (arg == "hide")
+            say("Blizzard's frames will be " .. (arg == "hide" and "hidden" or "shown") .. " after /reload")
+        else
+            -- What is on screen now vs what the next /reload will do.
+            local now = Blizzard.active and "hidden" or "shown"
+            local next = GlassUnitFramesDB.hideBlizzard and "hidden" or "shown"
+            say("Blizzard's frames are " .. now
+                .. (now == next and "" or (", " .. next .. " after /reload"))
+                .. ". /glass blizzard show|hide, then /reload")
+        end
     elseif cmd == "secrets" then
         secretsReport()
     else
@@ -135,7 +151,10 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         Glass.SetFont(db.font)
         -- Secure frames cannot be set up under lockdown. Loading normally runs
         -- before it applies, but do not bet the whole addon on that.
-        whenOutOfCombat("build", function() Frames.Build(db) end, "frames will appear when combat ends")
+        whenOutOfCombat("build", function()
+            Frames.Build(db)
+            if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
+        end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- arg1 = isInitialLogin: warn at a real login, never on /reload.
         if arg1 and API.ClientBuild() ~= GlassUF.MEASURED_ON_BUILD then

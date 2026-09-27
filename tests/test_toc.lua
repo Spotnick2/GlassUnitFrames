@@ -10,6 +10,11 @@ for _, f in ipairs(tocFiles()) do
     check(io.open(f, "r") ~= nil, "TOC file exists: " .. f)
 end
 eq(tocFiles()[1], "Compat.lua", "Compat loads first")
+local seen = {}
+for _, f in ipairs(tocFiles()) do
+    check(not seen[f], "TOC lists each file once: " .. f)
+    seen[f] = true
+end
 
 -- Two places that must agree, never derived from each other (porting guide §0).
 loadAddon()
