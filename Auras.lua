@@ -22,9 +22,13 @@ GlassUF.Auras = Auras
 
 local ICON, GAP, PER_ROW = 20, 3, 13           -- 13 x 20 + 12 x 3 = 296 px, under a 300 px body
 local ROW_W = PER_ROW * ICON + (PER_ROW - 1) * GAP
+-- Buffs first, below the cast lane; debuffs ride the buff container's bottom
+-- edge. The engine resizes a container to its rows on every layout pass
+-- (EllesmereUI, EUI_UnitFrames_AuraContainers.lua), so with no buffs the
+-- debuffs move up into the first row: no gap, no aura reads.
 Auras.ROWS = {
-    { key = "buffs",   filter = "HELPFUL",                        y = -32 },  -- below the cast lane
-    { key = "debuffs", filter = "HARMFUL|INCLUDE_NAME_PLATE_ONLY", y = -55 },
+    { key = "buffs",   filter = "HELPFUL",                        y = -32 },
+    { key = "debuffs", filter = "HARMFUL|INCLUDE_NAME_PLATE_ONLY", below = "buffs", gap = 3 },
 }
 
 -- Call obj:method(...); a missing method or a throw is recorded (so
@@ -104,6 +108,7 @@ function Auras.Attach(b, body)
     if not loaded then API.Fail("aura load", why) end   -- keep going: the type may exist anyway
     local sortMethod, sortDir = API.AuraSort()
     b.auraContainers = {}
+    b.auraByKey = {}
     for _, row in ipairs(Auras.ROWS) do
         local ok, c = pcall(CreateFrame, "AuraContainer", nil, b, "CustomAuraContainerTemplate")
         if not ok or not c then
@@ -111,7 +116,12 @@ function Auras.Attach(b, body)
             return
         end
         c:SetSize(ROW_W, ICON)
-        c:SetPoint("TOPLEFT", body, "BOTTOMLEFT", 2, row.y)
+        local above = row.below and b.auraByKey and b.auraByKey[row.below]
+        if above then
+            c:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -row.gap)
+        else
+            c:SetPoint("TOPLEFT", body, "BOTTOMLEFT", 2, row.y or -32)
+        end
         c:SetFrameLevel(b:GetFrameLevel() + 5)
         flowLayout(c)
         local added = try("aura group", c, "AddAuraGroup", "glass_" .. row.key, row.filter, {
@@ -127,6 +137,7 @@ function Auras.Attach(b, body)
             try("aura unit", c, "SetUnit", b.unit)
             try("aura refresh", c, "UpdateAllAuras")
             b.auraContainers[#b.auraContainers + 1] = c
+            b.auraByKey[row.key] = c
         else
             c:Hide()
         end

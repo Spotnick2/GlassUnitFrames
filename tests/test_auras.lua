@@ -25,13 +25,17 @@ eq(table.concat(buffs._seq, ","), "AddAuraGroup,SetUnit,UpdateAllAuras",
    "groups BEFORE the unit (else UNIT_AURA stays unregistered), then a refresh")
 eq(table.concat(debuffs._seq, ","), "AddAuraGroup,SetUnit,UpdateAllAuras", "same order for debuffs")
 
--- Rows sit under the cast lane, buffs above debuffs; ToT is clear of them.
-local by, dy = buffs._points[1][5], debuffs._points[1][5]
-check(by > dy, "buffs above debuffs")
+-- Buffs sit under the cast lane; debuffs ride the buff container's bottom
+-- edge (the engine resizes it to its rows, so no buffs = no gap).
+local by = buffs._points[1][5]
 check(by <= -26, "buffs start below the 20 px cast lane (6 px gap)")
+eq(debuffs._points[1][2], buffs, "debuffs anchored to the buff container")
+eq(debuffs._points[1][3], "BOTTOMLEFT", "at its bottom edge")
+-- Worst case (a full buff row, then debuffs): ToT stays clear.
+local lowest = by - 20 - 3 - 20
 local totY = GlassUF.Frames.LAYOUT.targettarget.point[5]
 local targetBottom = GlassUF.Frames.LAYOUT.target.point[5] - GlassUF.Frames.LAYOUT.target.h / 2
-check(totY + 13 < targetBottom + dy - 20, "targettarget sits below the debuff row")
+check(totY + 13 < targetBottom + lowest, "targettarget sits below both aura rows")
 
 -- A new target: both containers re-evaluate (also mid-combat: no secure calls).
 WoW.combat = true
