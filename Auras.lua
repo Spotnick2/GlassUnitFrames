@@ -22,6 +22,12 @@ GlassUF.Auras = Auras
 
 local ICON, GAP, PER_ROW = 20, 3, 13           -- 13 x 20 + 12 x 3 = 296 px, under a 300 px body
 local ROW_W = PER_ROW * ICON + (PER_ROW - 1) * GAP
+
+-- Offset of the lowest aura row's bottom edge under the body: whatever sits
+-- under the rows (the target's cast bar) derives its position from this.
+function Auras.Bottom()
+    return Auras.ROWS[#Auras.ROWS].y - ICON
+end
 -- Two FIXED rows right under the unit frame (owner's layout, #32): buffs
 -- first, debuffs below; the cast bar sits under both. Rows cannot be chained:
 -- anchoring a frame to an aura container is refused in game ("Anchoring

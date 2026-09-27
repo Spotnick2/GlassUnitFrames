@@ -12,7 +12,7 @@ for _, u in ipairs(GlassUF.Frames.ORDER) do
     if u ~= "target" then check(button(u).auraContainers == nil, u .. " has no auras (player auras off, as in the profile)") end
 end
 
-local buffs, debuffs = t.auraContainers[1], t.auraContainers[2]
+local buffs, debuffs = t.auraByKey.buffs, t.auraByKey.debuffs
 eq(buffs._template, "CustomAuraContainerTemplate", "managed container template")
 eq(buffs._groups.glass_buffs.filter, "HELPFUL", "buff row filter")
 eq(debuffs._groups.glass_debuffs.filter, "HARMFUL|INCLUDE_NAME_PLATE_ONLY", "debuff row filter (as DinoUF)")
@@ -44,6 +44,15 @@ end
 check(LT.targettarget.point[4] < LT.targettargettarget.point[4], "targettarget left of targettargettarget")
 local totTop = LT.targettarget.point[5] + LT.targettarget.h / 2
 check(LT.focus.point[5] - LT.focus.h / 2 > totTop, "focus sits above the ToT row")
+-- Indicators centred on a top edge stick up by half their size: the target's
+-- raid mark (20 px) must clear the ToT row, ToTT's (14 px) must clear focus.
+check(targetTop + 10 < LT.targettarget.point[5] - LT.targettarget.h / 2, "target raid mark clears the ToT row")
+local totttTop = LT.targettargettarget.point[5] + LT.targettargettarget.h / 2
+check(totttTop + 7 < LT.focus.point[5] - LT.focus.h / 2, "ToTT raid mark clears the focus frame")
+-- The cast bar follows the aura rows and stays above the action bars (y -280).
+eq(castTop, GlassUF.Auras.Bottom() - 6, "cast bar offset derived from the aura rows")
+local castBottom = LT.target.point[5] - LT.target.h / 2 + castTop - 20
+check(castBottom > -280, "target cluster's lowest element stays above y -280")
 
 -- A client that refuses part of the aura setup must not abort the build:
 -- the frame still registers, and later frames still build.
@@ -69,7 +78,7 @@ do
     GlassUF = nil
     loadAddon()
     t = button("target")
-    buffs, debuffs = t.auraContainers[1], t.auraContainers[2]
+    buffs, debuffs = t.auraByKey.buffs, t.auraByKey.debuffs
 end
 
 -- A new target: both containers re-evaluate (also mid-combat: no secure calls).
