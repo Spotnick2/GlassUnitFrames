@@ -96,4 +96,14 @@ reaction, dead, power type) is plain out of combat. Consequence: a unit frame on
 cannot do health/power arithmetic in Lua at all, and cannot hide an empty power bar by testing
 `UnitPowerMax(target) == 0`.
 
-Still open: the same report **in combat**, and switching target mid-cast.
+**`/glass secrets` IN combat: identical to out of combat**, for player, pet, target and
+targettarget (targettarget = the player: hpMax/pwMax plain). Identity stays plain in combat, so
+colouring by class and reaction keeps working mid-fight. Health and power are secret either way.
+
+| Question | Result |
+|---|---|
+| Switch to a non-casting target while the old one casts | Pill hidden (full repaint finds no cast) |
+| Switch to a target already casting | Pill shows the new cast at once ("Frostbolt 2.1s"), in step with Blizzard's bar |
+| targettarget in combat | Tracks ("Morphisto Ruskador 94%" while the mob targets the player) |
+
+**Probe 3 and probe 4 are closed for 70009.** Everything the POC set out to prove works in game.
