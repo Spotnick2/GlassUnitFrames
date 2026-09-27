@@ -45,6 +45,8 @@ eq(button("pet").power._color[1], 1.00, "pet focus coloured")
 eq(textOf(button("pet").valueText), "400/400", "pet: cur/max health")
 eq(button("player").model._modelUnit, "player", "3D portrait set to the unit")
 eq(button("pet").model and button("pet").model._modelUnit, "pet", "pet has its own 3D portrait")
+eq(button("pet")._width, button("player")._width, "pet as wide as the player frame (portrait included)")
+eq(GlassUF.Frames.LAYOUT.pet.point[4], GlassUF.Frames.LAYOUT.player.point[4], "pet centred under the player")
 
 -- A unit event repaints on the next rendered frame, once.
 WoW.units.player.health = 775

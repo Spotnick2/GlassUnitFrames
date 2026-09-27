@@ -29,8 +29,9 @@ Frames.LAYOUT = {
                      healPrediction = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
-    -- Left edge flush with the player frame's (x -482.5), 3D portrait on the left too.
-    pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -360, -190 },
+    -- Same total width as the player frame and centred on it (portrait 32 + gap 3
+    -- + body 330 = 365), right under the player's cast lane, as the owner's SUF had it.
+    pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -190 },
                      portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
                      indicators = { raidTarget = true } },
     -- Below the target's cast lane and two aura rows (they reach ~75 px under it).
