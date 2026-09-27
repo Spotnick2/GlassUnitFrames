@@ -47,6 +47,17 @@ eq(button("player").model._modelUnit, "player", "3D portrait set to the unit")
 eq(button("pet").model and button("pet").model._modelUnit, "pet", "pet has its own 3D portrait")
 eq(button("pet")._width, button("player")._width, "pet as wide as the player frame (portrait included)")
 eq(GlassUF.Frames.LAYOUT.pet.point[4], GlassUF.Frames.LAYOUT.player.point[4], "pet centred under the player")
+-- The player's cast bar has its own spot (the pet frame took the space under
+-- the player): centred, above the action bars, clear of the pet frame.
+do
+    local LT = GlassUF.Frames.LAYOUT
+    local cp = button("player").cast.host._points[1]
+    eq(cp[2], "UIParent", "player cast bar anchored to the screen, not under the player")
+    eq(cp[4], 0, "centred horizontally")
+    local petBottom = LT.pet.point[5] - LT.pet.h / 2
+    check(cp[5] + 10 < petBottom and cp[5] - 10 > -280, "below the pet frame, above the action bars")
+    check(button("target").cast.host._points[1][2] ~= "UIParent", "target cast bar still follows the target frame")
+end
 
 -- A unit event repaints on the next rendered frame, once.
 WoW.units.player.health = 775

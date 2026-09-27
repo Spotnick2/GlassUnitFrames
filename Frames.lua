@@ -22,6 +22,9 @@ local GAP = 3    -- between portrait tile and body
 Frames.LAYOUT = {
     player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -110 },
                      portrait = "left", power = true, cast = true, size = "large", groupNumber = true, healPrediction = true,
+                     -- Own spot, centred above the action bars like Blizzard's cast bar:
+                     -- the pet frame sits right under the player now (#34 makes it movable).
+                     castPoint = { "CENTER", "UIParent", "CENTER", 0, -230 },
                      indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true, resting = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
@@ -446,6 +449,10 @@ local function buildCast(b, body, L)
     local host = CreateFrame("Frame", nil, b)
     host:SetSize(L.w, 20)
     host:SetPoint("TOP", body, "BOTTOM", 0, -6)
+    if L.castPoint then
+        host:ClearAllPoints()
+        host:SetPoint(unpack(L.castPoint))
+    end
     host:SetFrameLevel(b:GetFrameLevel() + 1)
     local g = Glass.Apply(host, "small")
     local inset = Glass.Inset("small")
