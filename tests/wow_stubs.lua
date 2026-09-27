@@ -86,7 +86,7 @@ function WoW.reset()
     WoW.secretFields = {}     -- field -> true: that unit field comes back secret for every unit
     WoW.units = {}
     WoW.raid = nil
-    WoW.loot = nil
+    WoW.masterLooter = false
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
 end
@@ -305,7 +305,6 @@ Enum = {
     LuaCurveType = { Linear = 0 },
     StatusBarTimerDirection = { ElapsedTime = 0, RemainingTime = 1 },
     UITextureSliceMode = { Stretched = 0, Tiled = 1 },
-    LootMethod = { Freeforall = 0, Roundrobin = 1, Masterlooter = 2, Group = 3, Needbeforegreed = 4, Personal = 5 },
 }
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 function GetBuildInfo() return "1.60.1", "70009", "Sep 23 2026", 16001 end
@@ -411,7 +410,7 @@ function UnitPowerPercent(u, powerType, unmodified, curve)
     return p1[2] + (p2[2] - p1[2]) * frac
 end
 -- Indicators. Unit fields: raidTarget (index or nil), leader, assistant, pvp,
--- ffa, faction. WoW.loot = { method, partyID, raidID } (nil = group loot).
+-- ffa, faction. WoW.masterLooter: the player is master looter.
 function GetRaidTargetIndex(u) return unitField(u, "raidTarget") end
 function SetRaidTargetIconTexture(tex, index) tex._raidIndex = index end
 function UnitIsGroupLeader(u) return unitField(u, "leader") end
@@ -419,12 +418,7 @@ function UnitIsGroupAssistant(u) return unitField(u, "assistant") end
 function UnitIsPVP(u) return unitField(u, "pvp") end
 function UnitIsPVPFreeForAll(u) return unitField(u, "ffa") end
 function UnitFactionGroup(u) return unitField(u, "faction") end
-function UnitIsUnit(a, b) return a == b end
-C_PartyInfo = { GetLootMethod = function()
-    local l = WoW.loot
-    if not l then return Enum.LootMethod.Group end
-    return l.method, l.partyID, l.raidID
-end }
+function IsMasterLooter() return WoW.masterLooter == true end
 
 -- Raid roster: WoW.raid = { [unit] = { index = n, subgroup = g } } while in a raid.
 function IsInRaid() return WoW.raid ~= nil end

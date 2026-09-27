@@ -25,7 +25,8 @@ Engine.CHANNEL_EVENTS = {
     name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CONNECTION" },
     portrait = { "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" },
     -- Raid target / leader / loot / PvP icons. Most of their triggers are
-    -- group-wide events (see GROUP_EVENTS below); only the PvP flag is per unit.
+    -- group-wide events, handled by the world frame below; only the PvP flag
+    -- is per unit.
     indicators = { "UNIT_FACTION" },
     cast     = { "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
                  "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
@@ -51,9 +52,16 @@ function Engine.SetPainter(channel, fn)
     painters[channel] = fn
 end
 
+-- A painter that throws must not take the rest of the flush with it (nor
+-- leave frame.snap set): record the first error per channel and carry on.
+GlassUF.paintFailures = GlassUF.paintFailures or {}
 local function paint(frame, channel, event)
     local fn = painters[channel]
-    if fn and frame.channels[channel] then fn(frame, event) end
+    if not (fn and frame.channels[channel]) then return end
+    local ok, err = pcall(fn, frame, event)
+    if not ok and GlassUF.paintFailures["painter " .. channel] == nil then
+        GlassUF.paintFailures["painter " .. channel] = tostring(err)
+    end
 end
 
 -- One flush per rendered frame. Hidden (idle) until something is dirty.

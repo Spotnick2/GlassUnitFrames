@@ -44,7 +44,9 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
 - **`Glass.lua`**: the material (see below). Self-contained.
 - **`Engine.lua`**: who gets painted and when:
   - one tracker per unit (`RegisterUnitEvent`);
-  - events grouped into channels (name, health, power, portrait, cast);
+  - events grouped into channels (name, health, power, portrait, indicators, cast);
+    `UNIT_FACTION` feeds both name and indicators. Each painter runs under `pcall`, so one that
+    throws is recorded in `GlassUF.paintFailures` and the rest of the flush still paints;
   - dirty channels flushed once per rendered frame;
   - the cast channel painted immediately with its event;
   - one shared 0.5 s ticker for event-less chained tokens (`targettarget`, `targettargettarget`,

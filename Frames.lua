@@ -32,14 +32,15 @@ Frames.LAYOUT = {
                      indicators = { raidTarget = true } },
     -- Below targettarget (fits narrow screens too); name only, as the owner's SUF profile had it.
     targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -305 },
-                     size = "small", ticker = true, nameOnly = true },
+                     size = "small", ticker = true, nameOnly = true, indicators = { raidTarget = true } },
     -- Fixed spots near the target frame (above it, focustarget to the right); they
     -- do not follow a moved target frame.
     focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -128 },
                      power = true, size = "small", text = { healthRight = "curhp" },
-                     indicators = { raidTarget = true } },
+                     indicators = { raidTarget = true, leader = true } },
     focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -128 },
-                     size = "small", ticker = true, text = { healthRight = "curhp" } },
+                     size = "small", ticker = true, text = { healthRight = "curhp" },
+                     indicators = { raidTarget = true } },
 }
 Frames.ORDER = { "player", "target", "pet", "targettarget", "targettargettarget", "focus", "focustarget" }
 
@@ -62,7 +63,7 @@ local function plain(fn, ...)
 end
 
 -- Run a paint step; remember the first failure per step for /glass secrets.
-GlassUF.paintFailures = {}
+GlassUF.paintFailures = GlassUF.paintFailures or {}   -- shared with Engine.paint
 local function attempt(key, fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok and GlassUF.paintFailures[key] == nil then
@@ -242,15 +243,10 @@ end)
 
 -- Indicators: SUF's default set as the owner's profile kept it (modules/
 -- indicators.lua). Every fact read through plain(): a secret never branches.
-local function lootMasterIsUnit(u)
-    if not (C_PartyInfo and C_PartyInfo.GetLootMethod and Enum and Enum.LootMethod) then return false end
-    local ok, method, partyID, raidID = pcall(C_PartyInfo.GetLootMethod)
-    if not ok or API.IsSecret(method) or method ~= Enum.LootMethod.Masterlooter then return false end
-    if not API.IsSecret(partyID) and partyID == 0 and u == "player" then return true end
-    if not API.IsSecret(raidID) and type(raidID) == "number" and raidID > 0 then
-        return plain(UnitIsUnit, u, "raid" .. raidID) == true
-    end
-    return false
+-- Master looter is shown on the player frame only: IsMasterLooter() answers
+-- that directly (Enum.LootMethod is not in the API dump).
+local function playerIsMasterLooter()
+    return plain(IsMasterLooter) == true
 end
 
 Engine.SetPainter("indicators", function(f)
@@ -276,7 +272,17 @@ Engine.SetPainter("indicators", function(f)
             ind.leader:Hide()
         end
     end
-    if ind.masterLoot then ind.masterLoot:SetShown(lootMasterIsUnit(u)) end
+    if ind.masterLoot then
+        local show = playerIsMasterLooter()
+        -- Sit right of the leader icon when it shows, else take the corner itself.
+        ind.masterLoot:ClearAllPoints()
+        if ind.leader and ind.leader:IsShown() then
+            ind.masterLoot:SetPoint("LEFT", ind.leader, "RIGHT", 2, 0)
+        else
+            ind.masterLoot:SetPoint("CENTER", f.indCorner.anchor, "TOPLEFT", f.indCorner.x, 0)
+        end
+        ind.masterLoot:SetShown(show)
+    end
     if ind.pvp then
         local faction = plain(UnitFactionGroup, u)
         if plain(UnitIsPVPFreeForAll, u) == true then
@@ -458,19 +464,26 @@ local function buildIndicators(b, body, g, L, tileGlass)
         ind.raidTarget:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
         ind.raidTarget:SetPoint("CENTER", body, "TOP", 0, 0)
     end
+    local cornerX = large and 14 or 9   -- the top-left corner slot
+    b.indCorner = { anchor = body, x = cornerX }
     if want.leader then
         ind.leader = icon(large and 14 or 11)
-        ind.leader:SetPoint("CENTER", body, "TOPLEFT", large and 14 or 9, 0)
+        ind.leader:SetPoint("CENTER", body, "TOPLEFT", cornerX, 0)
     end
     if want.masterLoot then
         ind.masterLoot = icon(large and 12 or 10)
         ind.masterLoot:SetTexture("Interface\\GroupFrame\\UI-Group-MasterLooter")
-        ind.masterLoot:SetPoint("LEFT", ind.leader or body, ind.leader and "RIGHT" or "TOPLEFT", 2, 0)
+        ind.masterLoot:SetPoint("CENTER", body, "TOPLEFT", cornerX, 0)
     end
-    if want.pvp and tileGlass then   -- on the portrait tile's own top layer, above its rim
+    -- PvP badge on the portrait tile's own top layer, inset so it stays on the
+    -- tile, in the corner away from the body (mirrored for a right-side portrait).
+    if want.pvp and tileGlass then
+        local s = large and 24 or 18
+        local left = L.portrait == "left"
         ind.pvp = tileGlass.top:CreateTexture(nil, "OVERLAY", nil, 7)
-        ind.pvp:SetSize(large and 26 or 18, large and 26 or 18)
-        ind.pvp:SetPoint("CENTER", tileGlass.top, "BOTTOMLEFT", 6, 6)
+        ind.pvp:SetSize(s, s)
+        ind.pvp:SetPoint("CENTER", tileGlass.top, left and "BOTTOMLEFT" or "BOTTOMRIGHT",
+            left and s / 2 or -s / 2, s / 2)
         ind.pvp:Hide()
     end
     b.indicators = ind
