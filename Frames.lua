@@ -32,19 +32,21 @@ Frames.LAYOUT = {
     pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -190 },
                      power = true, size = "small", text = { healthRight = "curmaxhp" },
                      indicators = { raidTarget = true } },
-    -- Below the target's cast lane and two aura rows (they reach ~75 px under it).
-    targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -238 },
+    -- The target cluster, SUF-style: targettarget and targettargettarget side by
+    -- side ABOVE the target body (x 117.5..417.5, top at -79), auras right
+    -- under it, the cast bar under the auras, focus above the ToT row.
+    targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 207.5, -61 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
                      indicators = { raidTarget = true } },
-    -- Below targettarget (fits narrow screens too); name only, as the owner's SUF profile had it.
-    targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -268 },
+    -- Right of targettarget on the same row; name only, as the owner's SUF profile had it.
+    targettargettarget = { w = 115, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -61 },
                      size = "small", ticker = true, nameOnly = true, indicators = { raidTarget = true } },
     -- Fixed spots near the target frame (above it, focustarget to the right); they
     -- do not follow a moved target frame.
-    focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -48 },
+    focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -27 },
                      power = true, size = "small", text = { healthRight = "curhp" },
                      indicators = { raidTarget = true, leader = true }, healPrediction = true },
-    focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -48 },
+    focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -27 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
                      indicators = { raidTarget = true } },
 }
@@ -439,7 +441,8 @@ end
 local function buildCast(b, body, L)
     local host = CreateFrame("Frame", nil, b)
     host:SetSize(L.w, 20)
-    host:SetPoint("TOP", body, "BOTTOM", 0, -6)
+    -- Under the aura rows when the frame has them (target), else right under the body.
+    host:SetPoint("TOP", body, "BOTTOM", 0, L.auras and -53 or -6)
     host:SetFrameLevel(b:GetFrameLevel() + 1)
     local g = Glass.Apply(host, "small")
     local inset = Glass.Inset("small")

@@ -37,7 +37,7 @@ SlashCmdList.GLASSUNITFRAMES("font friz")
 SlashCmdList.GLASSUNITFRAMES("reset")
 -- The client builds aura buttons and calls initializeFrame: exercise it.
 local aurasC = button("target").auraContainers[1]
-aurasC._groups.glass_debuffs.spec.initializeFrame(CreateFrame("Button", nil, aurasC))
+aurasC._groups.glass_buffs.spec.initializeFrame(CreateFrame("Button", nil, aurasC))
 local tf = CreateFrame("Frame", "TotemFrame", PlayerFrame)
 CreateFrame("Button", nil, tf)
 SlashCmdList.GLASSUNITFRAMES("totem")

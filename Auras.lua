@@ -22,14 +22,14 @@ GlassUF.Auras = Auras
 
 local ICON, GAP, PER_ROW = 20, 3, 13           -- 13 x 20 + 12 x 3 = 296 px, under a 300 px body
 local ROW_W = PER_ROW * ICON + (PER_ROW - 1) * GAP
--- Two FIXED rows under the cast lane. Debuffs on top: on a hostile target your
--- DoTs are what matters mid-fight, and they no longer sit under an empty buff
--- row. Rows cannot be chained: anchoring a frame to an aura container is
--- refused in game ("Anchoring disallowed as dependent object would inherit
--- forbidden aspects: UntrustedLayoutScriptExecution", 70009).
+-- Two FIXED rows right under the unit frame (owner's layout, #32): buffs
+-- first, debuffs below; the cast bar sits under both. Rows cannot be chained:
+-- anchoring a frame to an aura container is refused in game ("Anchoring
+-- disallowed as dependent object would inherit forbidden aspects:
+-- UntrustedLayoutScriptExecution", 70009).
 Auras.ROWS = {
-    { key = "debuffs", filter = "HARMFUL|INCLUDE_NAME_PLATE_ONLY", y = -32 },
-    { key = "buffs",   filter = "HELPFUL",                        y = -55 },
+    { key = "buffs",   filter = "HELPFUL",                        y = -4 },
+    { key = "debuffs", filter = "HARMFUL|INCLUDE_NAME_PLATE_ONLY", y = -27 },
 }
 
 -- Call obj:method(...); a missing method or a throw is recorded (so
