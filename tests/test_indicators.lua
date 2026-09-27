@@ -26,6 +26,17 @@ WoW.units.target.raidTarget = nil
 WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
 check(not t.indicators.raidTarget._shown, "cleared mark hides")
 
+-- /glass secrets reports the mark index and the icon's state (a diagnostic
+-- for in-game cases where the mark does not show).
+WoW.units.target.raidTarget = 6
+WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
+SlashCmdList.GLASSUNITFRAMES("secrets")
+local line
+for _, l in ipairs(WoW.chat) do if l:find("  target: ", 1, true) then line = l end end
+check(line and line:find("mark=ok", 1, true) and line:find("markIcon=shown", 1, true), "secrets reports mark and icon: " .. tostring(line))
+WoW.units.target.raidTarget = nil
+WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
+
 -- Leader / assistant follow PARTY_LEADER_CHANGED.
 WoW.units.player.leader = true
 WoW.fire("PARTY_LEADER_CHANGED"); WoW.tick()
