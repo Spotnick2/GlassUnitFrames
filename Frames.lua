@@ -30,8 +30,9 @@ Frames.LAYOUT = {
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
     -- Same total width as the player frame and centred on it (portrait 32 + gap 3
-    -- + body 330 = 365), right under the player's cast lane, as the owner's SUF had it.
-    pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -190 },
+    -- + body 330 = 365), 5 px under it (player bottom -141, pet top -146), as the
+    -- owner's SUF had it.
+    pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -162 },
                      portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
                      indicators = { raidTarget = true } },
     -- Below the target's cast lane and two aura rows (they reach ~75 px under it).
