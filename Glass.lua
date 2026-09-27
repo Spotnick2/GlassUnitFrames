@@ -38,9 +38,8 @@ Glass.STYLE = {
     innerShadow = 0.35,                  -- bottom shade on bars
     rimAlpha = 0.7,                      -- outer rim, softened (owner-picked; 1.0 read as bulky)
     fillAlpha = 0.60,                    -- bar fill opacity: the scene shows through, text stays opaque
-    fillEnd = 0.35,                      -- the fill fades left to right, to this at its moving edge
-    trackTop = 0.20,                     -- the missing part: mostly clear glass, a hint of the bar's colour
-    trackBottom = 0.02,                  -- from this alpha at the bottom to trackTop at the top
+    fillEnd = 1.0,                       -- optional left-to-right fade of the fill (1 = none, as the mockup)
+    trackTop = 0.45,                     -- the missing part: the bar's colour fading to clear across the bar
     frost = 0.10,                        -- plus a white frost, 0 at the bottom to this at the top
     sheenAlpha = 0.8,
 }
@@ -154,18 +153,17 @@ end
 Glass.OVERLAY_LEVEL = 3
 local bars = {}
 
--- Re-applied after every SetStatusBarColor: the fill fades horizontally from
+-- Re-applied after every SetStatusBarColor: the fill (optionally) fades from
 -- its colour to STYLE.fillEnd at its moving edge (the gradient spans the fill
--- quad, so it always ends at the current value), then the track shows the
--- mostly clear glass beyond. No arithmetic on the colour.
+-- quad), and the track takes the bar's colour at STYLE.trackTop over its
+-- horizontal ramp. No arithmetic on the colour.
 local function tintTrack(bar)
     local c, st = bar.trackColor, Glass.STYLE
     if not c then return end
     local fill = bar:GetStatusBarTexture()
     pcall(fill.SetGradient, fill, "HORIZONTAL",
         CreateColor(c[1], c[2], c[3], 1), CreateColor(c[1], c[2], c[3], st.fillEnd))
-    pcall(bar.track.SetGradient, bar.track, "VERTICAL",
-        CreateColor(c[1], c[2], c[3], st.trackBottom), CreateColor(c[1], c[2], c[3], st.trackTop))
+    pcall(bar.track.SetVertexColor, bar.track, c[1], c[2], c[3], st.trackTop)
 end
 
 -- Live-tune how far the fill fades towards its edge (1 = no fade).
@@ -199,14 +197,14 @@ function Glass.Bar(parent, height)
     bg:SetColorTexture(0, 0, 0, 0.15)
     bg:AddMaskTexture(mask)
 
-    -- The missing health/power reads as a faint, vertically fading tint of the
-    -- bar's own colour (the mockup), not a flat dark slot. It follows every
-    -- SetStatusBarColor. No arithmetic on the colour: the alphas come from
-    -- STYLE, so a value the client ever hands back secret can't throw here.
+    -- The missing health/power, as in the mockup: the bar's own colour, full
+    -- over the first 20% of the bar, fading to clear glass by 80% (the
+    -- track_fade ramp spans the whole bar; the fill covers its left part).
+    -- It follows every SetStatusBarColor.
     local track = bar:CreateTexture(nil, "BACKGROUND", nil, 1)
     track:SetAllPoints(bar)
-    track:SetColorTexture(1, 1, 1, 1)
-    track:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0))
+    track:SetTexture(Glass.MEDIA .. "track_fade")
+    track:SetVertexColor(1, 1, 1, 0)
     track:AddMaskTexture(mask)
     bar.track = track
     hooksecurefunc(bar, "SetStatusBarColor", function(self, r, g, b)

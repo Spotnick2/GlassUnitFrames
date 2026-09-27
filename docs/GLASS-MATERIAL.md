@@ -106,13 +106,14 @@ On a host frame, bottom to top:
 | Text | OVERLAY 7 | `g.top` | `Glass.Font` |
 
 A glass bar (`Glass.Bar`) has four parts:
-- a black 0.15 background, and over it a **track**: the bar's own colour as a vertical gradient
-  (`STYLE.trackBottom` 0.02 → `STYLE.trackTop` 0.20, so the empty part reads as mostly clear
-  glass; `Glass.SetTrackAlpha(a)` retunes the top), plus a white frost (0 → `STYLE.frost` 0.10 at the top), so the missing part reads as a faint tint
+- a black 0.15 background, and over it a **track**: `track_fade` (256x8, alpha 1 over the first
+  20% of the bar, fading to 0 at 80%, clear after) tinted with the bar's own colour at
+  `STYLE.trackTop` 0.45 by `SetVertexColor`, so the missing part fades into clear glass towards
+  the bar's end, as in the mockup (`Glass.SetTrackAlpha(a)`); plus a white frost (0 → `STYLE.frost` 0.10 at the top), so the missing part reads as a faint tint
   of the fill, as in the mockup. A `SetStatusBarColor` hook keeps it in step; no arithmetic on
   the colour, so a secret can't throw there;
-- a masked `bar_fill` that **fades left to right** (vertex gradient from the bar colour to
-  `STYLE.fillEnd` 0.35 alpha; the gradient spans the fill quad, so it always ends at the current
+- a masked `bar_fill` that can **fade left to right** (vertex gradient from the bar colour to
+  `STYLE.fillEnd`, 1.0 = off by default since the mockup's fill is even; the gradient spans the fill quad, so it always ends at the current
   value; `Glass.SetFillEnd(a)`), at `STYLE.fillAlpha` (0.60, picked in game; the texture's own alpha, so `SetStatusBarColor`
   never resets it; text sits on the host's `g.top`, so it stays opaque).
   `Glass.SetFillAlpha(a)` retunes every bar built so far;

@@ -332,9 +332,9 @@ eq(GlassUnitFramesDB.fill, 0.5, "fill saved")
 check(p.nameText._alpha == nil or p.nameText._alpha == 1, "text stays opaque")
 p.health:SetStatusBarColor(1, 0, 0)
 eq(p.health:GetStatusBarTexture()._alpha, 0.5, "recolouring keeps the fill opacity")
-local grad = p.health.track._gradient
-check(grad and grad[1] == "VERTICAL" and grad[2].r == 1 and grad[3].r == 1 and grad[2].a < grad[3].a,
-      "missing health: the bar's own colour, fading towards the bottom")
+local vc = p.health.track._vertex
+eq(p.health.track._file, GlassUF.Glass.MEDIA .. "track_fade", "missing health: the fading ramp")
+check(vc and vc[1] == 1 and vc[2] == 0 and vc[4] == 0.45, "tinted with the bar's own colour")
 -- Rim brightness: every glass surface, live, saved.
 eq(p.glass.rim._alpha, 0.7, "rim softened by default (owner-picked)")
 eq(GlassUnitFramesDB.rim, nil, "the default is not written into the saved settings")
@@ -345,12 +345,12 @@ eq(GlassUnitFramesDB.rim, 0.5, "rim saved")
 SlashCmdList.GLASSUNITFRAMES("rim 0")
 eq(GlassUnitFramesDB.rim, 0.5, "out-of-range rim rejected")
 SlashCmdList.GLASSUNITFRAMES("track 0.8")
-eq(p.health.track._gradient[3].a, 0.8, "track top retuned live, colour kept")
-eq(p.health.track._gradient[3].r, 1, "track keeps the bar colour")
+eq(p.health.track._vertex[4], 0.8, "track retuned live")
+eq(p.health.track._vertex[1], 1, "track keeps the bar colour")
 eq(GlassUnitFramesDB.track, 0.8, "track saved")
 local fg = p.health:GetStatusBarTexture()._gradient
-check(fg and fg[1] == "HORIZONTAL" and fg[2].a == 1 and fg[3].a == 0.35 and fg[3].r == 1,
-      "fill fades left to right in the bar's colour")
+check(fg and fg[1] == "HORIZONTAL" and fg[2].a == 1 and fg[3].a == 1 and fg[3].r == 1,
+      "fill even by default (fade off), in the bar's colour")
 SlashCmdList.GLASSUNITFRAMES("fade 0.5")
 eq(p.health:GetStatusBarTexture()._gradient[3].a, 0.5, "fade retuned live")
 eq(GlassUnitFramesDB.fade, 0.5, "fade saved")
