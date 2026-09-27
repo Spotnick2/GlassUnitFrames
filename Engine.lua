@@ -8,7 +8,8 @@
 --   is by channel, never by comparing values: those may be secret.
 -- - The cast channel is painted immediately with its event name, because
 --   start/stop/interrupt mean different things.
--- - targettarget has no unit events; a 0.5s ticker repaints it while shown.
+-- - Chained tokens (targettarget, focustarget, ...) have no unit events; ONE
+--   shared 0.5s ticker repaints the visible ones.
 
 GlassUF = GlassUF or {}
 local API = GlassUF.API
@@ -110,23 +111,28 @@ local function tracker(unit, channels)
     if #want > 0 then API.RegisterUnitEvents(t, want, unit) end
 end
 
+-- One ticker for every event-less frame: every 0.5s, repaint the visible ones.
+local ticked = {}
+local ticker = CreateFrame("Frame")
+ticker.elapsed = 0
+ticker:SetScript("OnUpdate", function(self, elapsed)
+    self.elapsed = self.elapsed + elapsed
+    if self.elapsed < 0.5 then return end
+    self.elapsed = 0
+    for _, frame in ipairs(ticked) do
+        if frame:IsVisible() then Engine.FullRepaint(frame) end
+    end
+end)
+
 -- Register a unit frame. frame.unit and frame.channels ({channel = true})
--- must be set. opts.ticker: no unit events exist for this token (targettarget);
--- repaint every 0.5s while the frame is shown instead.
+-- must be set. opts.ticker: no unit events exist for this token (a chained
+-- token like targettarget); the shared ticker repaints it while visible.
 function Engine.Register(frame, opts)
     framesByUnit[frame.unit] = framesByUnit[frame.unit] or {}
     table.insert(framesByUnit[frame.unit], frame)
 
     if opts and opts.ticker then
-        local tick = CreateFrame("Frame", nil, frame)   -- a child: only runs while shown
-        tick.elapsed = 0
-        tick:SetScript("OnUpdate", function(self, elapsed)
-            self.elapsed = self.elapsed + elapsed
-            if self.elapsed >= 0.5 then
-                self.elapsed = 0
-                Engine.FullRepaint(frame)
-            end
-        end)
+        table.insert(ticked, frame)
     else
         tracker(frame.unit, frame.channels)
     end
@@ -139,33 +145,42 @@ function Engine.Register(frame, opts)
 end
 
 -- Events that change WHICH unit a token means: repaint everything showing it.
--- UNIT_TARGET fires for the unit whose target changed; its "<unit>target"
--- chain follows.
-Engine.TOKEN_EVENTS = {
-    PLAYER_TARGET_CHANGED = { "target", "targettarget" },
-    PLAYER_FOCUS_CHANGED  = { "focus", "focustarget" },
-}
-Engine.TARGET_CHAINS = {
-    target = { "targettarget" },
-    focus  = { "focustarget" },
-}
+-- One rule covers every chain depth: when `base` changes meaning, so does every
+-- token starting with base.."target" (targettarget, targettargettarget, ...).
+local TOKEN_EVENTS = { PLAYER_TARGET_CHANGED = "target", PLAYER_FOCUS_CHANGED = "focus" }
+
+local function repaintChain(base, includeBase)
+    local prefix = base .. "target"
+    for u in pairs(framesByUnit) do
+        if (includeBase and u == base) or u:sub(1, #prefix) == prefix then Engine.RepaintUnit(u) end
+    end
+end
 
 local world = CreateFrame("Frame")
 world:SetScript("OnEvent", function(_, event, unit)
-    local swapped = Engine.TOKEN_EVENTS[event]
-    if swapped then
-        for _, u in ipairs(swapped) do Engine.RepaintUnit(u) end
-        if event == "PLAYER_TARGET_CHANGED" and Engine.OnTargetChanged then Engine.OnTargetChanged() end
-    elseif event == "UNIT_TARGET" then
-        for _, u in ipairs(Engine.TARGET_CHAINS[unit] or {}) do Engine.RepaintUnit(u) end
+    local base = TOKEN_EVENTS[event]
+    if base then
+        repaintChain(base, true)
+        if Engine.OnTokenChanged then Engine.OnTokenChanged(base) end
     elseif event == "UNIT_PET" then
         if unit == "player" then Engine.RepaintUnit("pet") end
     else   -- PLAYER_ENTERING_WORLD
         for u in pairs(framesByUnit) do Engine.RepaintUnit(u) end
     end
 end)
-API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD",
-                            "UNIT_TARGET", "UNIT_PET" })
+API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_PET" })
+
+-- UNIT_TARGET: registered per base unit so the client filters it (it fires for
+-- every nameplate/party/raid unit otherwise). The unit whose target changed
+-- takes its "<unit>target" chain with it.
+local chainWatchers = {}
+for _, base in ipairs({ "target", "focus" }) do
+    local w = CreateFrame("Frame")
+    w:SetScript("OnEvent", function() repaintChain(base, false) end)
+    API.RegisterUnitEvents(w, { "UNIT_TARGET" }, base)
+    chainWatchers[base] = w
+end
 
 Engine._test = { dirty = function() return dirty end, flusher = flusher, trackers = trackers,
+                 ticker = ticker, chainWatchers = chainWatchers,
                  framesByUnit = framesByUnit, world = world }

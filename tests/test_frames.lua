@@ -78,10 +78,16 @@ eq(button("focus").health._color[1], 0.85, "hostile focus is red")
 check(button("focus").power ~= nil and button("focustarget").power == nil, "focus has power, focustarget does not")
 WoW.SetUnit("focus", { name = "Mother Fang", reaction = 2, health = 50, maxHealth = 100 })
 WoW.SetUnit("focustarget", { name = "Hathnos", reaction = 5, health = 400, maxHealth = 400 })
+local sheenBefore = button("target").sheen._plays or 0
+button("target").cast.flashing = true
 WoW.fire("PLAYER_FOCUS_CHANGED"); WoW.tick()
+eq(button("target").sheen._plays or 0, sheenBefore, "a focus change does not replay the target sheen")
+check(button("target").cast.flashing, "a focus change does not cut off the target's cast flash")
+button("target").cast.flashing = false
 eq(textOf(button("focus").nameText), "Mother Fang", "focus repainted on PLAYER_FOCUS_CHANGED")
 eq(textOf(button("focustarget").nameText), "Hathnos", "focustarget repainted on PLAYER_FOCUS_CHANGED")
 WoW.SetUnit("focustarget", { name = "Morphisto", class = "WARLOCK", player = true })
+GlassUF.Engine._test.ticker.elapsed = 0          -- prove the event path, not a ticker coincidence
 WoW.fire("UNIT_TARGET", "focus"); WoW.tick()
 eq(textOf(button("focustarget").nameText), "Morphisto", "UNIT_TARGET on focus repaints focustarget")
 WoW.units.focustarget.health = 10

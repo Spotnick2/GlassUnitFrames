@@ -49,9 +49,9 @@ health colours and power-type colours; 3D portraits; cast bars with name, time a
 flash; drag positioning.
 
 **Next, in order**
-1. [ ] Hide Blizzard player / pet / target / focus frames (SUF's default set; party stays for
+1. [x] Hide Blizzard player / pet / target / focus frames (SUF's default set; party stays for
        Cell). Measure Edit Mode behaviour. (S)
-2. [ ] Focus + focustarget frames. (S)
+2. [x] Focus + focustarget frames. (S)
 3. [ ] targettargettarget frame, name only. (S)
 4. [ ] Text formats from the profile: AFK tag and group number on names; target health
        "cur/max | pct"; a "level classification pwr%" line; power as percent; ToT/focus current
