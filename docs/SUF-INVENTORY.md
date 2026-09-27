@@ -56,7 +56,7 @@ flash; drag positioning.
 4. [x] Text formats from the profile: AFK tag and group number on names; target health
        "cur/max | pct"; a "level classification pwr%" line; power as percent; ToT/focus current
        health. (S–M)
-5. [ ] Indicators: raid target and leader (+ PvP, master looter as defaults had them). (S)
+5. [x] Indicators: raid target and leader (+ PvP, master looter as defaults had them). (S)
 6. [ ] Target buffs and debuffs via the managed AuraContainer (no filtering possible). (M)
 7. [ ] Incoming heal bar via the heal calculator (Paladin). (M)
 8. [ ] Smooth bar animation via StatusBar interpolation. (S)

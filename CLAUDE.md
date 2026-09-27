@@ -59,6 +59,8 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     so it doesn't reload portraits. `PLAYER_FLAGS_CHANGED` (AFK) fires with group tokens, never
     target/focus, so it repaints every name line;
   - `Engine.OnTokenChanged(base)` is the hook for per-token reactions (the target sheen).
+  - group-wide events (`RAID_TARGET_UPDATE`, `PARTY_LEADER_CHANGED`, `PARTY_LOOT_METHOD_CHANGED`,
+    `GROUP_ROSTER_UPDATE`) repaint one channel on every frame: `Engine.RepaintChannel`.
 - **`Frames.lua`**: text formats are a fixed set named after the owner's SUF tags (`Frames.TEXT`:
   `curhp`, `curmaxhp`, `curmaxhp_perhp`, `perpp`, `curpp`, `curmaxpp`, `level_class_perpp`),
   picked per slot by `LAYOUT[unit].text`. **Not a tag language**: every format hands client values
