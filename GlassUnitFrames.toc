@@ -9,5 +9,6 @@ Compat.lua
 Glass.lua
 Engine.lua
 Frames.lua
+Auras.lua
 Blizzard.lua
 GlassUnitFrames.lua

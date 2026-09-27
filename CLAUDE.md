@@ -29,8 +29,8 @@ GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
 ## Layout
 
-TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `Blizzard.lua` →
-`GlassUnitFrames.lua`.
+TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `Auras.lua` →
+`Blizzard.lua` → `GlassUnitFrames.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
   - `IsSecret`;
@@ -38,7 +38,10 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - `ClickEdges`;
   - `HealthPercent` / `PowerPercent` via a 0..100 curve;
   - `CastDuration` (a `LuaDurationObject`);
-  - `ClassColor`.
+  - `ClassColor`;
+  - `Fail(key, err)`: the **one** failure recorder (`GlassUF.paintFailures`, read by
+    `/glass secrets`). Engine, Frames and Auras all report through it;
+  - `LoadBlizzardAddOn`, `AuraSort` (sort method and direction, both or neither), `FlowLayout`.
 
   It also holds `MEASURED_ON_BUILD`.
 - **`Glass.lua`**: the material (see below). Self-contained.
@@ -68,9 +71,32 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   picked per slot by `LAYOUT[unit].text`. **Not a tag language**: every format hands client values
   to `SetFormattedText` / `AbbreviateNumbers`, because health and power are secret. The name
   carries an AFK tag, and a raid group number on the player.
+- **Default positions** in `Frames.LAYOUT` are sized for WoW's UIParent, which is **768 units
+  tall at the default UI scale**. Every frame, including the target's cast lane and aura rows,
+  stays above y = −280, clear of the action bars. Check new frames against that, not against the
+  owner's 4K screen.
 - **`Frames.lua`** (frames): `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
+- **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
+  (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
+  `Blizzard_AuraContainer`). The client picks, sorts and draws the auras, so secret aura data
+  never reaches Lua.
+  - **Order matters:** `AddAuraGroup` first, then `SetUnit`, then `UpdateAllAuras`. Binding the
+    unit first leaves `UNIT_AURA` unregistered.
+  - `UpdateAllAuras()` on every target change.
+  - **Never anchor anything to an aura container.** The client refuses it ("Anchoring disallowed
+    as dependent object would inherit forbidden aspects: UntrustedLayoutScriptExecution"),
+    measured on 70009. The rows are fixed, each anchored to our own body frame: debuffs on top,
+    buffs below.
+  - Optional features (auras, indicators, heal prediction) build under `attempt()`, so a refusal
+    can't abort a frame's build before `RegisterUnitWatch` / `Engine.Register`, or the frames
+    built after it.
+  - We only style the client's buttons (`SetIcon`, `SetDurationCooldown`, `SetDurationText`,
+    `SetApplicationCount`). **No scripts on them, no aura reads, no filtering** (impossible
+    under secrecy).
+  - The container API isn't in the dump; `test_methods.lua` allowlists exactly those methods,
+    with DinoUF as the evidence.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
   - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
     `ComboFrame` stays until we draw combo points. Party is never touched, since the owner uses

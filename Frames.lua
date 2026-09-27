@@ -15,30 +15,35 @@ Frames.byUnit = {}
 
 local GAP = 3    -- between portrait tile and body
 
+-- Default positions are sized for WoW's UIParent, which is 768 units tall at
+-- the default UI scale (half-height 384): every frame, the target's cast lane
+-- and two aura rows included, stays above y = -280, clear of the action bars.
+-- ToT/ToTT and focus are fixed spots: they do not follow a dragged target.
 Frames.LAYOUT = {
-    player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -190 },
+    player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -110 },
                      portrait = "left", power = true, cast = true, size = "large", groupNumber = true,
                      indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
-    target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -190 },
-                     portrait = "right", power = true, cast = true, sheen = true, size = "large",
+    target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
+                     portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
-    pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -275 },
+    pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -190 },
                      power = true, size = "small", text = { healthRight = "curmaxhp" },
                      indicators = { raidTarget = true } },
-    targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -275 },
+    -- Below the target's cast lane and two aura rows (they reach ~75 px under it).
+    targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -238 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
                      indicators = { raidTarget = true } },
     -- Below targettarget (fits narrow screens too); name only, as the owner's SUF profile had it.
-    targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -305 },
+    targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -268 },
                      size = "small", ticker = true, nameOnly = true, indicators = { raidTarget = true } },
     -- Fixed spots near the target frame (above it, focustarget to the right); they
     -- do not follow a moved target frame.
-    focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -128 },
+    focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -48 },
                      power = true, size = "small", text = { healthRight = "curhp" },
                      indicators = { raidTarget = true, leader = true } },
-    focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -128 },
+    focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -48 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
                      indicators = { raidTarget = true } },
 }
@@ -63,12 +68,9 @@ local function plain(fn, ...)
 end
 
 -- Run a paint step; remember the first failure per step for /glass secrets.
-GlassUF.paintFailures = GlassUF.paintFailures or {}   -- shared with Engine.paint
 local function attempt(key, fn, ...)
     local ok, err = pcall(fn, ...)
-    if not ok and GlassUF.paintFailures[key] == nil then
-        GlassUF.paintFailures[key] = tostring(err)
-    end
+    if not ok then API.Fail(key, err) end
     return ok
 end
 
@@ -364,8 +366,7 @@ Engine.SetPainter("cast", function(f, event)
     end
 
     if event ~= nil and not CAST_STOP[event] then
-        GlassUF.paintFailures["cast duration"] = GlassUF.paintFailures["cast duration"]
-            or ("no DurationObject on " .. event)
+        API.Fail("cast duration", "no DurationObject on " .. event)
     end
     -- Nothing casting: hide, unless an interrupt/fail flash is still up.
     if not c.flashing then
@@ -572,7 +573,12 @@ local function build(unit)
     end
 
     if L.cast then b.cast = buildCast(b, body, L) end
-    buildIndicators(b, body, g, L, tileGlass)
+    -- Optional features build under pcall: a client that refuses one (as an
+    -- aura-container anchor once did in game) must not abort the frame's
+    -- build before RegisterUnitWatch / Engine.Register below, nor the frames
+    -- built after it.
+    attempt("build indicators", buildIndicators, b, body, g, L, tileGlass)
+    if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     RegisterUnitWatch(b)
@@ -586,6 +592,7 @@ end
 Engine.OnTokenChanged = function(base)
     if base ~= "target" then return end
     local t = Frames.byUnit.target
+    if t and t.auraContainers then GlassUF.Auras.Refresh(t) end
     if t and t.cast then t.cast.flashing = false end   -- the old target's flash is not the new one's
     if t and t.sheen and UnitExists("target") then
         t.sheen:Stop()

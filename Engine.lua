@@ -54,14 +54,11 @@ end
 
 -- A painter that throws must not take the rest of the flush with it (nor
 -- leave frame.snap set): record the first error per channel and carry on.
-GlassUF.paintFailures = GlassUF.paintFailures or {}
 local function paint(frame, channel, event)
     local fn = painters[channel]
     if not (fn and frame.channels[channel]) then return end
     local ok, err = pcall(fn, frame, event)
-    if not ok and GlassUF.paintFailures["painter " .. channel] == nil then
-        GlassUF.paintFailures["painter " .. channel] = tostring(err)
-    end
+    if not ok then API.Fail("painter " .. channel, err) end
 end
 
 -- One flush per rendered frame. Hidden (idle) until something is dirty.

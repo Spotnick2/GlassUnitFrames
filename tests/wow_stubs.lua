@@ -87,6 +87,7 @@ function WoW.reset()
     WoW.units = {}
     WoW.raid = nil
     WoW.masterLooter = false
+    WoW.loadedAddOns = {}
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
 end
@@ -283,8 +284,23 @@ function Methods.GetStatusBarTexture(b) return b._fill end
 function Methods.SetStatusBarColor(b, r, g, bl) b._color = { r, g, bl } end
 function Methods.SetTimerDuration(b, d, interp, dir) b._timer = { duration = d, interp = interp, dir = dir } end
 
--- PlayerModel.
-function Methods.SetUnit(m, unit) m._modelUnit = unit; return true end
+-- PlayerModel (and the aura container: both take a unit).
+local function seq(w, what) w._seq = w._seq or {}; table.insert(w._seq, what) end
+function Methods.SetUnit(m, unit) m._modelUnit = unit; seq(m, "SetUnit"); return true end
+
+-- Blizzard's managed aura container (Blizzard_AuraContainer; not in the API
+-- dump, shipped by DinoUF on Forever). It records its groups; the client
+-- would create buttons and call initializeFrame on each.
+function Methods.AddAuraGroup(c, name, filter, spec)
+    c._groups = c._groups or {}
+    c._groups[name] = { filter = filter, spec = spec }
+    seq(c, "AddAuraGroup")
+end
+function Methods.UpdateAllAuras(c) c._refreshes = (c._refreshes or 0) + 1; seq(c, "UpdateAllAuras") end
+function Methods.SetIcon(b, t) b._icon = t end
+function Methods.SetDurationCooldown(b, cd) b._cooldown = cd end
+function Methods.SetDurationText(b, fs) b._durationText = fs end
+function Methods.SetApplicationCount(b, fs) b._countText = fs end
 function Methods.ClearModel(m) m._modelUnit = nil end
 
 --------------------------------------------------------------------------------
@@ -426,6 +442,10 @@ function UnitIsPVP(u) return unitField(u, "pvp") end
 function UnitIsPVPFreeForAll(u) return unitField(u, "ffa") end
 function UnitFactionGroup(u) return unitField(u, "faction") end
 function IsMasterLooter() return WoW.masterLooter == true end
+C_AddOns = {
+    IsAddOnLoaded = function(name) return WoW.loadedAddOns[name] == true, WoW.loadedAddOns[name] == true end,
+    LoadAddOn = function(name) WoW.loadedAddOns[name] = true; return true end,
+}
 
 -- Raid roster: WoW.raid = { [unit] = { index = n, subgroup = g } } while in a raid.
 function IsInRaid() return WoW.raid ~= nil end
