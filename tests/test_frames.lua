@@ -5,7 +5,7 @@ dofile("tests/harness.lua")
 standardUnits()
 loadAddon()
 
-for _, unit in ipairs({ "player", "target", "pet", "targettarget", "focus", "focustarget" }) do
+for _, unit in ipairs({ "player", "target", "pet", "targettarget", "targettargettarget", "focus", "focustarget" }) do
     local b = button(unit)
     check(b ~= nil, unit .. " frame built")
     eq(b._template, "SecureUnitButtonTemplate", unit .. " template")
@@ -69,6 +69,18 @@ WoW.tick(0.3); WoW.tick()
 eq(button("targettarget").health._value, 1240, "no repaint before 0.5s")
 WoW.tick(0.3); WoW.tick()
 eq(button("targettarget").health._value, 155, "ticker repainted targettarget")
+
+-- targettargettarget (#9): name only, repainted on target change and by its ticker.
+local ttt = button("targettargettarget")
+eq(textOf(ttt.nameText), "Defias Pillager", "targettargettarget name")
+check(ttt.valueText == nil and ttt.power == nil, "targettargettarget is name-only: no value text, no power")
+eq(ttt.health._value, 830, "targettargettarget health bar still fills")
+WoW.SetUnit("targettargettarget", { name = "Hathnos", reaction = 5 })
+WoW.fire("UNIT_TARGET", "target"); WoW.tick()
+eq(textOf(ttt.nameText), "Hathnos", "UNIT_TARGET on target repaints targettargettarget")
+WoW.units.targettargettarget.health = 5
+WoW.tick(0.6); WoW.tick()
+eq(ttt.health._value, 5, "targettargettarget ticker repaints")
 
 -- Focus (#8): PLAYER_FOCUS_CHANGED repaints focus and focustarget; UNIT_TARGET
 -- on focus repaints focustarget; focustarget (no unit events) ticks.

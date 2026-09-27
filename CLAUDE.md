@@ -22,7 +22,8 @@ technique, the reference is DinoUnitFrames (see "Reference addons" below).
    choices live in `docs/SUF-INVENTORY.md` ("Owner's picks").
 
 **Status: proof of concept.** The look is settled (`docs/FOREVER-PROBE.md`). The addon skeleton
-runs on live unit data for player, target, pet, targettarget, focus and focustarget. The roadmap is
+runs on live unit data for player, target, pet, targettarget, targettargettarget, focus and
+focustarget. The roadmap is
 `docs/SUF-INVENTORY.md` ("Owner's picks"), one issue each. Work goes through
 GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -46,7 +47,8 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - events grouped into channels (name, health, power, portrait, cast);
   - dirty channels flushed once per rendered frame;
   - the cast channel painted immediately with its event;
-  - one shared 0.5 s ticker for event-less chained tokens (`targettarget`, `focustarget`, ...);
+  - one shared 0.5 s ticker for event-less chained tokens (`targettarget`, `targettargettarget`,
+    `focustarget`);
   - full repaints when a token changes meaning. One rule, `repaintChain`: when `base` changes
     (`PLAYER_TARGET_CHANGED`, `PLAYER_FOCUS_CHANGED`, or `UNIT_TARGET` registered per base unit),
     every token starting with `base.."target"` repaints too. Plus `UNIT_PET` and `OnShow`;

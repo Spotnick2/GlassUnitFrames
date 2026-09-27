@@ -53,6 +53,7 @@ function standardUnits()
     WoW.SetUnit("target", { name = "Defias Pillager", reaction = 2, health = 830, maxHealth = 1317 })
     WoW.SetUnit("pet", { name = "Hathnos", reaction = 5, health = 400, maxHealth = 400, powerToken = "FOCUS" })
     WoW.SetUnit("targettarget", { name = "Morphisto", class = "WARLOCK", player = true, health = 1240, maxHealth = 1550 })
+    WoW.SetUnit("targettargettarget", { name = "Defias Pillager", reaction = 2, health = 830, maxHealth = 1317 })
     WoW.SetUnit("focus", { name = "Hogger", reaction = 2, health = 666, maxHealth = 800 })
     WoW.SetUnit("focustarget", { name = "Morphisto", class = "WARLOCK", player = true, health = 1240, maxHealth = 1550 })
 end
