@@ -37,7 +37,7 @@ Glass.STYLE = {
     gloss = 0.45,                        -- ADD highlight on bars
     innerShadow = 0.35,                  -- bottom shade on bars
     fillAlpha = 0.60,                    -- bar fill opacity: the scene shows through, text stays opaque
-    trackTop = 0.30,                     -- the missing part: the bar's own colour, fading
+    trackTop = 0.45,                     -- the missing part: the bar's own colour, fading
     trackBottom = 0.08,                  -- from this alpha at the bottom to trackTop at the top
     sheenAlpha = 0.8,
 }
@@ -159,7 +159,7 @@ function Glass.Bar(parent, height)
 
     local bg = bar:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(bar)
-    bg:SetColorTexture(0, 0, 0, 0.25)
+    bg:SetColorTexture(0, 0, 0, 0.15)
     bg:AddMaskTexture(mask)
 
     -- The missing health/power reads as a faint, vertically fading tint of the
