@@ -8,8 +8,7 @@ local B = GlassUF.Blizzard
 local hidden = B.hiddenParent
 
 -- Every unit GlassUF draws loses its Blizzard frame; the rest are untouched.
-for _, name in ipairs({ "PlayerFrame", "PlayerCastingBarFrame", "PetFrame", "TargetFrame", "TargetFrameToT",
-                        "FocusFrame", "FocusFrameToT" }) do
+for _, name in ipairs({ "PlayerFrame", "PetFrame", "TargetFrame", "TargetFrameToT", "FocusFrame", "FocusFrameToT" }) do
     local f = _G[name]
     check(f._parent == hidden, name .. " reparented to the hidden parent")
     check(not f._shown, name .. " hidden")
