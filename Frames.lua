@@ -293,7 +293,7 @@ Engine.SetPainter("indicators", function(f)
         ind.masterLoot:SetShown(show)
     end
     if ind.resting then
-        ind.resting:SetShown(u == "player" and plain(IsResting) == true)
+        ind.resting:SetShown(plain(IsResting) == true)
     end
     if ind.pvp then
         local faction = plain(UnitFactionGroup, u)
@@ -446,13 +446,20 @@ function Frames.ResetPositions()
     for _, b in pairs(Frames.byUnit) do applyPosition(b) end
 end
 
--- Bar heights inside a large body (inner height 50): idle, and while an
--- inside cast bar shows. No secure frame is touched, so this works in combat.
-local ROWS = { idle = { health = 34, gap = 4, power = 12 },
-               casting = { health = 22, gap = 2, power = 10, cast = 14 } }
+-- An inside cast row: CAST_ROW px plus CAST_GAP above it and between
+-- health and power. The idle heights come from build() (b.rows.idle); the
+-- casting ones are derived from them, so a different frame height still
+-- fills its body. No secure frame is touched, so this works in combat.
+local CAST_ROW, CAST_GAP = 14, 2
+
+local function castingRows(idle)
+    local inner = idle.health + idle.gap + idle.power
+    local power = math.max(8, idle.power - 2)
+    return { health = inner - CAST_ROW - 2 * CAST_GAP - power, gap = CAST_GAP, power = power }
+end
 
 local function layoutRows(b, casting)
-    local r = casting and ROWS.casting or ROWS.idle
+    local r = casting and b.rows.casting or b.rows.idle
     b.health:SetHeight(r.health)
     if b.healPred then b.healPred:SetHeight(r.health) end
     b.power:ClearAllPoints()
@@ -465,13 +472,14 @@ end
 -- is a row inside the body that appears only while casting (player, SUF's
 -- auto-hiding cast bar): health and power shrink while it shows.
 local function castHost(b, body, L)
-    if L.castInside then
+    -- Needs a power bar to sit under; a frame without one keeps the pill.
+    if L.castInside and b.power then
         local host = CreateFrame("Frame", nil, body)
         host:SetAllPoints(body)
         host:SetFrameLevel(Glass.ContentLevel(body))
-        local bar = Glass.Bar(host, ROWS.casting.cast)
-        bar:SetPoint("TOPLEFT", b.power, "BOTTOMLEFT", 0, -ROWS.casting.gap)
-        bar:SetPoint("TOPRIGHT", b.power, "BOTTOMRIGHT", 0, -ROWS.casting.gap)
+        local bar = Glass.Bar(host, CAST_ROW)
+        bar:SetPoint("TOPLEFT", b.power, "BOTTOMLEFT", 0, -CAST_GAP)
+        bar:SetPoint("TOPRIGHT", b.power, "BOTTOMRIGHT", 0, -CAST_GAP)
         bar:SetFrameLevel(Glass.ContentLevel(body))
         -- Text above the bar's glass overlay (+2); hides with the host.
         local txt = CreateFrame("Frame", nil, host)
@@ -666,7 +674,7 @@ local function build(unit)
     body:SetPoint(L.portrait == "left" and "RIGHT" or "LEFT", b, L.portrait == "left" and "RIGHT" or "LEFT")
     body:SetFrameLevel(b:GetFrameLevel() + 1)
     local g = Glass.Apply(body, size)
-    b.glass = g
+    b.glass, b.body = g, body
 
     local inset = Glass.Inset(size)
     local large = size == "large"
@@ -682,6 +690,8 @@ local function build(unit)
         b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -gap)
         b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -gap)
         b.power:SetFrameLevel(Glass.ContentLevel(body))
+        local idle = { health = healthH, gap = gap, power = L.h - 2 * inset - healthH - gap }
+        b.rows = { idle = idle, casting = castingRows(idle) }
     end
 
     local textSize = large and 15 or 11

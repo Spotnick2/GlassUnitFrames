@@ -224,9 +224,11 @@ world:SetScript("OnEvent", function(_, event, unit)
         -- Fires with group tokens (player, partyN, raidN), never target/focus:
         -- refresh every name line so an AFK tag on target or focus follows too.
         Engine.RepaintChannel("name")
-    elseif event == "RAID_TARGET_UPDATE" or event == "PARTY_LEADER_CHANGED" or event == "PARTY_LOOT_METHOD_CHANGED"
-        or event == "PLAYER_UPDATE_RESTING" then
+    elseif event == "RAID_TARGET_UPDATE" or event == "PARTY_LEADER_CHANGED" or event == "PARTY_LOOT_METHOD_CHANGED" then
         Engine.RepaintChannel("indicators")
+    elseif event == "PLAYER_UPDATE_RESTING" then
+        -- Only frames with a rest icon (the player's) depend on it.
+        Engine.RepaintChannel("indicators", function(f) return f.indicators and f.indicators.resting end)
     elseif event == "PLAYER_ENTERING_WORLD" then
         for u in pairs(framesByUnit) do Engine.RepaintUnit(u) end
     end

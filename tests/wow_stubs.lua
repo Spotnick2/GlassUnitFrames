@@ -172,7 +172,12 @@ function CreateFrame(ftype, name, parent, template)
 end
 
 -- Visibility / layout (guarded on protected frames).
-function Methods.Show(w) if guard(w, "Show") then w._shown = true; if w._scripts.OnShow then w._scripts.OnShow(w) end end end
+function Methods.Show(w)
+    if not guard(w, "Show") then return end
+    local was = w._shown
+    w._shown = true
+    if not was and w._scripts.OnShow then w._scripts.OnShow(w) end   -- only on a hidden->shown change, as the client
+end
 function Methods.Hide(w)
     if not guard(w, "Hide") then return end
     local was = w._shown

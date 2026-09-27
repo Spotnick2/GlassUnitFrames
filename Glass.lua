@@ -176,6 +176,11 @@ function Glass.Bar(parent, height)
     inner:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT")
     inner:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT")
     inner:SetHeight(math.max(3, math.floor(height * 0.45)))
+    -- Keep the shade at 45% when the bar is resized later (the player's
+    -- bars shrink while its inside cast row shows).
+    hooksecurefunc(bar, "SetHeight", function(_, h)
+        if type(h) == "number" then inner:SetHeight(math.max(3, math.floor(h * 0.45))) end
+    end)
     inner:SetColorTexture(1, 1, 1, 1)
     inner:SetGradient("VERTICAL", CreateColor(0, 0, 0, st.innerShadow), CreateColor(0, 0, 0, 0))
     inner:AddMaskTexture(omask)

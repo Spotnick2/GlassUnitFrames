@@ -53,7 +53,7 @@ eq(GlassUF.Frames.LAYOUT.pet.point[4], GlassUF.Frames.LAYOUT.player.point[4], "p
 do
     local pl = button("player")
     local c = pl.cast
-    check(c.host:GetParent() ~= pl, "player cast row lives inside the body")
+    eq(c.host:GetParent(), pl.body, "player cast row lives inside the body")
     eq(pl.health._height, 34, "idle: full-height health bar")
     WoW.units.player.casting = { name = "Shadow Bolt" }
     WoW.fire("UNIT_SPELLCAST_START", "player"); WoW.tick()
@@ -61,7 +61,8 @@ do
     eq(pl.health._height, 22, "casting: health shrinks")
     eq(pl.power._height, 10, "casting: power shrinks")
     eq(c.bar._points[1][2], pl.power, "cast row sits under the power bar")
-    if pl.healPred then eq(pl.healPred._height, 22, "heal prediction follows the health bar") end
+    check(pl.healPred ~= nil, "player has heal prediction")
+    eq(pl.healPred._height, 22, "heal prediction follows the health bar")
     WoW.units.player.casting = nil
     WoW.fire("UNIT_SPELLCAST_STOP", "player"); WoW.tick()
     check(not c.host._shown, "cast row hidden after the cast")
@@ -313,6 +314,12 @@ check(WoW.chat[#WoW.chat]:find("anchored to UIParent (BOTTOMLEFT on BOTTOMLEFT, 
 SlashCmdList.GLASSUNITFRAMES("frame NoSuchFrame")
 check(WoW.chat[#WoW.chat]:find("no NoSuchFrame global", 1, true), "frame probe without the global")
 rawset(_G, "PetActionBar", nil)
+-- A restricted frame can return secret offsets: the report degrades, never throws.
+local rf = CreateFrame("Frame", "RestrictedThing", UIParent)
+rawset(rf, "GetPoint", function() return "TOP", UIParent, "TOP", WoW.Secret("x"), WoW.Secret("y") end)
+SlashCmdList.GLASSUNITFRAMES("frame RestrictedThing")
+check(WoW.chat[#WoW.chat]:find("(unreadable anchor)", 1, true), "secret offsets: unreadable, no error")
+rawset(_G, "RestrictedThing", nil)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 eq(GlassUnitFramesDB.font, "friz", "font saved")
 eq(p.nameText._font[1], "Fonts\\FRIZQT__.TTF", "font applied to existing text")

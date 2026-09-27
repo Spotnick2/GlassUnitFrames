@@ -143,14 +143,17 @@ local function frameReport(name, label)
     -- IsProtected returns (protected, explicitly): explicit means the frame
     -- itself is secure (reparenting it is combat-locked), implicit means only
     -- through its relationships.
-    local okP, prot, explicit = pcall(tf.IsProtected, tf)
-    local okA, point, anchorTo, relPoint, x, y = pcall(tf.GetPoint, tf, 1)
-    local anchor = "(no anchor)"
-    if okA and point then
-        anchor = string.format("to %s (%s on %s, %s, %s)",
+    -- Every read and every formatting of a client value inside pcall: a
+    -- restricted frame can hand back secret offsets, which tostring rejects.
+    local okP, prot, explicit = pcall(function() return tf:IsProtected() end)
+    local okA, anchor = pcall(function()
+        local point, anchorTo, relPoint, x, y = tf:GetPoint(1)
+        if not point then return "(no anchor)" end
+        return string.format("to %s (%s on %s, %s, %s)",
             (type(anchorTo) == "table") and frameName(anchorTo) or tostring(anchorTo or "screen"),
             tostring(point), tostring(relPoint), tostring(x), tostring(y))
-    end
+    end)
+    if not okA then anchor = "(unreadable anchor)" end
     local okC, n = pcall(function() return select("#", tf:GetChildren()) end)
     say(label .. ": " .. name .. " parent chain: " .. table.concat(chain, " > "))
     say(string.format("%s: anchored %s; points=%s; protected=%s explicitly=%s; shown=%s visible=%s; children=%s; under GlassUF's hidden parent=%s",
