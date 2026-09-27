@@ -38,8 +38,10 @@ Glass.STYLE = {
     innerShadow = 0.35,                  -- bottom shade on bars
     rimAlpha = 0.7,                      -- outer rim, softened (owner-picked; 1.0 read as bulky)
     fillAlpha = 0.60,                    -- bar fill opacity: the scene shows through, text stays opaque
-    trackTop = 0.45,                     -- the missing part: the bar's own colour, fading
-    trackBottom = 0.08,                  -- from this alpha at the bottom to trackTop at the top
+    fillEnd = 0.35,                      -- the fill fades left to right, to this at its moving edge
+    trackTop = 0.20,                     -- the missing part: mostly clear glass, a hint of the bar's colour
+    trackBottom = 0.02,                  -- from this alpha at the bottom to trackTop at the top
+    frost = 0.10,                        -- plus a white frost, 0 at the bottom to this at the top
     sheenAlpha = 0.8,
 }
 
@@ -152,6 +154,36 @@ end
 Glass.OVERLAY_LEVEL = 3
 local bars = {}
 
+-- Re-applied after every SetStatusBarColor: the fill fades horizontally from
+-- its colour to STYLE.fillEnd at its moving edge (the gradient spans the fill
+-- quad, so it always ends at the current value), then the track shows the
+-- mostly clear glass beyond. No arithmetic on the colour.
+local function tintTrack(bar)
+    local c, st = bar.trackColor, Glass.STYLE
+    if not c then return end
+    local fill = bar:GetStatusBarTexture()
+    pcall(fill.SetGradient, fill, "HORIZONTAL",
+        CreateColor(c[1], c[2], c[3], 1), CreateColor(c[1], c[2], c[3], st.fillEnd))
+    pcall(bar.track.SetGradient, bar.track, "VERTICAL",
+        CreateColor(c[1], c[2], c[3], st.trackBottom), CreateColor(c[1], c[2], c[3], st.trackTop))
+end
+
+-- Live-tune how far the fill fades towards its edge (1 = no fade).
+function Glass.SetFillEnd(a)
+    if type(a) ~= "number" or a < 0 or a > 1 then return false end
+    Glass.STYLE.fillEnd = a
+    for _, bar in ipairs(bars) do tintTrack(bar) end
+    return true
+end
+
+-- Live-tune how strongly the missing part shows the bar's colour (top alpha).
+function Glass.SetTrackAlpha(a)
+    if type(a) ~= "number" or a < 0 or a > 1 then return false end
+    Glass.STYLE.trackTop = a
+    for _, bar in ipairs(bars) do tintTrack(bar) end
+    return true
+end
+
 function Glass.Bar(parent, height)
     local st = Glass.STYLE
     local bar = CreateFrame("StatusBar", nil, parent)
@@ -177,10 +209,16 @@ function Glass.Bar(parent, height)
     track:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0))
     track:AddMaskTexture(mask)
     bar.track = track
-    hooksecurefunc(bar, "SetStatusBarColor", function(_, r, g, b)
-        pcall(track.SetGradient, track, "VERTICAL",
-            CreateColor(r, g, b, st.trackBottom), CreateColor(r, g, b, st.trackTop))
+    hooksecurefunc(bar, "SetStatusBarColor", function(self, r, g, b)
+        self.trackColor = { r, g, b }
+        tintTrack(self)
     end)
+
+    local frost = bar:CreateTexture(nil, "BACKGROUND", nil, 2)
+    frost:SetAllPoints(bar)
+    frost:SetColorTexture(1, 1, 1, 1)
+    frost:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, st.frost))
+    frost:AddMaskTexture(mask)
 
     bar:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
     bar:GetStatusBarTexture():AddMaskTexture(mask)

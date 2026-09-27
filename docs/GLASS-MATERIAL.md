@@ -107,10 +107,13 @@ On a host frame, bottom to top:
 
 A glass bar (`Glass.Bar`) has four parts:
 - a black 0.15 background, and over it a **track**: the bar's own colour as a vertical gradient
-  (`STYLE.trackBottom` 0.08 → `STYLE.trackTop` 0.45, lightened after an in-game look), so the missing part reads as a faint tint
+  (`STYLE.trackBottom` 0.02 → `STYLE.trackTop` 0.20, so the empty part reads as mostly clear
+  glass; `Glass.SetTrackAlpha(a)` retunes the top), plus a white frost (0 → `STYLE.frost` 0.10 at the top), so the missing part reads as a faint tint
   of the fill, as in the mockup. A `SetStatusBarColor` hook keeps it in step; no arithmetic on
   the colour, so a secret can't throw there;
-- a masked `bar_fill` at `STYLE.fillAlpha` (0.60, picked in game; the texture's own alpha, so `SetStatusBarColor`
+- a masked `bar_fill` that **fades left to right** (vertex gradient from the bar colour to
+  `STYLE.fillEnd` 0.35 alpha; the gradient spans the fill quad, so it always ends at the current
+  value; `Glass.SetFillEnd(a)`), at `STYLE.fillAlpha` (0.60, picked in game; the texture's own alpha, so `SetStatusBarColor`
   never resets it; text sits on the host's `g.top`, so it stays opaque).
   `Glass.SetFillAlpha(a)` retunes every bar built so far;
 - `gloss` (ADD, 0.45);

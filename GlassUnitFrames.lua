@@ -22,6 +22,8 @@ local function ensureDefaults()
     -- default (STYLE) still reaches everyone who never touched it.
     if db.fill ~= nil and not Glass.SetFillAlpha(db.fill) then db.fill = nil end
     if db.rim ~= nil and not Glass.SetRimAlpha(db.rim) then db.rim = nil end
+    if db.track ~= nil and not Glass.SetTrackAlpha(db.track) then db.track = nil end
+    if db.fade ~= nil and not Glass.SetFillEnd(db.fade) then db.fade = nil end
     return db
 end
 
@@ -169,6 +171,8 @@ local HELP = {
     "font arial|friz  - text font (saved)",
     "fill 0.2-1  - bar fill opacity; text stays opaque (saved)",
     "rim 0.2-1  - brightness of the glass outline (saved)",
+    "track 0-1  - how strongly a bar's empty part shows its colour (saved)",
+    "fade 0-1  - how far a bar's fill fades towards its edge, 1 = none (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
@@ -203,6 +207,22 @@ local function slash(msg)
             say("glass rim " .. arg)
         else
             say("rim 0.2-1 (now " .. Glass.STYLE.rimAlpha .. ")")
+        end
+    elseif cmd == "fade" then
+        local a = tonumber(arg)
+        if Glass.SetFillEnd(a) then
+            GlassUnitFramesDB.fade = a
+            say("fill fade " .. arg)
+        else
+            say("fade 0-1 (now " .. Glass.STYLE.fillEnd .. ")")
+        end
+    elseif cmd == "track" then
+        local a = tonumber(arg)
+        if Glass.SetTrackAlpha(a) then
+            GlassUnitFramesDB.track = a
+            say("bar track " .. arg)
+        else
+            say("track 0-1 (now " .. Glass.STYLE.trackTop .. ")")
         end
     elseif cmd == "reset" then
         whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
