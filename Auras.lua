@@ -22,13 +22,14 @@ GlassUF.Auras = Auras
 
 local ICON, GAP, PER_ROW = 20, 3, 13           -- 13 x 20 + 12 x 3 = 296 px, under a 300 px body
 local ROW_W = PER_ROW * ICON + (PER_ROW - 1) * GAP
--- Buffs first, below the cast lane; debuffs ride the buff container's bottom
--- edge. The engine resizes a container to its rows on every layout pass
--- (EllesmereUI, EUI_UnitFrames_AuraContainers.lua), so with no buffs the
--- debuffs move up into the first row: no gap, no aura reads.
+-- Two FIXED rows under the cast lane. Debuffs on top: on a hostile target your
+-- DoTs are what matters mid-fight, and they no longer sit under an empty buff
+-- row. Rows cannot be chained: anchoring a frame to an aura container is
+-- refused in game ("Anchoring disallowed as dependent object would inherit
+-- forbidden aspects: UntrustedLayoutScriptExecution", 70009).
 Auras.ROWS = {
-    { key = "buffs",   filter = "HELPFUL",                        y = -32 },
-    { key = "debuffs", filter = "HARMFUL|INCLUDE_NAME_PLATE_ONLY", below = "buffs", gap = 3 },
+    { key = "debuffs", filter = "HARMFUL|INCLUDE_NAME_PLATE_ONLY", y = -32 },
+    { key = "buffs",   filter = "HELPFUL",                        y = -55 },
 }
 
 -- Call obj:method(...); a missing method or a throw is recorded (so
@@ -116,12 +117,8 @@ function Auras.Attach(b, body)
             return
         end
         c:SetSize(ROW_W, ICON)
-        local above = row.below and b.auraByKey and b.auraByKey[row.below]
-        if above then
-            c:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -row.gap)
-        else
-            c:SetPoint("TOPLEFT", body, "BOTTOMLEFT", 2, row.y or -32)
-        end
+        -- Anchored to OUR frame only (never to another aura container).
+        c:SetPoint("TOPLEFT", body, "BOTTOMLEFT", 2, row.y)
         c:SetFrameLevel(b:GetFrameLevel() + 5)
         flowLayout(c)
         local added = try("aura group", c, "AddAuraGroup", "glass_" .. row.key, row.filter, {

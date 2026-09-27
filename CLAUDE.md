@@ -85,6 +85,13 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - **Order matters:** `AddAuraGroup` first, then `SetUnit`, then `UpdateAllAuras`. Binding the
     unit first leaves `UNIT_AURA` unregistered.
   - `UpdateAllAuras()` on every target change.
+  - **Never anchor anything to an aura container.** The client refuses it ("Anchoring disallowed
+    as dependent object would inherit forbidden aspects: UntrustedLayoutScriptExecution"),
+    measured on 70009. The rows are fixed, each anchored to our own body frame: debuffs on top,
+    buffs below.
+  - Optional features (auras, indicators, heal prediction) build under `attempt()`, so a refusal
+    can't abort a frame's build before `RegisterUnitWatch` / `Engine.Register`, or the frames
+    built after it.
   - We only style the client's buttons (`SetIcon`, `SetDurationCooldown`, `SetDurationText`,
     `SetApplicationCount`). **No scripts on them, no aura reads, no filtering** (impossible
     under secrecy).

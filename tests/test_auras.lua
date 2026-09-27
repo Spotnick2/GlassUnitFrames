@@ -12,7 +12,7 @@ for _, u in ipairs(GlassUF.Frames.ORDER) do
     if u ~= "target" then check(button(u).auraContainers == nil, u .. " has no auras (player auras off, as in the profile)") end
 end
 
-local buffs, debuffs = t.auraContainers[1], t.auraContainers[2]
+local debuffs, buffs = t.auraContainers[1], t.auraContainers[2]
 eq(buffs._template, "CustomAuraContainerTemplate", "managed container template")
 eq(buffs._groups.glass_buffs.filter, "HELPFUL", "buff row filter")
 eq(debuffs._groups.glass_debuffs.filter, "HARMFUL|INCLUDE_NAME_PLATE_ONLY", "debuff row filter (as DinoUF)")
@@ -25,17 +25,45 @@ eq(table.concat(buffs._seq, ","), "AddAuraGroup,SetUnit,UpdateAllAuras",
    "groups BEFORE the unit (else UNIT_AURA stays unregistered), then a refresh")
 eq(table.concat(debuffs._seq, ","), "AddAuraGroup,SetUnit,UpdateAllAuras", "same order for debuffs")
 
--- Buffs sit under the cast lane; debuffs ride the buff container's bottom
--- edge (the engine resizes it to its rows, so no buffs = no gap).
-local by = buffs._points[1][5]
-check(by <= -26, "buffs start below the 20 px cast lane (6 px gap)")
-eq(debuffs._points[1][2], buffs, "debuffs anchored to the buff container")
-eq(debuffs._points[1][3], "BOTTOMLEFT", "at its bottom edge")
--- Worst case (a full buff row, then debuffs): ToT stays clear.
-local lowest = by - 20 - 3 - 20
+-- Fixed rows under the cast lane, debuffs on top; each anchored to the unit
+-- frame's body, never to another aura container (refused in game).
+local dy, by = debuffs._points[1][5], buffs._points[1][5]
+check(dy <= -26, "debuffs start below the 20 px cast lane (6 px gap)")
+check(dy > by, "debuffs above buffs")
+for _, c in ipairs(t.auraContainers) do
+    check(c._points[1][2] ~= buffs and c._points[1][2] ~= debuffs, "anchored to our frame, not to an aura container")
+end
+local lowest = by - 20
 local totY = GlassUF.Frames.LAYOUT.targettarget.point[5]
 local targetBottom = GlassUF.Frames.LAYOUT.target.point[5] - GlassUF.Frames.LAYOUT.target.h / 2
 check(totY + 13 < targetBottom + lowest, "targettarget sits below both aura rows")
+
+-- A client that refuses part of the aura setup must not abort the build:
+-- the frame still registers, and later frames still build.
+do
+    WoW.reset()
+    standardUnits()
+    GlassUF = nil
+    local realCreate = CreateFrame
+    CreateFrame = function(ftype, ...)
+        local w = realCreate(ftype, ...)
+        if ftype == "AuraContainer" then
+            rawset(w, "SetPoint", function() error("Anchoring disallowed as dependent object would inherit forbidden aspects") end)
+        end
+        return w
+    end
+    loadAddon()
+    CreateFrame = realCreate
+    check(GlassUF.paintFailures["build auras"] ~= nil, "the refused aura setup is recorded")
+    check(WoW.unitWatch[button("target")], "the target frame still registers its unit watch")
+    for _, u in ipairs(GlassUF.Frames.ORDER) do check(button(u) ~= nil, u .. " still built after the failure") end
+    WoW.reset()
+    standardUnits()
+    GlassUF = nil
+    loadAddon()
+    t = button("target")
+    debuffs, buffs = t.auraContainers[1], t.auraContainers[2]
+end
 
 -- A new target: both containers re-evaluate (also mid-combat: no secure calls).
 WoW.combat = true

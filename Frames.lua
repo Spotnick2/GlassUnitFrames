@@ -573,8 +573,12 @@ local function build(unit)
     end
 
     if L.cast then b.cast = buildCast(b, body, L) end
-    buildIndicators(b, body, g, L, tileGlass)
-    if L.auras then GlassUF.Auras.Attach(b, body) end
+    -- Optional features build under pcall: a client that refuses one (as an
+    -- aura-container anchor once did in game) must not abort the frame's
+    -- build before RegisterUnitWatch / Engine.Register below, nor the frames
+    -- built after it.
+    attempt("build indicators", buildIndicators, b, body, g, L, tileGlass)
+    if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     RegisterUnitWatch(b)
