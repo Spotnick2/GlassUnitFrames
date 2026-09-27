@@ -27,18 +27,16 @@ Auras.ROWS = {
     { key = "debuffs", filter = "HARMFUL|INCLUDE_NAME_PLATE_ONLY", y = -55 },
 }
 
-local function fail(key, err)
-    if GlassUF.paintFailures and GlassUF.paintFailures[key] == nil then
-        GlassUF.paintFailures[key] = tostring(err)
-    end
-end
-
--- Call obj:method(...) if the client has it; record a failure, never throw.
+-- Call obj:method(...); a missing method or a throw is recorded (so
+-- /glass secrets can say why auras are missing), never raised.
 local function try(key, obj, method, ...)
     local fn = obj[method]
-    if type(fn) ~= "function" then return false end
+    if type(fn) ~= "function" then
+        API.Fail(key, "missing method " .. method)
+        return false
+    end
     local ok, err = pcall(fn, obj, ...)
-    if not ok then fail(key, err) end
+    if not ok then API.Fail(key, err) end
     return ok
 end
 
@@ -67,46 +65,49 @@ local function styleButton(button)
     cd:SetHideCountdownNumbers(true)          -- our duration text instead of Blizzard's numbers
     try("aura cooldown", button, "SetDurationCooldown", cd)
 
-    local edge = button:CreateTexture(nil, "OVERLAY", nil, 1)
-    edge:SetAllPoints(button)
+    -- Edge and text on an overlay ABOVE the cooldown frame, so the dark
+    -- swipe doesn't dim them.
+    local over = CreateFrame("Frame", nil, button)
+    over:SetAllPoints(button)
+    over:SetFrameLevel(cd:GetFrameLevel() + 1)
+
+    local edge = over:CreateTexture(nil, "OVERLAY", nil, 1)
+    edge:SetAllPoints(over)
     edge:SetTexture(Glass.MEDIA .. "bar_edge")
     edge:SetTextureSliceMargins(8, 8, 8, 8)
 
-    local dur = Glass.Font(button, 8, "CENTER")
-    dur:SetPoint("BOTTOM", button, "BOTTOM", 0, 1)
+    -- The client re-anchors the regions it registers (DinoUF re-asserts
+    -- them), so place each one AFTER handing it over.
+    local dur = Glass.Font(over, 8, "CENTER")
     try("aura duration", button, "SetDurationText", dur, {})
+    dur:ClearAllPoints()
+    dur:SetPoint("BOTTOM", button, "BOTTOM", 0, 1)
 
-    local count = Glass.Font(button, 9, "RIGHT")
-    count:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
+    local count = Glass.Font(over, 9, "RIGHT")
     try("aura count", button, "SetApplicationCount", count, {})
-end
-
-local function ensureLoaded()
-    if not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.LoadAddOn) then return end
-    local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, "Blizzard_AuraContainer")
-    if ok and not loaded then pcall(C_AddOns.LoadAddOn, "Blizzard_AuraContainer") end
+    count:ClearAllPoints()
+    count:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
 end
 
 local function flowLayout(c)
-    local axis = rawget(_G, "AnchorUtil") and AnchorUtil.FlowLayoutAxis
-    local dir = rawget(_G, "AnchorUtil") and AnchorUtil.FlowDirection
+    local axis, right, down = API.FlowLayout()
     try("aura layout", c, "SetFlowLayoutAnchorPoint", "TOPLEFT")
-    if axis then try("aura layout", c, "SetFlowLayoutAxis", axis.Horizontal) end
+    if axis then try("aura layout", c, "SetFlowLayoutAxis", axis) end
     try("aura layout", c, "SetFlowLayoutMaximumLineSize", ROW_W)
-    if dir then try("aura layout", c, "SetFlowLayoutGrowthDirection", dir.Right, dir.Down) end
+    if right and down then try("aura layout", c, "SetFlowLayoutGrowthDirection", right, down) end
     try("aura layout", c, "SetFlowLayoutPadding", 0, 0, 0, 0)
 end
 
 -- One container per row, built once, under the unit frame's body.
 function Auras.Attach(b, body)
-    ensureLoaded()
-    local sortMethod = rawget(_G, "AuraContainerSortMethod")
-    local sortDir = rawget(_G, "AuraContainerSortDirection")
+    local loaded, why = API.LoadBlizzardAddOn("Blizzard_AuraContainer")
+    if not loaded then API.Fail("aura load", why) end   -- keep going: the type may exist anyway
+    local sortMethod, sortDir = API.AuraSort()
     b.auraContainers = {}
     for _, row in ipairs(Auras.ROWS) do
         local ok, c = pcall(CreateFrame, "AuraContainer", nil, b, "CustomAuraContainerTemplate")
         if not ok or not c then
-            fail("aura container", c)
+            API.Fail("aura container", c)
             return
         end
         c:SetSize(ROW_W, ICON)
@@ -118,8 +119,8 @@ function Auras.Attach(b, body)
             initializeFrame = styleButton,
             candidateFilters = {},
             layout = { elementWidth = ICON, elementHeight = ICON, elementSpacing = GAP, lineSpacing = GAP },
-            sortMethod = sortMethod and (sortMethod.ExpirationOnly or sortMethod.Default) or nil,
-            sortDirection = sortDir and sortDir.Normal or nil,
+            sortMethod = sortMethod,
+            sortDirection = sortDir,
         })
         if added then
             -- The unit LAST, then a full refresh (see the header).

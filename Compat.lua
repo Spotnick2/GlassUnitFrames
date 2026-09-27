@@ -91,6 +91,43 @@ function API.PowerPercent(unit)
     return UnitPowerPercent(unit, nil, false, curve)
 end
 
+-- The one place failures are recorded (first error per key), read by
+-- /glass secrets and the tests. Engine, Frames and Auras all report here.
+GlassUF.paintFailures = GlassUF.paintFailures or {}
+function API.Fail(key, err)
+    if GlassUF.paintFailures[key] == nil then GlassUF.paintFailures[key] = tostring(err) end
+end
+
+-- Load a load-on-demand Blizzard addon. Returns true, or false and the reason
+-- the client gave (e.g. "DISABLED", "MISSING").
+function API.LoadBlizzardAddOn(name)
+    if not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.LoadAddOn) then return false, "no C_AddOns" end
+    local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, name)
+    if ok and loaded then return true end
+    local okL, done, reason = pcall(C_AddOns.LoadAddOn, name)
+    if okL and done then return true end
+    return false, okL and tostring(reason) or tostring(done)
+end
+
+-- Aura-container enums from Blizzard_AuraContainer / FrameXML (not in the
+-- dump). Sort: method AND direction, or neither (a method without a
+-- direction is rejected by the engine).
+function API.AuraSort()
+    local m, d = rawget(_G, "AuraContainerSortMethod"), rawget(_G, "AuraContainerSortDirection")
+    local method = m and (m.ExpirationOnly or m.Default)
+    local dir = d and d.Normal
+    if method ~= nil and dir ~= nil then return method, dir end
+    return nil, nil
+end
+
+-- AnchorUtil flow-layout enums: horizontal axis, and Right/Down growth.
+function API.FlowLayout()
+    local au = rawget(_G, "AnchorUtil")
+    local axis = au and au.FlowLayoutAxis and au.FlowLayoutAxis.Horizontal
+    local fd = au and au.FlowDirection
+    return axis, fd and fd.Right, fd and fd.Down
+end
+
 -- Cast/channel timing as a LuaDurationObject, or nil. Lua never reads the
 -- start/end numbers; StatusBar:SetTimerDuration animates natively.
 function API.CastDuration(unit)

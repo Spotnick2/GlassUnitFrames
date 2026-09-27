@@ -38,7 +38,10 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - `ClickEdges`;
   - `HealthPercent` / `PowerPercent` via a 0..100 curve;
   - `CastDuration` (a `LuaDurationObject`);
-  - `ClassColor`.
+  - `ClassColor`;
+  - `Fail(key, err)`: the **one** failure recorder (`GlassUF.paintFailures`, read by
+    `/glass secrets`). Engine, Frames and Auras all report through it;
+  - `LoadBlizzardAddOn`, `AuraSort` (sort method and direction, both or neither), `FlowLayout`.
 
   It also holds `MEASURED_ON_BUILD`.
 - **`Glass.lua`**: the material (see below). Self-contained.
@@ -68,6 +71,10 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   picked per slot by `LAYOUT[unit].text`. **Not a tag language**: every format hands client values
   to `SetFormattedText` / `AbbreviateNumbers`, because health and power are secret. The name
   carries an AFK tag, and a raid group number on the player.
+- **Default positions** in `Frames.LAYOUT` are sized for WoW's UIParent, which is **768 units
+  tall at the default UI scale**. Every frame, including the target's cast lane and aura rows,
+  stays above y = −280, clear of the action bars. Check new frames against that, not against the
+  owner's 4K screen.
 - **`Frames.lua`** (frames): `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
