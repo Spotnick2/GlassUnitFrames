@@ -24,8 +24,14 @@ Frames.LAYOUT = {
                      power = true, size = "small" },
     targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -275 },
                      size = "small", ticker = true },
+    -- Fixed spots near the target frame (above it, focustarget to the right); they
+    -- do not follow a moved target frame.
+    focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -128 },
+                     power = true, size = "small" },
+    focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -128 },
+                     size = "small", ticker = true },
 }
-Frames.ORDER = { "player", "target", "pet", "targettarget" }
+Frames.ORDER = { "player", "target", "pet", "targettarget", "focus", "focustarget" }
 
 -- Our own colour tables: PowerBarColor / FACTION_BAR_COLORS are FrameXML
 -- tables the API dump cannot confirm.
@@ -365,8 +371,10 @@ local function build(unit)
     return b
 end
 
--- A fresh target sweeps the sheen across its frame.
-Engine.OnTargetChanged = function()
+-- A fresh target sweeps the sheen across its frame. Only the target: a focus
+-- change must not replay it or cut off the target's cast flash.
+Engine.OnTokenChanged = function(base)
+    if base ~= "target" then return end
     local t = Frames.byUnit.target
     if t and t.cast then t.cast.flashing = false end   -- the old target's flash is not the new one's
     if t and t.sheen and UnitExists("target") then

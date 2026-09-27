@@ -8,7 +8,7 @@ local B = GlassUF.Blizzard
 local hidden = B.hiddenParent
 
 -- Every unit GlassUF draws loses its Blizzard frame; the rest are untouched.
-for _, name in ipairs({ "PlayerFrame", "PetFrame", "TargetFrame", "TargetFrameToT" }) do
+for _, name in ipairs({ "PlayerFrame", "PetFrame", "TargetFrame", "TargetFrameToT", "FocusFrame", "FocusFrameToT" }) do
     local f = _G[name]
     check(f._parent == hidden, name .. " reparented to the hidden parent")
     check(not f._shown, name .. " hidden")
@@ -16,7 +16,6 @@ for _, name in ipairs({ "PlayerFrame", "PetFrame", "TargetFrame", "TargetFrameTo
     check(f._unwatched and not WoW.unitWatch[f], name .. " unit watch removed")
 end
 check(_G.PlayerFrame.healthbar._silenced, "child health bar silenced too")
-check(FocusFrame._parent == UIParent, "FocusFrame untouched: GlassUF draws no focus frame yet")
 check(ComboFrame._parent == UIParent and not ComboFrame._silenced, "ComboFrame untouched: GlassUF draws no combo points yet")
 check(GlassUF.Blizzard.active, "Blizzard.active set once something is hidden")
 eq(#WoW.blocked, 0, "nothing blocked at load")

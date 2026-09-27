@@ -22,7 +22,8 @@ technique, the reference is DinoUnitFrames (see "Reference addons" below).
    choices live in `docs/SUF-INVENTORY.md` ("Owner's picks").
 
 **Status: proof of concept.** The look is settled (`docs/FOREVER-PROBE.md`). The addon skeleton
-runs on live unit data for player, target, pet and targettarget (issue #1). Work goes through
+runs on live unit data for player, target, pet, targettarget, focus and focustarget. The roadmap is
+`docs/SUF-INVENTORY.md` ("Owner's picks"), one issue each. Work goes through
 GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
 ## Layout
@@ -45,14 +46,18 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - events grouped into channels (name, health, power, portrait, cast);
   - dirty channels flushed once per rendered frame;
   - the cast channel painted immediately with its event;
-  - a 0.5 s ticker for `targettarget`;
-  - full repaints on `PLAYER_TARGET_CHANGED` / `UNIT_TARGET` / `UNIT_PET` / `OnShow`.
+  - one shared 0.5 s ticker for event-less chained tokens (`targettarget`, `focustarget`, ...);
+  - full repaints when a token changes meaning. One rule, `repaintChain`: when `base` changes
+    (`PLAYER_TARGET_CHANGED`, `PLAYER_FOCUS_CHANGED`, or `UNIT_TARGET` registered per base unit),
+    every token starting with `base.."target"` repaints too. Plus `UNIT_PET` and `OnShow`;
+  - `Engine.OnTokenChanged(base)` is the hook for per-token reactions (the target sheen).
 - **`Frames.lua`**: `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
-  - Only frames we draw a replacement for: `ComboFrame` stays until we draw combo points, and
-    focus joins with #8. Party is never touched, since the owner uses Cell.
+  - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
+    `ComboFrame` stays until we draw combo points. Party is never touched, since the owner uses
+    Cell.
   - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.
   - A `SetParent` post-hook undoes Edit Mode's reparenting **on a timer, never
     synchronously**: doing it inside the caller taints secret reads for the session

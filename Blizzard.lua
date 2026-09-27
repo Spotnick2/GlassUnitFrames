@@ -10,8 +10,7 @@
 -- frame is protected.
 --
 -- Only frames GlassUF replaces are hidden. ComboFrame stays until GlassUF
--- draws combo points; focus joins with the focus frame (#8). Target auras go
--- with TargetFrame until #12 draws them.
+-- draws combo points. Target auras go with TargetFrame until #12 draws them.
 --
 -- Hiding is one-way for a session: /glass blizzard show takes effect after
 -- /reload. Party frames are never touched (the owner uses Cell).
@@ -26,6 +25,8 @@ Blizzard.FRAMES = {
     pet          = { "PetFrame" },
     target       = { "TargetFrame" },
     targettarget = { "TargetFrameToT" },
+    focus        = { "FocusFrame" },
+    focustarget  = { "FocusFrameToT" },
 }
 Blizzard.active = false   -- true once anything was hidden this session
 

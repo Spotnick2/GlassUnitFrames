@@ -5,7 +5,7 @@ dofile("tests/harness.lua")
 standardUnits()
 loadAddon()
 
-for _, unit in ipairs({ "player", "target", "pet", "targettarget" }) do
+for _, unit in ipairs({ "player", "target", "pet", "targettarget", "focus", "focustarget" }) do
     local b = button(unit)
     check(b ~= nil, unit .. " frame built")
     eq(b._template, "SecureUnitButtonTemplate", unit .. " template")
@@ -69,6 +69,30 @@ WoW.tick(0.3); WoW.tick()
 eq(button("targettarget").health._value, 1240, "no repaint before 0.5s")
 WoW.tick(0.3); WoW.tick()
 eq(button("targettarget").health._value, 155, "ticker repainted targettarget")
+
+-- Focus (#8): PLAYER_FOCUS_CHANGED repaints focus and focustarget; UNIT_TARGET
+-- on focus repaints focustarget; focustarget (no unit events) ticks.
+eq(textOf(button("focus").nameText), "Hogger", "focus painted")
+eq(button("focus").health._value, 666, "focus health")
+eq(button("focus").health._color[1], 0.85, "hostile focus is red")
+check(button("focus").power ~= nil and button("focustarget").power == nil, "focus has power, focustarget does not")
+WoW.SetUnit("focus", { name = "Mother Fang", reaction = 2, health = 50, maxHealth = 100 })
+WoW.SetUnit("focustarget", { name = "Hathnos", reaction = 5, health = 400, maxHealth = 400 })
+local sheenBefore = button("target").sheen._plays or 0
+button("target").cast.flashing = true
+WoW.fire("PLAYER_FOCUS_CHANGED"); WoW.tick()
+eq(button("target").sheen._plays or 0, sheenBefore, "a focus change does not replay the target sheen")
+check(button("target").cast.flashing, "a focus change does not cut off the target's cast flash")
+button("target").cast.flashing = false
+eq(textOf(button("focus").nameText), "Mother Fang", "focus repainted on PLAYER_FOCUS_CHANGED")
+eq(textOf(button("focustarget").nameText), "Hathnos", "focustarget repainted on PLAYER_FOCUS_CHANGED")
+WoW.SetUnit("focustarget", { name = "Morphisto", class = "WARLOCK", player = true })
+GlassUF.Engine._test.ticker.elapsed = 0          -- prove the event path, not a ticker coincidence
+WoW.fire("UNIT_TARGET", "focus"); WoW.tick()
+eq(textOf(button("focustarget").nameText), "Morphisto", "UNIT_TARGET on focus repaints focustarget")
+WoW.units.focustarget.health = 10
+WoW.tick(0.6); WoW.tick()
+eq(button("focustarget").health._value, 10, "focustarget ticker repaints")
 
 -- Pet replaced: UNIT_PET on player repaints the pet frame.
 WoW.SetUnit("pet", { name = "Grunthok", reaction = 5 })
