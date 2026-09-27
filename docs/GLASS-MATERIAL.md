@@ -113,9 +113,10 @@ A glass bar (`Glass.Bar`) has four parts:
   resized) and `bar_edge`.
 
 All of them are masked by `bar_mask`. The gloss, inner shadow and edge live on **`bar.overlay`**, a
-child frame two levels above the bar, with its own mask. Anything drawn over the fill at bar
-level + 1 (GlassUnitFrames' heal prediction) therefore sits *under* the glass layers, like the
-fill itself. A hook keeps the overlay at +2 when the bar's level changes.
+child frame three levels above the bar (`Glass.OVERLAY_LEVEL`), with its own mask. Anything drawn
+over the fill at bar level + 1 or + 2 (GlassUnitFrames' health-loss and heal-prediction bars)
+therefore sits *under* the glass layers, like the fill itself. A hook keeps the overlay at +3 when
+the bar's level changes.
 
 `Glass.Mask(host, file, margin, inset, anchor)` takes an optional `anchor`. A mask masks the
 textures of its own frame, so a child frame gets its own mask anchored to the shape it must
