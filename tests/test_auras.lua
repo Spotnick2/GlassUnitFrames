@@ -12,7 +12,7 @@ for _, u in ipairs(GlassUF.Frames.ORDER) do
     if u ~= "target" then check(button(u).auraContainers == nil, u .. " has no auras (player auras off, as in the profile)") end
 end
 
-local debuffs, buffs = t.auraContainers[1], t.auraContainers[2]
+local buffs, debuffs = t.auraByKey.buffs, t.auraByKey.debuffs
 eq(buffs._template, "CustomAuraContainerTemplate", "managed container template")
 eq(buffs._groups.glass_buffs.filter, "HELPFUL", "buff row filter")
 eq(debuffs._groups.glass_debuffs.filter, "HARMFUL|INCLUDE_NAME_PLATE_ONLY", "debuff row filter (as DinoUF)")
@@ -25,18 +25,34 @@ eq(table.concat(buffs._seq, ","), "AddAuraGroup,SetUnit,UpdateAllAuras",
    "groups BEFORE the unit (else UNIT_AURA stays unregistered), then a refresh")
 eq(table.concat(debuffs._seq, ","), "AddAuraGroup,SetUnit,UpdateAllAuras", "same order for debuffs")
 
--- Fixed rows under the cast lane, debuffs on top; each anchored to the unit
--- frame's body, never to another aura container (refused in game).
-local dy, by = debuffs._points[1][5], buffs._points[1][5]
-check(dy <= -26, "debuffs start below the 20 px cast lane (6 px gap)")
-check(dy > by, "debuffs above buffs")
+-- Owner's layout (#32): buffs right under the frame, debuffs below them, the
+-- cast bar under both, ToT/ToTT above the frame. Each row anchored to the
+-- unit frame's body, never to another aura container (refused in game).
+local by, dy = buffs._points[1][5], debuffs._points[1][5]
+check(by >= -6 and by < 0, "buffs right under the frame")
+check(by > dy, "buffs above debuffs")
 for _, c in ipairs(t.auraContainers) do
     check(c._points[1][2] ~= buffs and c._points[1][2] ~= debuffs, "anchored to our frame, not to an aura container")
 end
-local lowest = by - 20
-local totY = GlassUF.Frames.LAYOUT.targettarget.point[5]
-local targetBottom = GlassUF.Frames.LAYOUT.target.point[5] - GlassUF.Frames.LAYOUT.target.h / 2
-check(totY + 13 < targetBottom + lowest, "targettarget sits below both aura rows")
+local castTop = t.cast.host._points[1][5]
+check(castTop <= dy - 20, "the cast bar sits under both aura rows")
+local LT = GlassUF.Frames.LAYOUT
+local targetTop = LT.target.point[5] + LT.target.h / 2
+for _, u in ipairs({ "targettarget", "targettargettarget" }) do
+    check(LT[u].point[5] - LT[u].h / 2 > targetTop, u .. " sits above the target frame")
+end
+check(LT.targettarget.point[4] < LT.targettargettarget.point[4], "targettarget left of targettargettarget")
+local totTop = LT.targettarget.point[5] + LT.targettarget.h / 2
+check(LT.focus.point[5] - LT.focus.h / 2 > totTop, "focus sits above the ToT row")
+-- Indicators centred on a top edge stick up by half their size: the target's
+-- raid mark (20 px) must clear the ToT row, ToTT's (14 px) must clear focus.
+check(targetTop + 10 < LT.targettarget.point[5] - LT.targettarget.h / 2, "target raid mark clears the ToT row")
+local totttTop = LT.targettargettarget.point[5] + LT.targettargettarget.h / 2
+check(totttTop + 7 < LT.focus.point[5] - LT.focus.h / 2, "ToTT raid mark clears the focus frame")
+-- The cast bar follows the aura rows and stays above the action bars (y -280).
+eq(castTop, GlassUF.Auras.Bottom() - 6, "cast bar offset derived from the aura rows")
+local castBottom = LT.target.point[5] - LT.target.h / 2 + castTop - 20
+check(castBottom > -280, "target cluster's lowest element stays above y -280")
 
 -- A client that refuses part of the aura setup must not abort the build:
 -- the frame still registers, and later frames still build.
@@ -62,7 +78,7 @@ do
     GlassUF = nil
     loadAddon()
     t = button("target")
-    debuffs, buffs = t.auraContainers[1], t.auraContainers[2]
+    buffs, debuffs = t.auraByKey.buffs, t.auraByKey.debuffs
 end
 
 -- A new target: both containers re-evaluate (also mid-combat: no secure calls).

@@ -97,8 +97,9 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - `UpdateAllAuras()` on every target change.
   - **Never anchor anything to an aura container.** The client refuses it ("Anchoring disallowed
     as dependent object would inherit forbidden aspects: UntrustedLayoutScriptExecution"),
-    measured on 70009. The rows are fixed, each anchored to our own body frame: debuffs on top,
-    buffs below.
+    measured on 70009. The rows are fixed, each anchored to our own body frame: **buffs right under
+    the target, debuffs below**, then the target's cast bar. Targettarget and targettargettarget
+    sit side by side *above* the target, with focus above them (owner's layout, #32).
   - Optional features (auras, indicators, heal prediction) build under `attempt()`, so a refusal
     can't abort a frame's build before `RegisterUnitWatch` / `Engine.Register`, or the frames
     built after it.
