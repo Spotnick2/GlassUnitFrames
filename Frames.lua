@@ -24,6 +24,9 @@ Frames.LAYOUT = {
                      power = true, size = "small" },
     targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -275 },
                      size = "small", ticker = true },
+    -- Below targettarget (fits narrow screens too); name only, as the owner's SUF profile had it.
+    targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -305 },
+                     size = "small", ticker = true, nameOnly = true },
     -- Fixed spots near the target frame (above it, focustarget to the right); they
     -- do not follow a moved target frame.
     focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -128 },
@@ -31,7 +34,7 @@ Frames.LAYOUT = {
     focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -128 },
                      size = "small", ticker = true },
 }
-Frames.ORDER = { "player", "target", "pet", "targettarget", "focus", "focustarget" }
+Frames.ORDER = { "player", "target", "pet", "targettarget", "targettargettarget", "focus", "focustarget" }
 
 -- Our own colour tables: PowerBarColor / FACTION_BAR_COLORS are FrameXML
 -- tables the API dump cannot confirm.
@@ -100,6 +103,7 @@ Engine.SetPainter("health", function(f)
         f.health:SetValue(hp)
     end)
 
+    if not f.valueText then return end   -- name-only frames
     if plain(UnitIsConnected, u) == false then f.valueText:SetText("Offline") return end
     if plain(UnitIsDeadOrGhost, u) == true then f.valueText:SetText("Dead") return end
 
@@ -337,11 +341,15 @@ local function build(unit)
 
     local textSize = large and 15 or 11
     local pad = large and 9 or 5
-    b.valueText = Glass.Font(g.top, textSize, "RIGHT")
-    b.valueText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
     b.nameText = Glass.Font(g.top, textSize, "LEFT")
     b.nameText:SetPoint("LEFT", b.health, "LEFT", pad, 0)
-    b.nameText:SetPoint("RIGHT", b.valueText, "LEFT", -6, 0)
+    if L.nameOnly then
+        b.nameText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
+    else
+        b.valueText = Glass.Font(g.top, textSize, "RIGHT")
+        b.valueText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
+        b.nameText:SetPoint("RIGHT", b.valueText, "LEFT", -6, 0)
+    end
     if L.power and large then
         b.powerText = Glass.Font(g.top, 11, "RIGHT")
         b.powerText:SetPoint("RIGHT", b.power, "RIGHT", -7, 0)
