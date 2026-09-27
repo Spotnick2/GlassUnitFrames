@@ -223,6 +223,7 @@ local function build()
     root:SetScript("OnDragStart", root.StartMoving)
     root:SetScript("OnDragStop", root.StopMovingOrSizing)
     root:SetClampedToScreen(true)
+    root:Hide()   -- hidden until /gprobe show: a tuning tool, not a frame to live with
     P.root = root
     P.glass = buildGlass(root, "frame")
 
@@ -361,13 +362,25 @@ local function refreshPortrait()
     if P.portrait2dTex then SetPortraitTexture(P.portrait2dTex, "player", true) end
 end
 
-local function setFill(v)
+local function setFill(v, quiet)
     P.health:SetValue(v)
     if P.valueText then
         P.valueText:SetText(string.format("%.2fk | %d%%", 1.55 * v, math.floor(v * 100 + 0.5)))
     end
+    if not quiet and P.sheenAnim then P.sheenAnim:Stop(); P.sheenAnim:Play() end
+end
+
+-- Show the probe. The portrait was refreshed while hidden, so refresh it now
+-- (a PlayerModel set up while hidden can come up blank), and play the sheen.
+local function showProbe()
+    P.root:Show()
+    try("portrait refresh on show", refreshPortrait)
     if P.sheenAnim then P.sheenAnim:Stop(); P.sheenAnim:Play() end
 end
+
+-- Commands whose result you can only judge by looking: they show the probe.
+local VISUAL = { fill = true, sheen = true, sheenloop = true, layer = true, rimadd = true, snap = true,
+                 scale = true, tint = true, portrait = true, style = true, font = true, newfile = true }
 
 local presets = { empty = 0, tiny = 0.03, half = 0.5, full = 1 }
 local sheenLoop
@@ -427,6 +440,14 @@ local HELP = {
 local function slash(msg)
     local cmd, arg = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
     cmd = cmd:lower()
+    if not P.root and cmd ~= "" and cmd ~= "help" then
+        say("the probe did not build; see the errors printed at login")
+        return
+    end
+    if VISUAL[cmd] and not P.root:IsShown() then
+        showProbe()
+        say("showing the probe (/gprobe hide)")
+    end
     if cmd == "fill" then
         local v = presets[arg] or tonumber(arg)
         if v then setFill(math.max(0, math.min(1, v))) else say("fill empty|tiny|half|full|<0-1>") end
@@ -490,8 +511,11 @@ local function slash(msg)
         local ok = P.late:SetTexture(MEDIA .. "late")
         P.late:SetVertexColor(1, 0.2, 0.8)
         say("late.tga SetTexture returned " .. tostring(ok) .. " - a pink square above the frame means it loaded")
-    elseif cmd == "show" or cmd == "hide" then
-        P.root:SetShown(cmd == "show")
+    elseif cmd == "show" then
+        showProbe()
+    elseif cmd == "hide" then
+        if sheenLoop then sheenLoop:Cancel(); sheenLoop = nil; say("sheen loop off") end
+        P.root:Hide()
     elseif cmd == "report" then
         report()
     elseif cmd == "reset" then
@@ -516,8 +540,7 @@ boot:SetScript("OnEvent", function(self, event)
     try("build", build)
     if P.root then
         try("style 4", applyStyle, 4)
-        setFill(0.8)
-        P.root:Hide()   -- hidden until /gprobe show: it is a tuning tool, not a frame to live with
+        try("initial fill", setFill, 0.8, true)
     end
     try("portrait events", function()
         self:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -527,5 +550,9 @@ boot:SetScript("OnEvent", function(self, event)
     C_Timer.After(1, function() try("portrait delayed refresh", refreshPortrait) end)
     local bad = 0
     for _, s in ipairs(steps) do if not s.ok then bad = bad + 1 end end
-    say(string.format("%d steps, %d failed. Hidden: /gprobe show", #steps, bad))
+    if P.root then
+        say(string.format("%d steps, %d failed. Hidden: /gprobe show  (all commands: /gprobe help)", #steps, bad))
+    else
+        say(string.format("%d steps, %d failed: the probe did not build. /gprobe help", #steps, bad))
+    end
 end)
