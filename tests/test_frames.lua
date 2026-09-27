@@ -265,6 +265,13 @@ eq(next(GlassUF.paintFailures), nil, "no paint failures with plain values")
 -- Slash commands run.
 SlashCmdList.GLASSUNITFRAMES("")
 SlashCmdList.GLASSUNITFRAMES("secrets")
+SlashCmdList.GLASSUNITFRAMES("totem")                    -- no TotemFrame in the stub
+check(WoW.chat[#WoW.chat]:find("no TotemFrame", 1, true), "totem report without a TotemFrame")
+local tf = CreateFrame("Frame", "TotemFrame", PlayerFrame)
+CreateFrame("Button", nil, tf); CreateFrame("Button", nil, tf)
+SlashCmdList.GLASSUNITFRAMES("totem")
+check(WoW.chat[#WoW.chat - 1]:find("PlayerFrame", 1, true), "totem report names the parent chain: " .. WoW.chat[#WoW.chat - 1])
+rawset(_G, "TotemFrame", nil)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 eq(GlassUnitFramesDB.font, "friz", "font saved")
 eq(p.nameText._font[1], "Fonts\\FRIZQT__.TTF", "font applied to existing text")

@@ -104,12 +104,45 @@ local function secretsReport()
 end
 
 --------------------------------------------------------------------------------
+-- /glass totem: where Blizzard's TotemFrame lives on this client (#18). Works
+-- on any class; the answer decides how a shaman's totem bar survives hiding
+-- PlayerFrame.
+--------------------------------------------------------------------------------
+
+local function frameName(f)
+    if f == nil then return "nil" end
+    local ok, n = pcall(f.GetName, f)
+    return (ok and n) or tostring(f.GetObjectType and f:GetObjectType() or "?") .. "(anonymous)"
+end
+
+local function totemReport()
+    local tf = rawget(_G, "TotemFrame")
+    if not tf then
+        say("totem: no TotemFrame global on this client")
+        return
+    end
+    local chain, p = {}, tf
+    for _ = 1, 8 do
+        local ok, parent = pcall(p.GetParent, p)
+        if not ok or not parent then break end
+        chain[#chain + 1] = frameName(parent)
+        p = parent
+    end
+    local children = 0
+    local okC, list = pcall(function() return { tf:GetChildren() } end)
+    if okC then children = #list end
+    say(string.format("totem: TotemFrame parent chain: %s", table.concat(chain, " > ")))
+    say(string.format("totem: protected=%s shown=%s visible=%s children=%d, hidden by GlassUF=%s",
+        tostring(tf:IsProtected()), tostring(tf:IsShown()), tostring(tf:IsVisible()), children,
+        tostring(GlassUF.Blizzard.active)))
+end
 
 local HELP = {
     "font arial|friz  - text font (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
+    "totem  - where Blizzard's totem bar lives (measurement for shaman support)",
     "Shift-drag a frame to move it (out of combat).",
 }
 
@@ -140,6 +173,8 @@ local function slash(msg)
         end
     elseif cmd == "secrets" then
         secretsReport()
+    elseif cmd == "totem" then
+        totemReport()
     else
         for _, line in ipairs(HELP) do say("/glass " .. line) end
     end
