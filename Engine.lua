@@ -97,6 +97,10 @@ end
 -- unit's. frame.snap is cleared once the flush has painted the frame.
 function Engine.FullRepaint(frame)
     frame.snap = true
+    -- Remember who this frame shows, so the ticker can tell a later identity
+    -- change (no event) from a plain refresh of the same unit.
+    local ok, guid = pcall(UnitGUID, frame.unit)
+    frame.lastGUID = (ok and not API.IsSecret(guid)) and guid or nil
     Engine.RefreshAll(frame)
 end
 
@@ -154,9 +158,20 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
     if self.elapsed < 0.5 then return end
     self.elapsed = 0
     for _, frame in ipairs(ticked) do
-        -- Same unit, new values: ease. A chained token's unit CHANGE snaps via
-        -- repaintChain (PLAYER_TARGET_CHANGED / UNIT_TARGET).
-        if frame:IsVisible() then Engine.RefreshAll(frame) end
+        if frame:IsVisible() then
+            -- A chained token can change identity with no event at all (e.g.
+            -- targettargettarget when targettarget retargets). Compare the
+            -- GUID: same unit eases; a different unit, or a GUID we cannot
+            -- compare (secret, unreadable), snaps. Conservative on purpose.
+            local ok, guid = pcall(UnitGUID, frame.unit)
+            if not ok or API.IsSecret(guid) then guid = nil end
+            if guid ~= nil and guid == frame.lastGUID then
+                Engine.RefreshAll(frame)
+            else
+                Engine.FullRepaint(frame)
+            end
+            frame.lastGUID = guid
+        end
     end
 end)
 

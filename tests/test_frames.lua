@@ -131,6 +131,27 @@ WoW.tick(0.6); WoW.tick()
 eq(button("targettarget").health._value, 900, "ticker refreshed targettarget")
 eq(button("targettarget").health._interp, Enum.StatusBarInterpolation.ExponentialEaseOut,
    "the ticker's refresh eases (same unit), it does not snap")
+-- Identity change with no event (targettarget retargets): the ticker sees a
+-- new GUID and snaps instead of easing from the old unit's health.
+WoW.SetUnit("targettargettarget", { name = "Someone Else", reaction = 2, health = 10, maxHealth = 100 })
+GlassUF.Engine._test.ticker.elapsed = 0
+WoW.tick(0.6); WoW.tick()
+eq(button("targettargettarget").health._value, 10, "ticker picked up the new unit")
+eq(button("targettargettarget").health._interp, nil, "a new unit found by polling snaps")
+WoW.units.targettargettarget.health = 20
+GlassUF.Engine._test.ticker.elapsed = 0
+WoW.tick(0.6); WoW.tick()
+eq(button("targettargettarget").health._interp, Enum.StatusBarInterpolation.ExponentialEaseOut,
+   "the same unit on the next tick eases")
+-- A GUID we cannot compare (secret) snaps: conservative.
+WoW.secretFields.guid = true
+WoW.units.targettargettarget.health = 30
+GlassUF.Engine._test.ticker.elapsed = 0
+WoW.tick(0.6); WoW.tick()
+eq(button("targettargettarget").health._interp, nil, "an uncomparable GUID snaps")
+WoW.secretFields.guid = nil
+WoW.SetUnit("targettargettarget", { name = "Defias Pillager", reaction = 2, health = 830, maxHealth = 1317 })
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
 -- A client that rejects the eased call falls back to an instant update.
 local realSetValue = p.health.SetValue
 rawset(p.health, "SetValue", function(self, v, interp)

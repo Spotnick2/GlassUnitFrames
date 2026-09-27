@@ -372,6 +372,12 @@ C_CurveUtil = { CreateCurve = function()
 end }
 
 function UnitExists(u) return WoW.units[u] ~= nil end
+function UnitGUID(u)
+    local un = WoW.units[u]
+    if not un then return nil end
+    if WoW.secretFields.guid then return WoW.Secret(u .. ".guid") end
+    return un.guid or ("GUID-" .. tostring(un.name))
+end
 function UnitHealth(u) return unitField(u, "health") end
 function UnitHealthMax(u) return unitField(u, "maxHealth") end
 function UnitPower(u) return unitField(u, "power") end
