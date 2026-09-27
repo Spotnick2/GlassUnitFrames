@@ -321,8 +321,10 @@ function Glass.Font(parent, size, justify)
     local fs = parent:CreateFontString(nil, "OVERLAY", nil, 7)
     local f = Glass.FONTS[Glass.fontKey] or Glass.FONTS.arial
     fs:SetFont(f.file, size + f.bump, "")
-    fs:SetShadowColor(0, 0, 0, 0.9)
-    fs:SetShadowOffset(1, -1)
+    -- Opaque, slightly longer shadow: at a 0.64 UI scale a 1-unit offset is
+    -- under a pixel, and pale bars (a friendly target's green) washed it out.
+    fs:SetShadowColor(0, 0, 0, 1)
+    fs:SetShadowOffset(1.5, -1.5)
     fs:SetJustifyH(justify or "LEFT")
     fs:SetWordWrap(false)
     table.insert(fontStrings, { fs = fs, size = size })

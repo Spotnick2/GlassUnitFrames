@@ -173,7 +173,8 @@ Glass.SetFont("friz")                            -- restyles every Glass.Font st
   Without `disableMasking` the client returns its own circular portrait on black corners.
 - **Portraits must be refreshed on events** (`UNIT_PORTRAIT_UPDATE`, `UNIT_MODEL_CHANGED`,
   `PLAYER_ENTERING_WORLD`), not only set once at login, when they come back blank.
-- **Text over glass** needs a shadow (`SetShadowOffset(1, -1)`, black 0.9). Arial Narrow
+- **Text over glass** needs a shadow (`SetShadowOffset(1.5, -1.5)`, opaque black; 1 unit at black
+  0.9 washed out over pale bars, since 1 UI unit is under a pixel at a 0.64 scale). Arial Narrow
   (`Fonts\ARIALN.TTF`, client-shipped) reads more modern than Friz Quadrata; it's the default.
 - **The sheen at full brightness washes out text.** Keep its alpha ≤ 0.8 with the narrow
   `sheen2`, and trigger it on events (e.g. a new target), never continuously.
