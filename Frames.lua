@@ -24,8 +24,13 @@ Frames.LAYOUT = {
                      power = true, size = "small" },
     targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -275 },
                      size = "small", ticker = true },
+    -- Above the target frame, focustarget to its right (SUF anchors focus off target).
+    focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -128 },
+                     power = true, size = "small" },
+    focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -128 },
+                     size = "small", ticker = true },
 }
-Frames.ORDER = { "player", "target", "pet", "targettarget" }
+Frames.ORDER = { "player", "target", "pet", "targettarget", "focus", "focustarget" }
 
 -- Our own colour tables: PowerBarColor / FACTION_BAR_COLORS are FrameXML
 -- tables the API dump cannot confirm.

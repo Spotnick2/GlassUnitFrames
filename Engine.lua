@@ -139,21 +139,33 @@ function Engine.Register(frame, opts)
 end
 
 -- Events that change WHICH unit a token means: repaint everything showing it.
+-- UNIT_TARGET fires for the unit whose target changed; its "<unit>target"
+-- chain follows.
+Engine.TOKEN_EVENTS = {
+    PLAYER_TARGET_CHANGED = { "target", "targettarget" },
+    PLAYER_FOCUS_CHANGED  = { "focus", "focustarget" },
+}
+Engine.TARGET_CHAINS = {
+    target = { "targettarget" },
+    focus  = { "focustarget" },
+}
+
 local world = CreateFrame("Frame")
 world:SetScript("OnEvent", function(_, event, unit)
-    if event == "PLAYER_TARGET_CHANGED" then
-        Engine.RepaintUnit("target")
-        Engine.RepaintUnit("targettarget")
-        if Engine.OnTargetChanged then Engine.OnTargetChanged() end
+    local swapped = Engine.TOKEN_EVENTS[event]
+    if swapped then
+        for _, u in ipairs(swapped) do Engine.RepaintUnit(u) end
+        if event == "PLAYER_TARGET_CHANGED" and Engine.OnTargetChanged then Engine.OnTargetChanged() end
     elseif event == "UNIT_TARGET" then
-        if unit == "target" then Engine.RepaintUnit("targettarget") end
+        for _, u in ipairs(Engine.TARGET_CHAINS[unit] or {}) do Engine.RepaintUnit(u) end
     elseif event == "UNIT_PET" then
         if unit == "player" then Engine.RepaintUnit("pet") end
     else   -- PLAYER_ENTERING_WORLD
         for u in pairs(framesByUnit) do Engine.RepaintUnit(u) end
     end
 end)
-API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_TARGET", "UNIT_PET" })
+API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD",
+                            "UNIT_TARGET", "UNIT_PET" })
 
 Engine._test = { dirty = function() return dirty end, flusher = flusher, trackers = trackers,
                  framesByUnit = framesByUnit, world = world }

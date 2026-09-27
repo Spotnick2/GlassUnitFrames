@@ -22,7 +22,8 @@ technique, the reference is DinoUnitFrames (see "Reference addons" below).
    choices live in `docs/SUF-INVENTORY.md` ("Owner's picks").
 
 **Status: proof of concept.** The look is settled (`docs/FOREVER-PROBE.md`). The addon skeleton
-runs on live unit data for player, target, pet and targettarget (issue #1). Work goes through
+runs on live unit data for player, target, pet, targettarget, focus and focustarget. The roadmap is
+`docs/SUF-INVENTORY.md` ("Owner's picks"), one issue each. Work goes through
 GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
 ## Layout
@@ -45,8 +46,9 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - events grouped into channels (name, health, power, portrait, cast);
   - dirty channels flushed once per rendered frame;
   - the cast channel painted immediately with its event;
-  - a 0.5 s ticker for `targettarget`;
-  - full repaints on `PLAYER_TARGET_CHANGED` / `UNIT_TARGET` / `UNIT_PET` / `OnShow`.
+  - a 0.5 s ticker for event-less tokens (`targettarget`, `focustarget`);
+  - full repaints when a token changes meaning: `TOKEN_EVENTS` (`PLAYER_TARGET_CHANGED`,
+    `PLAYER_FOCUS_CHANGED`), `TARGET_CHAINS` (`UNIT_TARGET`), `UNIT_PET`, and `OnShow`.
 - **`Frames.lua`**: `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
