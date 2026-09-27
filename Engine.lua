@@ -132,6 +132,10 @@ function Engine.Register(frame, opts)
     end
 
     frame:HookScript("OnShow", function() Engine.FullRepaint(frame) end)
+    -- First paint. A build deferred past PLAYER_ENTERING_WORLD has missed that
+    -- repaint, and RegisterUnitWatch may already have shown the frame before
+    -- the OnShow hook above existed.
+    Engine.FullRepaint(frame)
 end
 
 -- Events that change WHICH unit a token means: repaint everything showing it.

@@ -61,9 +61,18 @@ WoW.combat = true
 loadAddon()
 eq(next(GlassUF.Frames.byUnit), nil, "no secure frames built under lockdown")
 eq(#WoW.blocked, 0, "nothing blocked while deferring the build")
+-- Review #3: a reset queued behind the deferred build must not run first
+-- (it needs Frames.db) and must not lose the build.
+SlashCmdList.GLASSUNITFRAMES("reset")
 WoW.combat = false
 WoW.fire("PLAYER_REGEN_ENABLED")
 check(button("player") ~= nil, "frames built once combat ends")
+check(button("target") ~= nil, "all frames built, not just some")
+-- Review #3: PLAYER_ENTERING_WORLD fired before the build, so without a
+-- first paint at registration these would still be blank.
+WoW.tick()
+eq(textOf(button("player").nameText), "Morphisto", "deferred build paints the player at once")
+eq(button("target").health._value, 830, "deferred build paints the target at once")
 
 -- A saved position is applied at load.
 WoW.reset()

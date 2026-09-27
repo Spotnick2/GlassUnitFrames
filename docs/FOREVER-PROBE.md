@@ -107,3 +107,13 @@ colouring by class and reaction keeps working mid-fight. Health and power are se
 | targettarget in combat | Tracks ("Morphisto Ruskador 94%" while the mob targets the player) |
 
 **Probe 3 and probe 4 are closed for 70009.** Everything the POC set out to prove works in game.
+
+### Continuous run (54 s capture, same build as the post-review run)
+
+Four pulls in a row (Defias Cutpurse, Cow, Defias Bandit, Defias Rogue Wizard), sampled every 2 s.
+The target frame appeared with each target and hid when it died or was cleared, with no stale
+frames. Target health and mana tracked continuously (wizard 100 → 86 → 61 → 36 → 25%, mana 382 →
+232, all secret). Player health went down and regenerated (381 → 390 → 399 → 408 → 409). Cast pills
+stayed in step with Blizzard's bars ("Immolate", "Frostbolt 1.9s → 0.1s"). targettarget swapped
+between the player and the pet as the mob switched. Sub-2-second behaviour (flicker, the sheen
+sweep) was not inspected.
