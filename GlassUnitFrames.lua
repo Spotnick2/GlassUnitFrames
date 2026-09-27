@@ -21,16 +21,28 @@ local function ensureDefaults()
     return db
 end
 
--- Anything that touches the secure frames waits for combat to end.
-local pending = {}
+-- Anything that touches the secure frames waits for combat to end. The queue
+-- is ordered (a repeated key keeps its slot, newest function wins) and the
+-- build always runs first: every other action assumes the frames exist.
+local pending, order = {}, {}
 
-local function whenOutOfCombat(key, fn)
+local function whenOutOfCombat(key, fn, message)
     if InCombatLockdown() then
+        if not pending[key] then order[#order + 1] = key end
         pending[key] = fn
-        say("will do that when combat ends")
+        say(message or "will do that when combat ends")
         return
     end
     fn()
+end
+
+local function runPending()
+    local run, keys = pending, order
+    pending, order = {}, {}
+    if run.build then run.build() end
+    for _, key in ipairs(keys) do
+        if key ~= "build" then run[key]() end
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -123,7 +135,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         Glass.SetFont(db.font)
         -- Secure frames cannot be set up under lockdown. Loading normally runs
         -- before it applies, but do not bet the whole addon on that.
-        whenOutOfCombat("build", function() Frames.Build(db) end)
+        whenOutOfCombat("build", function() Frames.Build(db) end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- arg1 = isInitialLogin: warn at a real login, never on /reload.
         if arg1 and API.ClientBuild() ~= GlassUF.MEASURED_ON_BUILD then
@@ -135,9 +147,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
     elseif event == "PLAYER_REGEN_ENABLED" then
         if InCombatLockdown() then return end   -- trust the lockdown state, not the event
         Frames.StopMoving()                     -- finish a drag combat caught mid-way
-        local run = pending
-        pending = {}
-        for _, fn in pairs(run) do fn() end
+        runPending()
     end
 end)
 API.RegisterEvents(boot, { "ADDON_LOADED", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" })
