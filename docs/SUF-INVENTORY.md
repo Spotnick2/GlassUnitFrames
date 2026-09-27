@@ -31,26 +31,28 @@ Items marked *have* already exist.
 - [ ] leader / assistant icon (S)
 - [ ] combat / resting icon (S)
 - [ ] PvP flag icon (S)
-- [ ] party frames (L; measure whether the secure group header works before choosing)
 
 **Likely**
 - [ ] focus + focustarget (S; same single-unit path)
 - [ ] buffs/debuffs on target and player via the managed AuraContainer (M; **no filtering possible**)
 - [ ] incoming heal bar via the heal calculator (M)
-- [ ] range fading on party (M; `C_Spell.IsSpellInRange` secrecy unmeasured)
 - [ ] mouseover / rare-elite highlight (S)
 - [ ] combo points for Rogue/Druid via a colour curve (M; can't hide at 0)
 - [ ] font / texture choice (LibSharedMedia) and a per-character profile with an import/export string (M)
 
 **Optional**
-- [ ] raid frames (L)
 - [ ] druid mana bar (S)
 - [ ] XP / reputation bar (S–M)
 - [ ] combat text over frames (S)
 - [ ] zone-based visibility (S)
-- [ ] Clique registration (S)
 - [ ] targettargettarget / pettarget (S)
 - [ ] options UI (L; only if runtime reconfiguration stays out of secure paths)
+
+**Out of scope by choice: party and raid frames** (decided 2026-09-27). The owner uses
+**Cell** for group frames. If group frames ever happen, the plan is a glass-styled port of Cell
+(no Forever port exists yet), not SUF's headers. That also drops everything that only serves
+group frames: party/raid headers, partypet/partytarget, maintank/mainassist, party range fading,
+target/focus highlights on party frames, sorting and group filters, and Clique registration.
 
 **Not feasible under secrecy** (listed so nobody tries): aura filtering and white/black lists,
 aura indicators, dispel-coloured health or borders, combat fader on health/power, cast pushback

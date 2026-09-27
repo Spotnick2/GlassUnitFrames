@@ -17,6 +17,9 @@ technique, the reference is DinoUnitFrames (see "Reference addons" below).
    an animated sheen. `docs/POC-PLAN.md` is the plan, already reviewed by Codex.
 2. A **streamlined Shadowed Unit Frames**. The owner uses a small fraction of SUF, so keep only
    what earns its place. Don't port SUF's module zoo, tag DSL or options tree by default.
+   **Party and raid frames are out of scope**: the owner uses Cell for group frames. If group
+   frames ever happen, they would be a glass-styled port of Cell, not SUF's headers. The feature
+   choices live in `docs/SUF-INVENTORY.md` ("Owner's picks").
 
 **Status: proof of concept.** The look is settled (`docs/FOREVER-PROBE.md`). The addon skeleton
 runs on live unit data for player, target, pet and targettarget (issue #1). Work goes through
