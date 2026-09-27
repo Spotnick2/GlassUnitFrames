@@ -409,6 +409,7 @@ local function report()
 end
 
 local HELP = {
+    "show | hide  - the probe starts hidden",
     "fill empty|tiny|half|full|<0-1>  - set health (plays the sheen)",
     "sheen  - play the sheen once;  sheenloop - repeat it every 2.5s",
     "layer <name>  - toggle a layer (no name lists them)",
@@ -489,6 +490,8 @@ local function slash(msg)
         local ok = P.late:SetTexture(MEDIA .. "late")
         P.late:SetVertexColor(1, 0.2, 0.8)
         say("late.tga SetTexture returned " .. tostring(ok) .. " - a pink square above the frame means it loaded")
+    elseif cmd == "show" or cmd == "hide" then
+        P.root:SetShown(cmd == "show")
     elseif cmd == "report" then
         report()
     elseif cmd == "reset" then
@@ -514,6 +517,7 @@ boot:SetScript("OnEvent", function(self, event)
     if P.root then
         try("style 4", applyStyle, 4)
         setFill(0.8)
+        P.root:Hide()   -- hidden until /gprobe show: it is a tuning tool, not a frame to live with
     end
     try("portrait events", function()
         self:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -523,5 +527,5 @@ boot:SetScript("OnEvent", function(self, event)
     C_Timer.After(1, function() try("portrait delayed refresh", refreshPortrait) end)
     local bad = 0
     for _, s in ipairs(steps) do if not s.ok then bad = bad + 1 end end
-    say(string.format("%d steps, %d failed. /gprobe help", #steps, bad))
+    say(string.format("%d steps, %d failed. Hidden: /gprobe show", #steps, bad))
 end)
