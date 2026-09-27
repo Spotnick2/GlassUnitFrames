@@ -84,6 +84,13 @@ function API.HealthPercent(unit)
     return UnitHealthPercent(unit, true, curve)
 end
 
+-- Power percent (0..100) of the unit's display power, as the client returns it.
+function API.PowerPercent(unit)
+    local curve = API.PercentCurve()
+    if not (curve and UnitPowerPercent) then return nil end
+    return UnitPowerPercent(unit, nil, false, curve)
+end
+
 -- Cast/channel timing as a LuaDurationObject, or nil. Lua never reads the
 -- start/end numbers; StatusBar:SetTimerDuration animates natively.
 function API.CastDuration(unit)

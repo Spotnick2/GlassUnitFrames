@@ -85,6 +85,7 @@ function WoW.reset()
     WoW.shift = false
     WoW.secretFields = {}     -- field -> true: that unit field comes back secret for every unit
     WoW.units = {}
+    WoW.raid = nil
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
 end
@@ -96,7 +97,8 @@ function WoW.SetUnit(token, t)
     if t == nil then WoW.units[token] = nil return end
     local u = { exists = true, health = 1000, maxHealth = 1000, power = 500, maxPower = 500,
                 powerToken = "MANA", name = token, class = "WARRIOR", player = false, reaction = 5,
-                dead = false, connected = true, visible = true, tapDenied = false }
+                dead = false, connected = true, visible = true, tapDenied = false,
+                level = 10, classification = "normal", afk = false }
     for k, v in pairs(t) do u[k] = v end
     WoW.units[token] = u
 end
@@ -394,6 +396,25 @@ function UnitIsConnected(u) return unitField(u, "connected") end
 function UnitIsDeadOrGhost(u) return unitField(u, "dead") end
 function UnitIsTapDenied(u) return unitField(u, "tapDenied") end
 function UnitIsVisible(u) return unitField(u, "visible") end
+function UnitLevel(u) return unitField(u, "level") end
+function UnitClassification(u) return unitField(u, "classification") end
+function UnitIsAFK(u) return unitField(u, "afk") end
+function UnitPowerPercent(u, powerType, unmodified, curve)
+    local p, m = unitField(u, "power"), unitField(u, "maxPower")
+    if p == nil then return nil end
+    if secrets[p] or secrets[m] then return WoW.Secret(u .. ".powerPercent") end
+    local frac = (m and m > 0) and p / m or 0
+    local p1, p2 = curve.points[1], curve.points[2]
+    return p1[2] + (p2[2] - p1[2]) * frac
+end
+-- Raid roster: WoW.raid = { [unit] = { index = n, subgroup = g } } while in a raid.
+function IsInRaid() return WoW.raid ~= nil end
+function UnitInRaid(u) return WoW.raid and WoW.raid[u] and WoW.raid[u].index or nil end
+function GetRaidRosterInfo(index)
+    for u, r in pairs(WoW.raid or {}) do
+        if r.index == index then return unitField(u, "name"), 0, r.subgroup end
+    end
+end
 
 local function durationFor(u, channel)
     local un = WoW.units[u]

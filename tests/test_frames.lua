@@ -29,13 +29,20 @@ local p = button("player")
 eq(p.health._max, 1550, "player health max")
 eq(p.health._value, 1240, "player health value")
 eq(textOf(p.nameText), "Morphisto", "player name")
-eq(textOf(p.valueText), "1.2K | 80%", "player value text")
-eq(textOf(p.powerText), "920", "player power text")
+eq(textOf(p.valueText), AbbreviateNumbers(1240) .. "/" .. AbbreviateNumbers(1550), "player health: cur/max")
+eq(textOf(p.powerText), "920/" .. AbbreviateNumbers(1270), "player power right: cur/max")
+eq(textOf(p.powerLeftText), "72%", "player power left: percent")
+local t0 = button("target")
+eq(textOf(t0.valueText), "830/" .. AbbreviateNumbers(1317) .. " | 63%", "target health: cur/max | pct")
+eq(textOf(t0.powerLeftText), "10  100%", "target power left: level + power percent")
+eq(textOf(button("targettarget").valueText), AbbreviateNumbers(1240), "targettarget: current health")
+eq(textOf(button("focus").valueText), "666", "focus: current health")
+check(button("pet").powerLeftText == nil and button("pet").powerText == nil, "small frames carry no power text")
 eq(p.power._value, 920, "player power value")
 eq(p.health._color[3], 0.93, "player coloured by class")
 eq(button("target").health._color[1], 0.85, "hostile target is red")
 eq(button("pet").power._color[1], 1.00, "pet focus coloured")
-eq(textOf(button("pet").valueText), "100%", "small frame shows percent only")
+eq(textOf(button("pet").valueText), "400/400", "pet: cur/max health")
 eq(button("player").model._modelUnit, "player", "3D portrait set to the unit")
 
 -- A unit event repaints on the next rendered frame, once.
@@ -45,7 +52,56 @@ WoW.fire("UNIT_HEALTH", "player")
 eq(p.health._value, 1240, "not painted before the flush")
 WoW.tick()
 eq(p.health._value, 775, "painted after the flush")
-eq(textOf(p.valueText), "775 | 50%", "value text after damage")
+eq(textOf(p.valueText), "775/" .. AbbreviateNumbers(1550), "value text after damage")
+
+-- #10: level + classification on the target's power line; AFK tag; the
+-- player's raid group number, following GROUP_ROSTER_UPDATE.
+WoW.units.target.level = 12
+WoW.units.target.classification = "elite"
+WoW.fire("UNIT_CLASSIFICATION_CHANGED", "target"); WoW.tick()
+eq(textOf(button("target").powerLeftText), "12 Elite  100%", "target power left: level, classification, power")
+WoW.units.target.level = -1
+WoW.units.target.classification = "worldboss"
+WoW.fire("UNIT_LEVEL", "target"); WoW.tick()
+eq(textOf(button("target").powerLeftText), "?? Boss  100%", "boss: ?? level")
+WoW.units.target.level, WoW.units.target.classification = 10, "normal"
+WoW.units.player.afk = true
+WoW.fire("PLAYER_FLAGS_CHANGED", "player"); WoW.tick()
+eq(textOf(p.nameText), "(AFK) Morphisto", "AFK tag")
+WoW.units.player.afk = false
+-- A targeted player going AFK: the client fires PLAYER_FLAGS_CHANGED with
+-- their group token (raidN), never "target"; the target's tag must follow.
+WoW.units.target.afk = true
+WoW.fire("PLAYER_FLAGS_CHANGED", "raid9"); WoW.tick()
+check(textOf(button("target").nameText):find("^%(AFK%)"), "target AFK tag follows a group-token event")
+WoW.units.target.afk = false
+WoW.fire("PLAYER_FLAGS_CHANGED", "raid9"); WoW.tick()
+WoW.raid = { player = { index = 5, subgroup = 3 }, target = { index = 9, subgroup = 2 } }
+local modelSets = 0
+local realSetUnit = p.model.SetUnit
+rawset(p.model, "SetUnit", function(self, ...) modelSets = modelSets + 1; return realSetUnit(self, ...) end)
+WoW.fire("GROUP_ROSTER_UPDATE"); WoW.tick()
+eq(textOf(p.nameText), "Morphisto (3)", "raid group number on the player")
+WoW.fire("UNIT_NAME_UPDATE", "target"); WoW.tick()   -- repaint the target's name line too
+check(not textOf(button("target").nameText):find("%(%d%)"), "group number only where the layout asks (target is in the raid too)")
+eq(modelSets, 0, "a roster change does not reload the 3D portrait")
+WoW.raid = nil
+WoW.fire("GROUP_ROSTER_UPDATE"); WoW.tick()
+eq(textOf(p.nameText), "Morphisto", "no group number out of a raid")
+
+-- No power (max plainly 0): no "0%". A failed health format falls back to the percent.
+WoW.units.player.maxPower, WoW.units.player.power = 0, 0
+WoW.fire("UNIT_MAXPOWER", "player"); WoW.tick()
+eq(textOf(p.powerLeftText), "", "no power: percent blank")
+WoW.units.player.maxPower, WoW.units.player.power = 1270, 920
+WoW.fire("UNIT_MAXPOWER", "player"); WoW.tick()
+local realAbbr = AbbreviateNumbers
+AbbreviateNumbers = function() error("client refused") end
+WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
+eq(textOf(p.valueText), "50%", "health text falls back to the percent")
+AbbreviateNumbers = realAbbr
+GlassUF.paintFailures = {}
+WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
 
 -- Dead and offline read as words.
 WoW.units.target.dead = true
@@ -66,6 +122,7 @@ eq(button("target").sheen._plays, plays + 1, "sheen plays on a new target")
 
 -- targettarget has no unit events: the ticker repaints it while shown.
 WoW.units.targettarget.health = 155
+GlassUF.Engine._test.ticker.elapsed = 0          -- fix the shared ticker's phase
 WoW.tick(0.3); WoW.tick()
 eq(button("targettarget").health._value, 1240, "no repaint before 0.5s")
 WoW.tick(0.3); WoW.tick()

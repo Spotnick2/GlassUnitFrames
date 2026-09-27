@@ -52,8 +52,8 @@ flash; drag positioning.
 1. [x] Hide Blizzard player / pet / target / focus frames (SUF's default set; party stays for
        Cell). Measure Edit Mode behaviour. (S)
 2. [x] Focus + focustarget frames. (S)
-3. [ ] targettargettarget frame, name only. (S)
-4. [ ] Text formats from the profile: AFK tag and group number on names; target health
+3. [x] targettargettarget frame, name only. (S)
+4. [x] Text formats from the profile: AFK tag and group number on names; target health
        "cur/max | pct"; a "level classification pwr%" line; power as percent; ToT/focus current
        health. (S–M)
 5. [ ] Indicators: raid target and leader (+ PvP, master looter as defaults had them). (S)
