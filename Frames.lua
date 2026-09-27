@@ -535,12 +535,14 @@ local function buildResting(top, large)
     holder:SetFrameLevel(top:GetFrameLevel() + 1)
     local s = large and 22 or 16
     holder:SetSize(s, s)
-    holder:SetPoint("CENTER", top, "TOPLEFT", s * 0.35, -s * 0.35)
+    -- Tucked into the corner so it reads as attached to the portrait (the
+    -- flipbook's Zs rise up and right from the bottom-left of its cell).
+    holder:SetPoint("CENTER", top, "TOPLEFT", s * 0.5, -s * 0.6)
     local tex = holder:CreateTexture(nil, "OVERLAY", nil, 7)
     if hasAtlas(REST_ATLAS) then
         tex:SetAtlas(REST_ATLAS)
         tex:SetSize(s, s * 21 / 16)   -- one flipbook cell is 16x21
-        tex:SetPoint("CENTER", holder, "CENTER", 0, 2)
+        tex:SetPoint("CENTER", holder, "CENTER", 0, 0)
         local anim = holder:CreateAnimationGroup()
         anim:SetLooping("REPEAT")
         local flip = anim:CreateAnimation("FlipBook")
