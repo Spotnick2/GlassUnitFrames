@@ -24,12 +24,16 @@ Engine.CHANNEL_EVENTS = {
                  "UNIT_CLASSIFICATION_CHANGED" },
     name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CONNECTION" },
     portrait = { "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" },
+    -- Raid target / leader / loot / PvP icons. Most of their triggers are
+    -- group-wide events, handled by the world frame below; only the PvP flag
+    -- is per unit.
+    indicators = { "UNIT_FACTION" },
     cast     = { "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
                  "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
                  "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
                  "UNIT_SPELLCAST_CHANNEL_STOP" },
 }
-Engine.ORDER = { "name", "health", "power", "portrait", "cast" }
+Engine.ORDER = { "name", "health", "power", "portrait", "indicators", "cast" }
 
 local painters = {}
 local framesByUnit = {}      -- unit -> { frame, ... }
@@ -48,9 +52,16 @@ function Engine.SetPainter(channel, fn)
     painters[channel] = fn
 end
 
+-- A painter that throws must not take the rest of the flush with it (nor
+-- leave frame.snap set): record the first error per channel and carry on.
+GlassUF.paintFailures = GlassUF.paintFailures or {}
 local function paint(frame, channel, event)
     local fn = painters[channel]
-    if fn and frame.channels[channel] then fn(frame, event) end
+    if not (fn and frame.channels[channel]) then return end
+    local ok, err = pcall(fn, frame, event)
+    if not ok and GlassUF.paintFailures["painter " .. channel] == nil then
+        GlassUF.paintFailures["painter " .. channel] = tostring(err)
+    end
 end
 
 -- One flush per rendered frame. Hidden (idle) until something is dirty.
@@ -181,16 +192,20 @@ world:SetScript("OnEvent", function(_, event, unit)
         -- Only the name line carries the group number: repainting the whole
         -- frame would reload the 3D portrait on every roster change.
         Engine.RepaintChannel("name", function(f) return f.layout and f.layout.groupNumber end)
+        Engine.RepaintChannel("indicators")
     elseif event == "PLAYER_FLAGS_CHANGED" then
         -- Fires with group tokens (player, partyN, raidN), never target/focus:
         -- refresh every name line so an AFK tag on target or focus follows too.
         Engine.RepaintChannel("name")
+    elseif event == "RAID_TARGET_UPDATE" or event == "PARTY_LEADER_CHANGED" or event == "PARTY_LOOT_METHOD_CHANGED" then
+        Engine.RepaintChannel("indicators")
     elseif event == "PLAYER_ENTERING_WORLD" then
         for u in pairs(framesByUnit) do Engine.RepaintUnit(u) end
     end
 end)
 API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_PET",
-                            "GROUP_ROSTER_UPDATE", "PLAYER_FLAGS_CHANGED" })
+                            "GROUP_ROSTER_UPDATE", "PLAYER_FLAGS_CHANGED", "RAID_TARGET_UPDATE",
+                            "PARTY_LEADER_CHANGED", "PARTY_LOOT_METHOD_CHANGED" })
 
 -- UNIT_TARGET: registered per base unit so the client filters it (it fires for
 -- every nameplate/party/raid unit otherwise). The unit whose target changed

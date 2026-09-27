@@ -86,6 +86,7 @@ function WoW.reset()
     WoW.secretFields = {}     -- field -> true: that unit field comes back secret for every unit
     WoW.units = {}
     WoW.raid = nil
+    WoW.masterLooter = false
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
 end
@@ -98,7 +99,8 @@ function WoW.SetUnit(token, t)
     local u = { exists = true, health = 1000, maxHealth = 1000, power = 500, maxPower = 500,
                 powerToken = "MANA", name = token, class = "WARRIOR", player = false, reaction = 5,
                 dead = false, connected = true, visible = true, tapDenied = false,
-                level = 10, classification = "normal", afk = false }
+                level = 10, classification = "normal", afk = false,
+                leader = false, assistant = false, pvp = false, ffa = false, faction = "Horde" }
     for k, v in pairs(t) do u[k] = v end
     WoW.units[token] = u
 end
@@ -407,6 +409,18 @@ function UnitPowerPercent(u, powerType, unmodified, curve)
     local p1, p2 = curve.points[1], curve.points[2]
     return p1[2] + (p2[2] - p1[2]) * frac
 end
+-- Indicators. Unit fields: raidTarget (index or nil), leader, assistant, pvp,
+-- ffa, faction. WoW.masterLooter: the player is master looter.
+function GetRaidTargetIndex(u) return unitField(u, "raidTarget") end
+function SetRaidTargetIconTexture(tex, index) tex._raidIndex = index end
+function Methods.SetSpriteSheetCell(t, cell, rows, cols) t._raidIndex, t._sheet = cell, { rows, cols } end
+function UnitIsGroupLeader(u) return unitField(u, "leader") end
+function UnitIsGroupAssistant(u) return unitField(u, "assistant") end
+function UnitIsPVP(u) return unitField(u, "pvp") end
+function UnitIsPVPFreeForAll(u) return unitField(u, "ffa") end
+function UnitFactionGroup(u) return unitField(u, "faction") end
+function IsMasterLooter() return WoW.masterLooter == true end
+
 -- Raid roster: WoW.raid = { [unit] = { index = n, subgroup = g } } while in a raid.
 function IsInRaid() return WoW.raid ~= nil end
 function UnitInRaid(u) return WoW.raid and WoW.raid[u] and WoW.raid[u].index or nil end

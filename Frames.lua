@@ -18,23 +18,29 @@ local GAP = 3    -- between portrait tile and body
 Frames.LAYOUT = {
     player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -190 },
                      portrait = "left", power = true, cast = true, size = "large", groupNumber = true,
+                     indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -190 },
                      portrait = "right", power = true, cast = true, sheen = true, size = "large",
+                     indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
     pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -275 },
-                     power = true, size = "small", text = { healthRight = "curmaxhp" } },
+                     power = true, size = "small", text = { healthRight = "curmaxhp" },
+                     indicators = { raidTarget = true } },
     targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -275 },
-                     size = "small", ticker = true, text = { healthRight = "curhp" } },
+                     size = "small", ticker = true, text = { healthRight = "curhp" },
+                     indicators = { raidTarget = true } },
     -- Below targettarget (fits narrow screens too); name only, as the owner's SUF profile had it.
     targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -305 },
-                     size = "small", ticker = true, nameOnly = true },
+                     size = "small", ticker = true, nameOnly = true, indicators = { raidTarget = true } },
     -- Fixed spots near the target frame (above it, focustarget to the right); they
     -- do not follow a moved target frame.
     focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -128 },
-                     power = true, size = "small", text = { healthRight = "curhp" } },
+                     power = true, size = "small", text = { healthRight = "curhp" },
+                     indicators = { raidTarget = true, leader = true } },
     focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -128 },
-                     size = "small", ticker = true, text = { healthRight = "curhp" } },
+                     size = "small", ticker = true, text = { healthRight = "curhp" },
+                     indicators = { raidTarget = true } },
 }
 Frames.ORDER = { "player", "target", "pet", "targettarget", "targettargettarget", "focus", "focustarget" }
 
@@ -57,7 +63,7 @@ local function plain(fn, ...)
 end
 
 -- Run a paint step; remember the first failure per step for /glass secrets.
-GlassUF.paintFailures = {}
+GlassUF.paintFailures = GlassUF.paintFailures or {}   -- shared with Engine.paint
 local function attempt(key, fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok and GlassUF.paintFailures[key] == nil then
@@ -235,6 +241,67 @@ Engine.SetPainter("portrait", function(f)
     end)
 end)
 
+-- Indicators: SUF's default set as the owner's profile kept it (modules/
+-- indicators.lua). Every fact read through plain(): a secret never branches.
+-- Master looter is shown on the player frame only: IsMasterLooter() answers
+-- that directly (Enum.LootMethod is not in the API dump).
+local function playerIsMasterLooter()
+    return plain(IsMasterLooter) == true
+end
+
+Engine.SetPainter("indicators", function(f)
+    local ind, u = f.indicators, f.unit
+    if not (ind and UnitExists(u)) then return end
+    if ind.raidTarget then
+        -- The mark index is SECRET for other units on Forever (measured: mark=S
+        -- on a marked target). SetRaidTargetIconTexture does the texcoord maths
+        -- in Lua, which a secret would break; SetSpriteSheetCell lets the
+        -- client pick the cell from the index itself. The marker texture is a
+        -- 4x4 sheet with marks 1-8 in reading order, as Blizzard's maths assumes.
+        local okIdx, idx = pcall(GetRaidTargetIndex, u)
+        local icon = ind.raidTarget
+        if okIdx and (API.IsSecret(idx) or type(idx) == "number") then
+            if pcall(icon.SetSpriteSheetCell, icon, idx, 4, 4) then icon:Show() else icon:Hide() end
+        else
+            icon:Hide()   -- plain nil: no mark
+        end
+    end
+    if ind.leader then
+        if plain(UnitIsGroupLeader, u) == true then
+            ind.leader:SetTexture("Interface\\GroupFrame\\UI-Group-LeaderIcon")
+            ind.leader:Show()
+        elseif plain(UnitIsGroupAssistant, u) == true then
+            ind.leader:SetTexture("Interface\\GroupFrame\\UI-Group-AssistantIcon")
+            ind.leader:Show()
+        else
+            ind.leader:Hide()
+        end
+    end
+    if ind.masterLoot then
+        local show = playerIsMasterLooter()
+        -- Sit right of the leader icon when it shows, else take the corner itself.
+        ind.masterLoot:ClearAllPoints()
+        if ind.leader and ind.leader:IsShown() then
+            ind.masterLoot:SetPoint("LEFT", ind.leader, "RIGHT", 2, 0)
+        else
+            ind.masterLoot:SetPoint("CENTER", f.indCorner.anchor, "TOPLEFT", f.indCorner.x, 0)
+        end
+        ind.masterLoot:SetShown(show)
+    end
+    if ind.pvp then
+        local faction = plain(UnitFactionGroup, u)
+        if plain(UnitIsPVPFreeForAll, u) == true then
+            ind.pvp:SetTexture("Interface\\TargetingFrame\\UI-PVP-FFA")
+            ind.pvp:Show()
+        elseif (faction == "Alliance" or faction == "Horde") and plain(UnitIsPVP, u) == true then
+            ind.pvp:SetTexture("Interface\\TargetingFrame\\UI-PVP-" .. faction)
+            ind.pvp:Show()
+        else
+            ind.pvp:Hide()
+        end
+    end
+end)
+
 local CAST_STOP = { UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_CHANNEL_STOP = true }
 local CAST_FAIL = { UNIT_SPELLCAST_FAILED = "Failed", UNIT_SPELLCAST_INTERRUPTED = "Interrupted" }
 
@@ -384,6 +451,49 @@ local function buildCast(b, body, L)
     return c
 end
 
+-- Indicator icons on the glass top layer (above the rim). Raid target sits on
+-- the top edge, leader and loot on the top-left corner, PvP on the portrait.
+local function buildIndicators(b, body, g, L, tileGlass)
+    local want = L.indicators
+    if not want then return end
+    local large = L.size == "large"
+    local ind = {}
+    local function icon(size)
+        local t = g.top:CreateTexture(nil, "OVERLAY", nil, 7)
+        t:SetSize(size, size)
+        t:Hide()
+        return t
+    end
+    if want.raidTarget then
+        ind.raidTarget = icon(large and 20 or 14)
+        ind.raidTarget:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+        ind.raidTarget:SetPoint("CENTER", body, "TOP", 0, 0)
+    end
+    local cornerX = large and 14 or 9   -- the top-left corner slot
+    b.indCorner = { anchor = body, x = cornerX }
+    if want.leader then
+        ind.leader = icon(large and 14 or 11)
+        ind.leader:SetPoint("CENTER", body, "TOPLEFT", cornerX, 0)
+    end
+    if want.masterLoot then
+        ind.masterLoot = icon(large and 12 or 10)
+        ind.masterLoot:SetTexture("Interface\\GroupFrame\\UI-Group-MasterLooter")
+        ind.masterLoot:SetPoint("CENTER", body, "TOPLEFT", cornerX, 0)
+    end
+    -- PvP badge on the portrait tile's own top layer, inset so it stays on the
+    -- tile, in the corner away from the body (mirrored for a right-side portrait).
+    if want.pvp and tileGlass then
+        local s = large and 24 or 18
+        local left = L.portrait == "left"
+        ind.pvp = tileGlass.top:CreateTexture(nil, "OVERLAY", nil, 7)
+        ind.pvp:SetSize(s, s)
+        ind.pvp:SetPoint("CENTER", tileGlass.top, left and "BOTTOMLEFT" or "BOTTOMRIGHT",
+            left and s / 2 or -s / 2, s / 2)
+        ind.pvp:Hide()
+    end
+    b.indicators = ind
+end
+
 local function build(unit)
     local L = Frames.LAYOUT[unit]
     local size = L.size
@@ -392,7 +502,7 @@ local function build(unit)
     local b = CreateFrame("Button", "GlassUF_" .. unit, UIParent, "SecureUnitButtonTemplate")
     b.unit, b.layout = unit, L
     local hasPower = L.power and not L.nameOnly   -- nameOnly: just the name over a health bar
-    b.channels = { name = true, health = true, power = hasPower or nil,
+    b.channels = { name = true, health = true, power = hasPower or nil, indicators = L.indicators and true or nil,
                    portrait = L.portrait and true or nil, cast = L.cast or nil }
     b:SetSize(L.w + tileW, L.h)
     b:SetAttribute("unit", unit)
@@ -451,12 +561,13 @@ local function build(unit)
         end
     end
 
+    local tileGlass
     if L.portrait then
         local tile = CreateFrame("Frame", nil, b)
         tile:SetSize(L.h, L.h)
         tile:SetPoint(L.portrait == "left" and "LEFT" or "RIGHT", b, L.portrait == "left" and "LEFT" or "RIGHT")
         tile:SetFrameLevel(b:GetFrameLevel() + 1)
-        Glass.Apply(tile, "large")
+        tileGlass = Glass.Apply(tile, "large")
         local m = CreateFrame("PlayerModel", nil, tile)
         local mi = Glass.Inset("large") - 1
         m:SetPoint("TOPLEFT", tile, "TOPLEFT", mi, -mi)
@@ -467,6 +578,7 @@ local function build(unit)
     end
 
     if L.cast then b.cast = buildCast(b, body, L) end
+    buildIndicators(b, body, g, L, tileGlass)
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     RegisterUnitWatch(b)

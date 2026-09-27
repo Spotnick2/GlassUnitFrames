@@ -64,6 +64,7 @@ local SECRET_PROBES = {
     { "react",  function(u) return UnitReaction(u, "player") end },
     { "dead",   function(u) return UnitIsDeadOrGhost(u) end },
     { "cast",   function(u) return (API.CastDuration(u)) end },
+    { "mark",   function(u) return GetRaidTargetIndex(u) end },
 }
 
 local function classify(fn, u)
@@ -81,6 +82,10 @@ local function secretsReport()
         if UnitExists(u) then
             local parts = {}
             for _, p in ipairs(SECRET_PROBES) do parts[#parts + 1] = p[1] .. "=" .. classify(p[2], u) end
+            -- What the raid-mark icon on this frame is actually doing.
+            local f = Frames.byUnit[u]
+            local icon = f and f.indicators and f.indicators.raidTarget
+            if icon then parts[#parts + 1] = "markIcon=" .. (icon:IsShown() and "shown" or "hidden") end
             say("  " .. u .. ": " .. table.concat(parts, " "))
         else
             say("  " .. u .. ": (no unit)")
