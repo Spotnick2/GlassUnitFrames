@@ -54,3 +54,56 @@ an inner-lip catch-light, cool light tint), **3D portrait**, **Arial Narrow** (f
 setting). Verdict on the POC's primary question: **the glass reads convincingly** on warm
 sandstone and dark grass. The one visible gap against the mockup is true background blur, which
 addons cannot do: the scene shows through the body sharp rather than frosted.
+
+## Probe 3 (partial): live secure frames in combat (build 1.60.1.70009, 2026-09-27)
+
+Instrument: GlassUnitFrames at PR #2's first commit (before the review fixes: both click edges
+registered, colour set before the timer). One screenshot in combat against a Mangy Wolf, with the
+player channelling Drain Life.
+
+| Question | Result |
+|---|---|
+| `SecureUnitButtonTemplate` + `RegisterUnitWatch` for player, target, pet and targettarget | **All four shown with their units**, targettarget included (the wolf targeting the pet) |
+| Health/power bars and "value \| pct" text on live units, in combat | **Render and update**: "4 \| 3%" on the target, "409 \| 100%" on the player. The masked fill is rounded at 3% |
+| Channel via `UnitChannelDuration` → `StatusBar:SetTimerDuration(d, nil, RemainingTime)` + `GetRemainingDuration` → `SetFormattedText("%.1fs")` | **Works in combat**: "Drain Life 2.9s", draining |
+| Empty-bar contrast at ~3% health over dark grass | Distinct: the dark bar background reads clearly against the glass |
+
+Still open for the post-review build: which values are secret (`/glass secrets` in and out of
+combat), right-click menu with `"AnyUp"`, cast interrupt/fail flash, target switch mid-cast, and
+the creature 3D portrait looking desaturated.
+
+### Post-review build (PR #2 at 63d264e), same day
+
+| Question | Result |
+|---|---|
+| Right-click on a `SecureUnitButtonTemplate` registered `"AnyUp"`, `*type2 = togglemenu` | **Opens the unit menu once** (Forest Spider: Target Marker Icon / Set Focus / Edit Mode) |
+| Interrupt flash (`UNIT_SPELLCAST_INTERRUPTED` → red pill) | **Works**, alongside Blizzard's own "Interrupted" bar |
+| Creature 3D portraits (spider, Defias Bandit, cow) | Vivid; the washed-out wolf was that model, not the code |
+| Reaction colours | Hostile red, neutral yellow (cow), friendly green |
+| Painting secrets: `SetFormattedText("%s \| %.0f%%", AbbreviateNumbers(secret), secretPct)`, `SetText(secret)`, StatusBar values | **Accepted**, with zero paint failures |
+
+**`/glass secrets`, OUT of combat** (S = secret, ok = plain):
+
+| unit | hp | hpMax | hpPct | hpAbbr | pw | pwMax | pwType | name | class | react | dead |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| player | S | ok | S | S | S | ok | ok | ok | ok | ok | ok |
+| pet | S | ok | S | S | S | ok | ok | ok | ok | ok | ok |
+| target (hostile NPC) | S | S | S | S | S | S | ok | ok | ok | ok | ok |
+
+**Current health and power are secret even out of combat, for every unit, the player included.**
+Maxima are plain for the player's own units and secret for others. Identity (name, class,
+reaction, dead, power type) is plain out of combat. Consequence: a unit frame on this client
+cannot do health/power arithmetic in Lua at all, and cannot hide an empty power bar by testing
+`UnitPowerMax(target) == 0`.
+
+**`/glass secrets` IN combat: identical to out of combat**, for player, pet, target and
+targettarget (targettarget = the player: hpMax/pwMax plain). Identity stays plain in combat, so
+colouring by class and reaction keeps working mid-fight. Health and power are secret either way.
+
+| Question | Result |
+|---|---|
+| Switch to a non-casting target while the old one casts | Pill hidden (full repaint finds no cast) |
+| Switch to a target already casting | Pill shows the new cast at once ("Frostbolt 2.1s"), in step with Blizzard's bar |
+| targettarget in combat | Tracks ("Morphisto Ruskador 94%" while the mob targets the player) |
+
+**Probe 3 and probe 4 are closed for 70009.** Everything the POC set out to prove works in game.
