@@ -13,40 +13,58 @@ checklist below is where the owner decides.
 
 ---
 
+## What the owner's SUF actually uses
+
+Read from the owner's Anniversary SavedVariables (`ShadowedUnitFrames.lua`) on 2026-09-27.
+Profiles **Paladin** (most characters) and **Default** are the same apart from player cast-bar
+auto-hide. SUF (AceDB) saves only what differs from its defaults, so each profile was read as
+SUF's defaults (classic branch, `DinoUnitFrames.lua:382-482`) plus these overrides:
+
+| Area | In use | Evidence |
+|---|---|---|
+| Units | **player, pet, target, targettarget, targettargettarget, focus, focustarget** | on by default; only `party.enabled = false` overridden (Cell does groups). raid off by default. arena/battleground/boss on but N/A on Forever |
+| Portraits | **3D** on player and target | `portrait.enabled = true`, `type = 3D` |
+| Health colour | **class for players, reaction for NPCs** | `colorType = class`, `reactionType = npc` (pet: none) |
+| Power colour | by power type | `powerBar.colorType = type` |
+| Cast bars | **player and target**, name + time, **no spell icon** | player `castBar.enabled = true`; `icon = HIDE` everywhere |
+| Auras | **target buffs + debuffs only**, player auras off | target `auras.buffs/debuffs.enabled = true`; player not enabled |
+| Player text | name with AFK tag and group number; power as **percent** | `[(()afk() )][name][( ()group())]`, `[perpp]` |
+| Target text | name with AFK; health **"cur/max pct"**; power line **"level classification pwr%"** | `[( )curmaxhp][( )perhp]`, `[level( )][classification( )][perpp]` |
+| ToT / focus text | name, **current health**, power % and value | `[curhp]`, `[perpp]`, `[curpp]` |
+| ToTT | name only | its other texts blanked |
+| Pet text | name, power % | `[name]`, `[perpp]` |
+| Indicators | SUF defaults: raid target, leader, master looter, PvP, role, resurrect; ready check **off** on player; combat/rest status **off** (default) | only `indicators.ready.enabled = false` overridden |
+| Hidden Blizzard frames | SUF defaults (player, pet, target, focus, boss, arena, player power) with **party NOT hidden** | `hidden.party = false` |
+| Class bars | druid / rune / totem bars on per default layout | not deliberately changed |
+| Not used | fader, range fading, XP bar, aura indicators, highlights, player auras | never enabled |
+| Look | Minimalist bar texture, Myriad Condensed Web 11, shadow, dark 0.8 backdrop | `bars`, `font`, `backdrop` |
+
 ## Owner's picks
 
-Tick what GlassUnitFrames should have. Pre-filled from the suggested core in §4; change freely.
-Items marked *have* already exist.
+Agreed 2026-09-27 ("I agree with your list"), refined by the profile evidence above. Build it
+incrementally: one small PR per item, in this order. *have* = already in GlassUnitFrames.
 
-**Must**
-- [x] player / target / pet / targettarget frames (*have*)
-- [x] health + power bars with class / reaction / tapped / offline colours (*have*)
-- [x] name + "value | pct" text as fixed painters, no tag DSL (*partial*: add level / classification?)
-- [x] cast bar with name, time and interrupt flash (*have*)
-- [ ] cast bar spell icon (S)
-- [x] 3D portrait (*have*)
-- [x] drag positioning, saved positions, combat auto-lock (*have*)
-- [ ] hide Blizzard player / target / pet / ToT frames (S; measure Edit Mode behaviour)
-- [ ] raid target icon (S)
-- [ ] leader / assistant icon (S)
-- [ ] combat / resting icon (S)
-- [ ] PvP flag icon (S)
+**Already done:** player / target / pet / targettarget frames; class/reaction/tapped/offline
+health colours and power-type colours; 3D portraits; cast bars with name, time and interrupt
+flash; drag positioning.
 
-**Likely**
-- [ ] focus + focustarget (S; same single-unit path)
-- [ ] buffs/debuffs on target and player via the managed AuraContainer (M; **no filtering possible**)
-- [ ] incoming heal bar via the heal calculator (M)
-- [ ] mouseover / rare-elite highlight (S)
-- [ ] combo points for Rogue/Druid via a colour curve (M; can't hide at 0)
-- [ ] font / texture choice (LibSharedMedia) and a per-character profile with an import/export string (M)
+**Next, in order**
+1. [ ] Hide Blizzard player / pet / target / focus frames (SUF's default set; party stays for
+       Cell). Measure Edit Mode behaviour. (S)
+2. [ ] Focus + focustarget frames. (S)
+3. [ ] targettargettarget frame, name only. (S)
+4. [ ] Text formats from the profile: AFK tag and group number on names; target health
+       "cur/max | pct"; a "level classification pwr%" line; power as percent; ToT/focus current
+       health. (S–M)
+5. [ ] Indicators: raid target and leader (+ PvP, master looter as defaults had them). (S)
+6. [ ] Target buffs and debuffs via the managed AuraContainer (no filtering possible). (M)
+7. [ ] Incoming heal bar via the heal calculator (Paladin). (M)
+8. [ ] Smooth bar animation via StatusBar interpolation. (S)
 
-**Optional**
-- [ ] druid mana bar (S)
-- [ ] XP / reputation bar (S–M)
-- [ ] combat text over frames (S)
-- [ ] zone-based visibility (S)
-- [ ] targettargettarget / pettarget (S)
-- [ ] options UI (L; only if runtime reconfiguration stays out of secure paths)
+**Dropped on evidence:** cast bar spell icon (`icon = HIDE` everywhere), combat/rest status icon
+(off), player auras, fader, range fading, XP bar, ready check on player.
+
+**Open:** combo points and druid mana bar. They depend on which classes you play on Forever.
 
 **Out of scope by choice: party and raid frames** (decided 2026-09-27). The owner uses
 **Cell** for group frames. If group frames ever happen, the plan is a glass-styled port of Cell
