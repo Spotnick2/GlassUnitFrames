@@ -18,9 +18,40 @@ technique, the reference is DinoUnitFrames (see "Reference addons" below).
 2. A **streamlined Shadowed Unit Frames**. The owner uses a small fraction of SUF, so keep only
    what earns its place. Don't port SUF's module zoo, tag DSL or options tree by default.
 
-**Status: greenfield.** The repository started empty (2026-09-27). The layout, tooling and test
-harness below follow the sibling projects and are the plan. Once real files exist, update this
-section to describe what is actually here.
+**Status: proof of concept.** The look is settled (`docs/FOREVER-PROBE.md`). The addon skeleton
+runs on live unit data for player, target, pet and targettarget (issue #1). Work goes through
+GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
+
+## Layout
+
+TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `GlassUnitFrames.lua`.
+
+- **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
+  - `IsSecret`;
+  - event registration that reports failures;
+  - `ClickEdges`;
+  - `HealthPercent` via a curve;
+  - `CastDuration` (a `LuaDurationObject`);
+  - `ClassColor`.
+
+  It also holds `MEASURED_ON_BUILD`.
+- **`Glass.lua`**: the material (see below). Self-contained.
+- **`Engine.lua`**: who gets painted and when:
+  - one tracker per unit (`RegisterUnitEvent`);
+  - events grouped into channels (name, health, power, portrait, cast);
+  - dirty channels flushed once per rendered frame;
+  - the cast channel painted immediately with its event;
+  - a 0.5 s ticker for `targettarget`;
+  - full repaints on `PLAYER_TARGET_CHANGED` / `UNIT_TARGET` / `UNIT_PET` / `OnShow`.
+- **`Frames.lua`**: `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, both click edges,
+  `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
+  anywhere, portrait included, reaches the button.
+- **`GlassUnitFrames.lua`**:
+  - `GlassUnitFramesDB` (`font`, `pos`);
+  - the frames are built at `ADDON_LOADED`, before any lockdown;
+  - actions deferred until combat ends;
+  - `/glass font|reset|secrets`.
+- **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe.
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla
 content and the Retail API. `WOW_PROJECT_ID == WOW_PROJECT_MAINLINE`. Advice that cites a TBC or
@@ -38,6 +69,14 @@ Classic API is usually stale.
   (system names omit `C_`).
 - Use the Retail branch of `Gethe/wow-ui-source` for Blizzard FrameXML. Stock `Blizzard_*` code
   lives inside CASC, not on disk.
+
+## The glass material
+
+`docs/GLASS-MATERIAL.md` is the reusable write-up of the glass effect: textures, generator
+parameters, the layer stack, how to lift `Glass.lua` into another addon, gotchas, and the
+iteration history. The owner reuses it across addons. **Any change to `Glass.lua`,
+`Tools/make_textures.py` or the material parameters updates that document in the same commit.**
+Keep `Glass.lua` self-contained: no dependency on the engine, the frames, or units.
 
 ## Reference addons
 
@@ -93,11 +132,10 @@ not a newer Lua that may be first on `PATH`.
 pwsh tests\run.ps1                                                   # luac -p on TOC files + every tests\test_*.lua
 & 'C:\Program Files (x86)\Lua\5.1\lua.exe' tests\test_frames.lua    # one test, run from the repo root
 python Tools\make_textures.py                                        # regenerate Media\*.tga (Pillow + numpy)
-pwsh Tools\deploy.ps1                                                # copy GlassProbe + Media into AddOns (-Late adds late.tga)
+pwsh Tools\deploy.ps1                                                # copy the addon + Media into AddOns (-Probe adds GlassProbe)
 ```
 
-`tests\run.ps1` doesn't exist yet; model it on Priestly's. `Tools\GlassProbe\` is the throwaway
-visual probe (`/gprobe help` in game). Textures are generated, never hand-edited: change
+`Tools\GlassProbe\` is the throwaway material probe (`/gprobe help` in game). Textures are generated, never hand-edited: change
 `Tools\make_textures.py` and rerun it. On 70009 a **new texture file loads after `/reload`**
 (measured, `docs\FOREVER-PROBE.md`); only a brand-new addon folder needs a full client restart.
 
@@ -214,9 +252,19 @@ not port cleanly.
 
 ## Testing
 
-Follow Priestly's `tests\` harness: plain Lua 5.1 scripts with no dependencies, a
-`tests\wow_stubs.lua` API mock driven through an exported `WoW` table, and `tests\run.ps1` to run
-them all.
+The `tests\` harness is modelled on Priestly's: plain Lua 5.1 scripts with no dependencies, a
+`tests\wow_stubs.lua` API mock driven through an exported `WoW` table, `tests\harness.lua`
+(`check` / `eq` / `loadAddon` / `standardUnits`), and `tests\run.ps1` to run them all. The stub
+does four more things:
+- It validates event names against the API dump when the dump is present.
+- It records any touch of a protected frame in combat in `WoW.blocked`.
+- It models `FontString:SetFormattedText` taking secrets without formatting them in Lua.
+- It records every widget method called. `test_methods.lua` checks each one exists in the dump,
+  closing the gap where a catch-all stub silently swallows a method Forever lacks.
+
+`GlassUF.paintFailures` collects the errors that `attempt()` swallows in painters, so
+`test_secrets.lua` asserts it stays empty. Before trusting a new test, **mutation-test it**:
+break the behaviour and confirm it goes red.
 
 - **The stub is an allowlist and must model the client's absences.** It should fail on any read
   of an unstubbed global. Before stubbing one, confirm it exists in the current API dump and
