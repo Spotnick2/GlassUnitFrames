@@ -53,7 +53,12 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     (`PLAYER_TARGET_CHANGED`, `PLAYER_FOCUS_CHANGED`, or `UNIT_TARGET` registered per base unit),
     every token starting with `base.."target"` repaints too. Plus `UNIT_PET` and `OnShow`;
   - `Engine.OnTokenChanged(base)` is the hook for per-token reactions (the target sheen).
-- **`Frames.lua`**: `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
+- **`Frames.lua`**: text formats are a fixed set named after the owner's SUF tags (`Frames.TEXT`:
+  `curhp`, `curmaxhp`, `curmaxhp_perhp`, `perpp`, `curpp`, `curmaxpp`, `level_class_perpp`),
+  picked per slot by `LAYOUT[unit].text`. **Not a tag language**: every format hands client values
+  to `SetFormattedText` / `AbbreviateNumbers`, because health and power are secret. The name
+  carries an AFK tag, and a raid group number on the player.
+- **`Frames.lua`** (frames): `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).

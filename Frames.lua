@@ -17,22 +17,24 @@ local GAP = 3    -- between portrait tile and body
 
 Frames.LAYOUT = {
     player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -190 },
-                     portrait = "left", power = true, cast = true, size = "large" },
+                     portrait = "left", power = true, cast = true, size = "large", groupNumber = true,
+                     text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -190 },
-                     portrait = "right", power = true, cast = true, sheen = true, size = "large" },
+                     portrait = "right", power = true, cast = true, sheen = true, size = "large",
+                     text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
     pet          = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", -345, -275 },
-                     power = true, size = "small" },
+                     power = true, size = "small", text = { healthRight = "curmaxhp" } },
     targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -275 },
-                     size = "small", ticker = true },
+                     size = "small", ticker = true, text = { healthRight = "curhp" } },
     -- Below targettarget (fits narrow screens too); name only, as the owner's SUF profile had it.
     targettargettarget = { w = 150, h = 24, point = { "CENTER", "UIParent", "CENTER", 345, -305 },
                      size = "small", ticker = true, nameOnly = true },
     -- Fixed spots near the target frame (above it, focustarget to the right); they
     -- do not follow a moved target frame.
     focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -128 },
-                     power = true, size = "small" },
+                     power = true, size = "small", text = { healthRight = "curhp" } },
     focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -128 },
-                     size = "small", ticker = true },
+                     size = "small", ticker = true, text = { healthRight = "curhp" } },
 }
 Frames.ORDER = { "player", "target", "pet", "targettarget", "targettargettarget", "focus", "focustarget" }
 
@@ -84,6 +86,67 @@ local function unitColor(u)
 end
 
 --------------------------------------------------------------------------------
+-- Text formats, named after the SUF tags the owner's profile used. Not a tag
+-- language: a fixed set, each handing client values (often secret) straight to
+-- SetFormattedText / AbbreviateNumbers. LAYOUT[unit].text picks them per slot.
+--------------------------------------------------------------------------------
+
+local CLASSIFICATION = { worldboss = "Boss", rareelite = "Rare Elite", elite = "Elite", rare = "Rare" }
+
+-- "12 Elite", "?? Boss", "12" or "" from plain level and classification.
+local function levelClass(u)
+    local out = ""
+    local lvl = plain(UnitLevel, u)
+    if type(lvl) == "number" then out = (lvl > 0) and tostring(lvl) or "??" end
+    local c = CLASSIFICATION[plain(UnitClassification, u) or ""]
+    if c then out = (out ~= "" and (out .. " ") or "") .. c end
+    return out
+end
+
+local TEXT = {
+    curhp          = function(fs, u, hp) fs:SetFormattedText("%s", AbbreviateNumbers(hp)) end,
+    curmaxhp       = function(fs, u, hp, maxHp)
+        fs:SetFormattedText("%s/%s", AbbreviateNumbers(hp), AbbreviateNumbers(maxHp))
+    end,
+    curmaxhp_perhp = function(fs, u, hp, maxHp)
+        fs:SetFormattedText("%s/%s | %.0f%%", AbbreviateNumbers(hp), AbbreviateNumbers(maxHp), API.HealthPercent(u))
+    end,
+    perpp          = function(fs, u) fs:SetFormattedText("%.0f%%", API.PowerPercent(u)) end,
+    curpp          = function(fs, u) fs:SetFormattedText("%s", AbbreviateNumbers(UnitPower(u))) end,
+    curmaxpp       = function(fs, u)
+        fs:SetFormattedText("%s/%s", AbbreviateNumbers(UnitPower(u)), AbbreviateNumbers(UnitPowerMax(u)))
+    end,
+    level_class_perpp = function(fs, u)
+        local lc = levelClass(u)
+        if lc ~= "" then fs:SetFormattedText("%s  %.0f%%", lc, API.PowerPercent(u))
+        else fs:SetFormattedText("%.0f%%", API.PowerPercent(u)) end
+    end,
+}
+Frames.TEXT = TEXT
+
+local function paintText(fs, kind, ...)
+    if not (fs and kind) then return end
+    if not attempt("text " .. kind, TEXT[kind], fs, ...) then fs:SetText("") end
+end
+
+-- "(AFK) Name (3)": AFK tag, and the player's raid group number (SUF's
+-- [(()afk() )][name][( ()group())]). Name may be secret: formatted by the client.
+local function paintName(f, u)
+    local afk = (plain(UnitIsAFK, u) == true) and "(AFK) " or ""
+    local grp = ""
+    if f.layout.groupNumber and plain(IsInRaid) == true then
+        local idx = plain(UnitInRaid, u)
+        if type(idx) == "number" then
+            local ok, _, _, subgroup = pcall(GetRaidRosterInfo, idx)
+            if ok and not API.IsSecret(subgroup) and type(subgroup) == "number" then
+                grp = " (" .. subgroup .. ")"
+            end
+        end
+    end
+    f.nameText:SetFormattedText("%s%s%s", afk, GetUnitName(u, false), grp)
+end
+
+--------------------------------------------------------------------------------
 -- Painters
 --------------------------------------------------------------------------------
 
@@ -98,7 +161,7 @@ end
 Engine.SetPainter("name", function(f)
     local u = f.unit
     if not UnitExists(u) then return end
-    attempt("name text", function() f.nameText:SetText(GetUnitName(u, false)) end)
+    if not attempt("name text", paintName, f, u) then f.nameText:SetText("") end
     paintColor(f, u)
 end)
 
@@ -116,13 +179,7 @@ Engine.SetPainter("health", function(f)
     if plain(UnitIsConnected, u) == false then f.valueText:SetText("Offline") return end
     if plain(UnitIsDeadOrGhost, u) == true then f.valueText:SetText("Dead") return end
 
-    local okPct, pct = pcall(API.HealthPercent, u)
-    if not okPct then pct = nil end
-    if f.layout.size == "large" and attempt("health text value|pct", function()
-        f.valueText:SetFormattedText("%s | %.0f%%", AbbreviateNumbers(hp), pct)
-    end) then return end
-    if attempt("health text pct", function() f.valueText:SetFormattedText("%.0f%%", pct) end) then return end
-    f.valueText:SetText("")
+    paintText(f.valueText, f.layout.text and f.layout.text.healthRight, u, hp, maxHp)
 end)
 
 Engine.SetPainter("power", function(f)
@@ -136,9 +193,9 @@ Engine.SetPainter("power", function(f)
     if not ok or API.IsSecret(token) then token = nil end
     local c = (token and POWER_COLORS[token]) or POWER_COLORS.MANA
     f.power:SetStatusBarColor(c[1], c[2], c[3])
-    if f.powerText and not attempt("power text", function()
-        f.powerText:SetFormattedText("%s", AbbreviateNumbers(UnitPower(u)))
-    end) then f.powerText:SetText("") end
+    local t = f.layout.text or {}
+    paintText(f.powerLeftText, t.powerLeft, u)
+    paintText(f.powerText, t.powerRight, u)
 end)
 
 -- SUF's sequence (modules/portrait.lua): clear, set unit, zoom, reset position.
@@ -363,6 +420,11 @@ local function build(unit)
     if hasPower and large then
         b.powerText = Glass.Font(g.top, 11, "RIGHT")
         b.powerText:SetPoint("RIGHT", b.power, "RIGHT", -7, 0)
+        if L.text and L.text.powerLeft then
+            b.powerLeftText = Glass.Font(g.top, 11, "LEFT")
+            b.powerLeftText:SetPoint("LEFT", b.power, "LEFT", 7, 0)
+            b.powerLeftText:SetPoint("RIGHT", b.powerText, "LEFT", -6, 0)
+        end
     end
 
     if L.portrait then

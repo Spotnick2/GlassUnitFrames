@@ -29,10 +29,13 @@ local p = button("player")
 check(WoW.IsSecret(p.health._value), "secret health handed to the StatusBar untouched")
 check(WoW.IsSecret(p.health._max), "secret max handed to the StatusBar untouched")
 check(WoW.IsSecret(p.power._value), "secret power handed to the StatusBar untouched")
-check(type(textOf(p.valueText)) == "table" and textOf(p.valueText).secretFormat == "%s | %.0f%%",
+check(type(textOf(p.valueText)) == "table" and textOf(p.valueText).secretFormat == "%s/%s",
       "value text formatted by the client from secrets")
+local tv = textOf(button("target").valueText)
+check(type(tv) == "table" and tv.secretFormat == "%s/%s | %.0f%%", "target cur/max | pct formatted from secrets")
+check(type(textOf(p.powerLeftText)) == "table", "power percent formatted from a secret")
+check(type(textOf(p.nameText)) == "table", "secret name formatted by the client (with AFK/group slots)")
 check(type(textOf(p.powerText)) == "table", "power text formatted by the client from a secret")
-check(WoW.IsSecret(textOf(p.nameText)), "secret name handed to SetText")
 eq(p.health._color[1], 0.56, "secret identity falls back to the default colour")
 eq(p.power._color[3], 1.00, "secret power type falls back to mana colour")
 

@@ -18,8 +18,12 @@ GlassUF.Engine = Engine
 
 Engine.CHANNEL_EVENTS = {
     health   = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_CONNECTION" },
-    power    = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" },
-    name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CONNECTION" },
+    -- The power line can carry level/classification text (target), so it
+    -- follows those events too.
+    power    = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_LEVEL",
+                 "UNIT_CLASSIFICATION_CHANGED" },
+    name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CONNECTION",
+                 "PLAYER_FLAGS_CHANGED" },   -- AFK tag
     portrait = { "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" },
     cast     = { "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
                  "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
@@ -164,11 +168,14 @@ world:SetScript("OnEvent", function(_, event, unit)
         if Engine.OnTokenChanged then Engine.OnTokenChanged(base) end
     elseif event == "UNIT_PET" then
         if unit == "player" then Engine.RepaintUnit("pet") end
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        Engine.RepaintUnit("player")   -- the player's raid group number
     else   -- PLAYER_ENTERING_WORLD
         for u in pairs(framesByUnit) do Engine.RepaintUnit(u) end
     end
 end)
-API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_PET" })
+API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_PET",
+                            "GROUP_ROSTER_UPDATE" })
 
 -- UNIT_TARGET: registered per base unit so the client filters it (it fires for
 -- every nameplate/party/raid unit otherwise). The unit whose target changed
