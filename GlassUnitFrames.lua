@@ -6,14 +6,11 @@ GlassUF = GlassUF or {}
 local API, Glass, Frames, Blizzard = GlassUF.API, GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 local say = API.Print
 
--- Live material tweaks: /glass <key> <value>, saved only once set (so a new
--- default in Glass.STYLE still reaches everyone who never touched it).
-local TWEAKS = {
-    { key = "fill",  set = Glass.SetFillAlpha,  style = "fillAlpha", range = "0.2-1", help = "bar fill opacity; text stays opaque" },
-    { key = "rim",   set = Glass.SetRimAlpha,   style = "rimAlpha",  range = "0.2-1", help = "brightness of the glass outline" },
-    { key = "track", set = Glass.SetTrackAlpha, style = "trackTop",  range = "0-1",   help = "how strongly a bar's empty part shows its colour" },
-    { key = "fade",  set = Glass.SetFillEnd,    style = "fillEnd",   range = "0-1",   help = "how far a bar's fill fades towards its edge, 1 = none" },
-}
+-- Live material tweaks (Glass.TUNABLES): /glass <key> <value>, saved only
+-- once set, so a new default in Glass.STYLE still reaches everyone who never
+-- touched it.
+local TWEAKS = Glass.TUNABLES
+local function rangeText(t) return string.format("%g-%g", t.min, t.max) end
 
 local DEFAULTS = { font = "arial", hideBlizzard = true }
 
@@ -189,6 +186,7 @@ local function frameReport(name, label)
 end
 
 local HELP = {
+    "options  - open the options panel (Options > AddOns > GlassUnitFrames)",
     "font arial|friz  - text font (saved)",
     "mark name|top|right  - raid mark before the name, on the top edge, or right of the frame (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
@@ -199,6 +197,50 @@ local HELP = {
     "Shift-drag a frame to move it (out of combat).",
 }
 
+-- Apply-and-save, one helper per setting: the slash commands and the options
+-- panel both go through these, so saving can't drift between them.
+local Settings_ = {}
+GlassUF.Settings = Settings_
+
+function Settings_.SetFont(key)
+    if not Glass.SetFont(key) then return false end
+    GlassUnitFramesDB.font = key
+    return true
+end
+
+function Settings_.SetMark(pos)
+    if not Frames.SetMarkPosition(pos) then return false end
+    GlassUnitFramesDB.mark = pos
+    return true
+end
+
+-- A material knob (a Glass.TUNABLES entry), saved only once set.
+function Settings_.SetTunable(t, v)
+    if not t.set(v) then return false end
+    GlassUnitFramesDB[t.key] = v
+    return true
+end
+
+-- Every knob and the font back to the shipped defaults, saved values
+-- forgotten so future default changes reach this player again.
+function Settings_.ResetLook()
+    for _, t in ipairs(Glass.TUNABLES) do
+        t.set(t.default)
+        GlassUnitFramesDB[t.key] = nil
+    end
+    Settings_.SetFont(DEFAULTS.font)
+end
+
+function Settings_.ResetPositions()
+    whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+end
+
+-- "show" brings back everything GlassUF hides from Blizzard, the cast bar too.
+function Settings_.SetHideBlizzard(hide)
+    GlassUnitFramesDB.hideBlizzard = hide and true or false
+    if not hide then GlassUnitFramesDB.hideBlizzardCast = nil end
+end
+
 local tweakByKey = {}
 for _, t in ipairs(TWEAKS) do tweakByKey[t.key] = t end
 
@@ -207,15 +249,17 @@ local function slash(msg)
     local rawArg = arg
     cmd, arg = cmd:lower(), arg:lower()
     if cmd == "font" then
-        if Glass.SetFont(arg) then
-            GlassUnitFramesDB.font = arg
+        if Settings_.SetFont(arg) then
             say("font " .. arg)
         else
             say("font arial|friz")
         end
+    elseif cmd == "options" or cmd == "config" then
+        if not (GlassUF.Options and GlassUF.Options.Open()) then
+            say("options are in Game Menu > Options > AddOns > GlassUnitFrames")
+        end
     elseif cmd == "mark" then
-        if Frames.SetMarkPosition(arg) then
-            GlassUnitFramesDB.mark = arg
+        if Settings_.SetMark(arg) then
             say("raid mark " .. arg)
         else
             say("mark name|top|right (now " .. Frames.markPos .. ")")
@@ -223,18 +267,17 @@ local function slash(msg)
     elseif tweakByKey[cmd] then
         local t = tweakByKey[cmd]
         local a = tonumber(arg)
-        if t.set(a) then
-            GlassUnitFramesDB[t.key] = a
+        if Settings_.SetTunable(t, a) then
             say(t.key .. " " .. arg)
         else
-            say(string.format("%s %s (now %s)", t.key, t.range, tostring(Glass.STYLE[t.style])))
+            say(string.format("%s %s (now %s)", t.key, rangeText(t), tostring(Glass.STYLE[t.style])))
         end
     elseif cmd == "reset" then
-        whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+        Settings_.ResetPositions()
     elseif cmd == "blizzard" then
         -- Named for what happens to BLIZZARD's frames: "show" brings them back.
         if arg == "show" or arg == "hide" then
-            GlassUnitFramesDB.hideBlizzard = (arg == "hide")
+            Settings_.SetHideBlizzard(arg == "hide")
             say("Blizzard's frames will be " .. (arg == "hide" and "hidden" or "shown") .. " after /reload")
         else
             -- What is on screen now vs what the next /reload will do.
@@ -252,7 +295,7 @@ local function slash(msg)
         frameReport(rawArg, "frame")
     else
         for _, line in ipairs(HELP) do say("/glass " .. line) end
-        for _, t in ipairs(TWEAKS) do say(string.format("/glass %s %s  - %s (saved)", t.key, t.range, t.help)) end
+        for _, t in ipairs(TWEAKS) do say(string.format("/glass %s %s  - %s (saved)", t.key, rangeText(t), t.help)) end
     end
 end
 
@@ -270,6 +313,8 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         whenOutOfCombat("build", function()
             Frames.Build(db)
             if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
+            -- Blizzard's own player cast bar stays unless asked (the owner likes it).
+            if db.hideBlizzardCast then Blizzard.HideFrame("PlayerCastingBarFrame") end
         end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- arg1 = isInitialLogin: warn at a real login, never on /reload.

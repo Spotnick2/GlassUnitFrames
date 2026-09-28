@@ -116,6 +116,9 @@ A glass bar (`Glass.Bar`), bottom to top:
 | Caller overlays | bar + 2, + 3 | e.g. GlassUnitFrames' health-loss and heal-prediction bars |
 | Gloss, inner shadow, edge | `bar.overlay`, bar + `Glass.OVERLAY_LEVEL` (4) | `gloss` (ADD, 0.45); inner shadow (bottom 45%, black 0.35 → 0; a `SetHeight` hook keeps it at 45% when the bar is resized); `bar_edge` |
 
+`Glass.TUNABLES` lists the live-tunable knobs (key, `STYLE` field, setter, range, label, and the
+shipped `default`), so any settings UI or slash command can expose them from one definition.
+
 A `SetStatusBarColor` hook re-tints the fill and the track only when the colour actually changes
 (painters recolour on every health and power event), honours a 4th alpha argument, and does no
 arithmetic on the colour beyond that plain alpha, so a secret can't throw there. The tuning

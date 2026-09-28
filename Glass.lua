@@ -379,3 +379,18 @@ function Glass.SetFont(key)
     for _, e in ipairs(fontStrings) do e.fs:SetFont(f.file, e.size + f.bump, "") end
     return true
 end
+
+-- The live-tunable material knobs, in one place for anything that exposes
+-- them (GlassUnitFrames: /glass <key>, the options panel). `default` is the
+-- shipped STYLE value, captured before any saved setting is applied.
+Glass.TUNABLES = {
+    { key = "fill",  style = "fillAlpha", set = Glass.SetFillAlpha,  min = 0.2, max = 1,
+      label = "Bar fill opacity",     help = "bar fill opacity; text stays opaque" },
+    { key = "rim",   style = "rimAlpha",  set = Glass.SetRimAlpha,   min = 0.2, max = 1,
+      label = "Glass outline",        help = "brightness of the glass outline" },
+    { key = "track", style = "trackTop",  set = Glass.SetTrackAlpha, min = 0,   max = 1,
+      label = "Empty bar colour",     help = "how strongly a bar's empty part shows its colour" },
+    { key = "fade",  style = "fillEnd",   set = Glass.SetFillEnd,    min = 0,   max = 1,
+      label = "Fill fade (1 = none)", help = "how far a bar's fill fades towards its edge, 1 = none" },
+}
+for _, t in ipairs(Glass.TUNABLES) do t.default = Glass.STYLE[t.style] end

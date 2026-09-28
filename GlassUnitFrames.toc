@@ -12,3 +12,4 @@ Frames.lua
 Auras.lua
 Blizzard.lua
 GlassUnitFrames.lua
+Options.lua

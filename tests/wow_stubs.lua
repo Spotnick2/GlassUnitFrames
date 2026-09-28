@@ -88,6 +88,7 @@ function WoW.reset()
     WoW.raid = nil
     WoW.masterLooter = false
     WoW.resting = false
+    WoW.settings = {}
     WoW.atlases = { ["UI-HUD-UnitFrame-Player-Rest-Flipbook"] = true }
     WoW.loadedAddOns = {}
     rawset(_G, "EditModeManagerFrame", nil)
@@ -281,6 +282,19 @@ function Methods.SetTextureSliceMargins(t, l, tp, r, b) t._slice = { l, tp, r, b
 -- with any secret argument, keep the arguments unformatted instead of calling
 -- string.format (which would throw on the proxy).
 function Methods.SetText(fs, text) fs._text = text end
+function Methods.SetChecked(cb, v) cb._checked = v and true or false end
+function Methods.GetChecked(cb) return cb._checked == true end
+function Methods.LockHighlight(b) b._highlightLocked = true end
+-- Button state textures: Set<State>Texture creates the texture, Get<State>Texture returns it.
+for _, state in ipairs({ "Normal", "Pushed", "Highlight", "Checked", "Disabled" }) do
+    Methods["Set" .. state .. "Texture"] = function(b, file)
+        local t = newWidget("Texture", b)
+        t._file = file
+        b["_" .. state] = t
+    end
+    Methods["Get" .. state .. "Texture"] = function(b) return b["_" .. state] end
+end
+function Methods.UnlockHighlight(b) b._highlightLocked = false end
 function Methods.GetText(fs) return fs._text end
 function Methods.SetFormattedText(fs, fmt, ...)
     local n = select("#", ...)
@@ -295,7 +309,11 @@ function Methods.GetFont(fs) if fs._font then return fs._font[1], fs._font[2], f
 -- StatusBar: takes values (secret or not) without inspecting them.
 function Methods.SetMinMaxValues(b, lo, hi, interp) b._min, b._max, b._minMaxInterp = lo, hi, interp end
 function Methods.GetMinMaxValues(b) return b._min, b._max end
-function Methods.SetValue(b, v, interp) b._value = v; b._interp = interp end
+function Methods.SetValue(b, v, interp)
+    b._value = v; b._interp = interp
+    -- The client fires OnValueChanged for programmatic changes too (userInput false).
+    if b._scripts and b._scripts.OnValueChanged then b._scripts.OnValueChanged(b, v, false) end
+end
 function Methods.GetValue(b) return b._value end
 function Methods.SetStatusBarTexture(b, file)
     b._fill = b._fill or newWidget("Texture", b)
@@ -367,7 +385,8 @@ end
 -- name -> unit the client watches it for (ComboFrame is not unit-watched).
 local BLIZZARD_FRAMES = { { "PlayerFrame", "player" }, { "PetFrame", "pet" }, { "TargetFrame", "target" },
                           { "ComboFrame" }, { "TargetFrameToT", "targettarget" },
-                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget" } }
+                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget" },
+                          { "PlayerCastingBarFrame" } }
 function WoW.CreateBlizzardFrames()
     for _, spec in ipairs(BLIZZARD_FRAMES) do
         local f = CreateFrame("Button", spec[1], UIParent, "SecureUnitButtonTemplate")
@@ -493,6 +512,18 @@ function UnitIsPVPFreeForAll(u) return unitField(u, "ffa") end
 function UnitFactionGroup(u) return unitField(u, "faction") end
 function IsMasterLooter() return WoW.masterLooter == true end
 function IsResting() return WoW.resting == true end
+-- Retail's Settings framework (names from the dump's _G walk; signatures as
+-- Priestly uses them on Forever). WoW.settings records what the addon did.
+Settings = {
+    RegisterCanvasLayoutCategory = function(frame, name)
+        local c = { frame = frame, name = name }
+        function c:GetID() return 4242 end
+        WoW.settings.canvas = c
+        return c
+    end,
+    RegisterAddOnCategory = function(c) WoW.settings.addon = c end,
+    OpenToCategory = function(id) WoW.settings.opened = id end,
+}
 C_Texture = { GetAtlasExists = function(name) return WoW.atlases[name] == true end }
 function Methods.SetAtlas(t, name) t._atlas = name; return true end
 function Methods.Stop(ag) ag._stops = (ag._stops or 0) + 1 end
