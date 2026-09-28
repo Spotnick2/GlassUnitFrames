@@ -41,20 +41,28 @@ local function editModeOpen()
     return em ~= nil and em:IsShown()
 end
 
+-- Run `fn` on `frame` once it is safe: never while Edit Mode is open (retry
+-- every 0.25 s), never on a protected frame in combat (queued under `key`,
+-- one slot per key, silent). Every retry re-checks both.
+local function whenSafe(key, frame, fn)
+    if editModeOpen() then
+        C_Timer.After(0.25, function() whenSafe(key, frame, fn) end)
+    elseif InCombatLockdown() and frame:IsProtected() then
+        GlassUF.WhenOutOfCombat(key, function() whenSafe(key, frame, fn) end, false)
+    else
+        fn()
+    end
+end
+
 -- Put `frame` back under the hidden parent, when it is safe to.
 function Blizzard.Reparent(frame)
     pending[frame] = nil
     if frame:GetParent() == hiddenParent then return end
-    if editModeOpen() then
-        pending[frame] = true
-        C_Timer.After(0.25, function() Blizzard.Reparent(frame) end)
-    elseif InCombatLockdown() and frame:IsProtected() then
-        -- One key per frame: a repeat keeps its slot. Silent: nothing to tell the player.
-        GlassUF.WhenOutOfCombat("blizzard:" .. tostring(frame:GetName()),
-            function() Blizzard.Reparent(frame) end, false)
-    else
-        frame:SetParent(hiddenParent)
-    end
+    pending[frame] = true
+    whenSafe("blizzard:" .. tostring(frame:GetName()), frame, function()
+        pending[frame] = nil
+        if frame:GetParent() ~= hiddenParent then frame:SetParent(hiddenParent) end
+    end)
 end
 
 local function silence(child)
@@ -93,25 +101,34 @@ function Blizzard.HideFor(units)
     end
 end
 
--- Shaman totems (#18). GlassUF can't draw totems (GetTotemInfo is secret),
--- and hiding PlayerFrame hides its child TotemFrame too. So host Blizzard's
--- OWN TotemFrame in a holder under our player frame: Blizzard keeps drawing
--- the timers, swipes and right-click-to-destroy (EllesmereUI's approach).
--- The decorative glass is a child of TotemFrame itself, so Blizzard's own
--- shown state carries it (no totems, no glass).
+-- Totems (#18). GlassUF can't draw totems (GetTotemInfo is secret), and
+-- hiding PlayerFrame hides its child TotemFrame too. So host Blizzard's OWN
+-- TotemFrame in a holder under our player frame: Blizzard keeps drawing the
+-- timers, swipes and right-click-to-destroy (EllesmereUI's approach). Any
+-- class: TotemFrame only shows while a totem slot is active.
 --
--- Blizzard can put it back: TotemFrame.Update re-lays it out, and anything
--- may SetParent / SetPoint it. Each of those schedules ONE deferred repair
--- (never inside Blizzard's own call: the Edit Mode taint rule), which waits
--- while Edit Mode is open and, if the frame is protected in combat (unmeasured
--- with totems down), queues itself for after combat.
-local totem = { holder = nil, applying = false, scheduled = false }
+-- The glass is the holder's child, BELOW TotemFrame (Glass.Apply puts its rim
+-- on a layer 10 levels up, so TotemFrame is raised above that), and follows
+-- TotemFrame's own shown state: no totems, no glass.
+--
+-- Anything may SetParent / SetPoint TotemFrame back (its layout parent, Edit
+-- Mode). Those hooks schedule ONE deferred repair, never inside Blizzard's own
+-- call (the Edit Mode taint rule), through whenSafe. A repair that finds it
+-- already in place does nothing.
+local totem = { holder = nil, ready = false, applying = false, scheduled = false }
+
+local function totemsPlaced(tf)
+    if tf:GetParent() ~= totem.holder then return false end
+    local ok, _, rel = pcall(tf.GetPoint, tf, 1)
+    return ok and rel == totem.holder
+end
 
 local function placeTotems()
     local tf, holder = rawget(_G, "TotemFrame"), totem.holder
-    if not (tf and holder) then return end
+    if not (tf and holder) or totemsPlaced(tf) then return end
     totem.applying = true
     if tf:GetParent() ~= holder then tf:SetParent(holder) end
+    tf:SetFrameLevel(holder:GetFrameLevel() + 12)   -- above the glass's rim layer
     tf:ClearAllPoints()
     tf:SetPoint("TOP", holder, "TOP", 0, 0)
     totem.applying = false
@@ -120,45 +137,41 @@ end
 local function repairTotems()
     totem.scheduled = false
     local tf = rawget(_G, "TotemFrame")
-    if not (tf and totem.holder) then return end
-    if editModeOpen() then
-        totem.scheduled = true
-        C_Timer.After(0.25, repairTotems)
-    elseif InCombatLockdown() and tf:IsProtected() then
-        GlassUF.WhenOutOfCombat("totems", placeTotems, false)
-    else
-        placeTotems()
-    end
+    if tf and totem.ready then whenSafe("totems", tf, placeTotems) end
 end
 
 local function scheduleTotems()
-    if totem.applying or totem.scheduled then return end
+    if totem.applying or totem.scheduled or not totem.ready then return end
     totem.scheduled = true
     C_Timer.After(0, repairTotems)
 end
 
--- Host TotemFrame under `anchor` (the player frame's body). Shamans only,
--- and only while PlayerFrame is hidden (else it's fine where it is).
+-- Host TotemFrame under `anchor` (the player frame's body). Only while
+-- PlayerFrame is hidden (the caller decides); a second call does nothing.
 function Blizzard.HostTotems(anchor)
     local tf = rawget(_G, "TotemFrame")
-    local ok, _, class = pcall(UnitClass, "player")
-    if not (tf and anchor and ok and class == "SHAMAN") or totem.holder then return false end
-    local holder = CreateFrame("Frame", "GlassUF_TotemHolder", UIParent)
+    if not (tf and anchor) or totem.ready then return false end
+    local holder = totem.holder or CreateFrame("Frame", "GlassUF_TotemHolder", UIParent)
     holder:SetSize(1, 1)
+    holder:ClearAllPoints()
     holder:SetPoint("TOP", anchor, "BOTTOM", 0, -6)
     totem.holder = holder
-    -- The glass sits behind the totem buttons and shows only with TotemFrame.
-    local glass = CreateFrame("Frame", nil, tf)
-    glass:SetPoint("TOPLEFT", tf, "TOPLEFT", -4, 4)
-    glass:SetPoint("BOTTOMRIGHT", tf, "BOTTOMRIGHT", 4, -4)
-    glass:SetFrameLevel(math.max(0, tf:GetFrameLevel() - 1))
-    GlassUF.Glass.Apply(glass, "small")
-    totem.glass = glass
-    if type(tf.Update) == "function" then hooksecurefunc(tf, "Update", scheduleTotems) end
-    hooksecurefunc(tf, "SetParent", function(_, parent) if parent ~= totem.holder then scheduleTotems() end end)
-    hooksecurefunc(tf, "SetPoint", function() scheduleTotems() end)
+    if not totem.glass then
+        local glass = CreateFrame("Frame", nil, holder)
+        glass:SetFrameLevel(holder:GetFrameLevel())
+        glass:SetPoint("TOPLEFT", tf, "TOPLEFT", -4, 4)
+        glass:SetPoint("BOTTOMRIGHT", tf, "BOTTOMRIGHT", 4, -4)
+        GlassUF.Glass.Apply(glass, "small")
+        glass:SetShown(tf:IsShown())
+        tf:HookScript("OnShow", function() glass:Show() end)
+        tf:HookScript("OnHide", function() glass:Hide() end)
+        totem.glass = glass
+        hooksecurefunc(tf, "SetParent", function(_, parent) if parent ~= totem.holder then scheduleTotems() end end)
+        hooksecurefunc(tf, "SetPoint", scheduleTotems)
+    end
+    totem.ready = true   -- only once everything above succeeded
     repairTotems()
     return true
 end
 
-Blizzard._test = { hooked = hooked, pending = pending, totem = totem }
+Blizzard._test = { hooked = hooked, pending = pending, totem = totem, repair = repairTotems }
