@@ -208,6 +208,7 @@ local HELP = {
     "happiness left|right|under  - hunter pet happiness: left of the pet's portrait, right of the frame, or under the portrait (saved)",
     "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
     "mark name|top|right  - raid mark before the name, on the top edge, or right of the frame (saved)",
+    "mirror on|off  - unlock mode: moving the player or target frame mirrors the other (saved)",
     "snap grid|align on|off  - unlock mode: snap to the grid / align to other frames (saved)",
     "unlock | lock  - move frames: drag (the target carries its group, the player its pet), click to nudge x/y",
     "reset  - move frames back to the default layout (after combat if in combat)",
@@ -267,6 +268,12 @@ function Settings_.SetSnap(key, on)
     if not GlassUF.Movers.SetSnap(key, on) then return false end
     if on then GlassUnitFramesDB[key] = nil else GlassUnitFramesDB[key] = false end
     return true
+end
+
+-- Mirror the player and target frames while moving them (saved only when off).
+function Settings_.SetMirror(on)
+    GlassUF.Movers.SetMirror(on)
+    if on then GlassUnitFramesDB.mirror = nil else GlassUnitFramesDB.mirror = false end
 end
 
 function Settings_.Lock()
@@ -366,6 +373,13 @@ local function slash(msg)
         end
     elseif cmd == "unlock" or cmd == "move" then
         Settings_.Unlock()
+    elseif cmd == "mirror" then
+        if arg == "on" or arg == "off" then
+            Settings_.SetMirror(arg == "on")
+            say("mirror " .. arg)
+        else
+            say("mirror on|off  (unlock mode: the player and target frames move as mirror images)")
+        end
     elseif cmd == "snap" then
         local which, state = arg:match("^(%S+)%s+(%S+)$")
         local key = (which == "grid" and "snapGrid") or (which == "align" and "snapAlign") or nil
