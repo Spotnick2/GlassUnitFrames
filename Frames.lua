@@ -18,7 +18,11 @@ local GAP = 3    -- between portrait tile and body
 -- Default positions are sized for WoW's UIParent, which is 768 units tall at
 -- the default UI scale (half-height 384): every frame, the target's cast lane
 -- and two aura rows included, stays above y = -280, clear of the action bars.
--- ToT/ToTT and focus are fixed spots: they do not follow a dragged target.
+-- `point` is where each frame sits by default, in screen (UIParent CENTER)
+-- offsets for readability. Frames with `anchorTo` are placed RELATIVE to that
+-- frame (the offset between the two default points), so moving the target
+-- carries its cluster and moving the player carries the pet (#34); DinoUF
+-- anchors its unit frames to each other the same way on Forever.
 Frames.LAYOUT = {
     player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -110 },
                      portrait = "left", power = true, cast = true, size = "large", groupNumber = true, healPrediction = true,
@@ -38,7 +42,7 @@ Frames.LAYOUT = {
     -- owner's SUF had it.
     pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -162 },
                      portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
-                     indicators = { raidTarget = true, happiness = true } },
+                     indicators = { raidTarget = true, happiness = true }, anchorTo = "player" },
     -- The target cluster, SUF-style: targettarget and targettargettarget side by
     -- side ABOVE the target body (x 117.5..417.5, top at -79), 12 px up so the
     -- target's raid mark and leader crown (centred on its top edge, up to
@@ -46,18 +50,18 @@ Frames.LAYOUT = {
     -- under it, the cast bar under the auras, focus above the ToT row.
     targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 207.5, -54 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
-                     indicators = { raidTarget = true } },
+                     indicators = { raidTarget = true }, anchorTo = "target" },
     -- Right of targettarget on the same row; name only, as the owner's SUF profile had it.
     targettargettarget = { w = 115, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -54 },
-                     size = "small", ticker = true, nameOnly = true, indicators = { raidTarget = true } },
-    -- Fixed spots near the target frame (above it, focustarget to the right); they
-    -- do not follow a moved target frame.
+                     size = "small", ticker = true, nameOnly = true, indicators = { raidTarget = true },
+                     anchorTo = "target" },
+    -- Above the ToT row, following the target; focustarget to its right, following focus.
     focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -15 },
                      power = true, size = "small", text = { healthRight = "curhp" },
-                     indicators = { raidTarget = true, leader = true }, healPrediction = true },
+                     indicators = { raidTarget = true, leader = true }, healPrediction = true, anchorTo = "target" },
     focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -15 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
-                     indicators = { raidTarget = true } },
+                     indicators = { raidTarget = true }, anchorTo = "focus" },
 }
 Frames.ORDER = { "player", "target", "pet", "targettarget", "targettargettarget", "focus", "focustarget" }
 
@@ -681,40 +685,154 @@ end)
 -- Building
 --------------------------------------------------------------------------------
 
-local function savePosition(b)
-    local point, _, relPoint, x, y = b:GetPoint(1)
-    Frames.db.pos[b.unit] = { point, "UIParent", relPoint, x, y }
+-- Positions (#34). Every frame sits CENTER-on-CENTER: on its leader (anchorTo)
+-- or on UIParent. Saved as { "CENTER", relName, "CENTER", x, y } where relName
+-- is "UIParent" or a unit name. Older saves (any point, on UIParent) are still
+-- honoured until the frame is moved again. Positions change only through
+-- Frames.SetPosition, out of combat: nothing starts the client's own drag on a
+-- protected frame (a drag combat interrupts can't be stopped; porting guide).
+
+-- The default offset from the leader's default point (or the screen centre).
+local function defaultOffset(unit)
+    local L = Frames.LAYOUT[unit]
+    local lead = L.anchorTo and Frames.LAYOUT[L.anchorTo]
+    if lead then return L.point[4] - lead.point[4], L.point[5] - lead.point[5] end
+    return L.point[4], L.point[5]
+end
+
+-- Offsets beyond this are nonsense (the UI is ~1400 x 768 units) and ±inf
+-- would poison the SavedVariables file.
+local MAX_OFFSET = 4096
+local function sane(v)
+    return type(v) == "number" and not API.IsSecret(v) and v == v and v > -MAX_OFFSET and v < MAX_OFFSET
+end
+
+local VALID_POINT = { CENTER = true, TOP = true, BOTTOM = true, LEFT = true, RIGHT = true,
+                      TOPLEFT = true, TOPRIGHT = true, BOTTOMLEFT = true, BOTTOMRIGHT = true }
+
+-- A saved entry we can apply, or nil: one malformed save must not abort the
+-- build of every frame after it.
+local function validSaved(unit)
+    local p = Frames.db.pos[unit]
+    if type(p) ~= "table" then return nil end
+    if not (VALID_POINT[p[1]] and VALID_POINT[p[3]]) then return nil end
+    if not (sane(p[4]) and sane(p[5])) then return nil end
+    local rel = p[2]
+    if rel ~= "UIParent" and not (Frames.byUnit[rel] and rel == Frames.LAYOUT[unit].anchorTo) then return nil end
+    return p
+end
+
+local function relFrame(name)
+    if name == "UIParent" then return UIParent end
+    return Frames.byUnit[name]
 end
 
 local function applyPosition(b)
-    local p = Frames.db.pos[b.unit] or b.layout.point
+    local p = validSaved(b.unit)
     b:ClearAllPoints()
-    b:SetPoint(p[1], UIParent, p[3], p[4], p[5])
+    if p then
+        b:SetPoint(p[1], relFrame(p[2]), p[3], p[4], p[5])
+        return
+    end
+    local lead = b.layout.anchorTo and Frames.byUnit[b.layout.anchorTo]
+    local x, y = defaultOffset(b.unit)
+    if lead then
+        b:SetPoint("CENTER", lead, "CENTER", x, y)
+    else
+        local L = b.layout.point
+        b:SetPoint(L[1], UIParent, L[3], L[4], L[5])
+    end
 end
 
--- Shift-drag to move, out of combat only: a protected frame cannot be moved,
--- or stop moving, under lockdown.
-local function onDragStart(b)
-    if InCombatLockdown() or not IsShiftKeyDown() then return end
-    b:StartMoving()
-    b.moving = true
+-- What a frame's position is relative to: its leader's unit, or "UIParent";
+-- and that frame. SetPosition always places it there.
+function Frames.AnchorOf(unit)
+    local b = Frames.byUnit[unit]
+    local rel = (b and b.layout.anchorTo) or "UIParent"
+    return rel, relFrame(rel)
 end
 
-local function onDragStop(b)
-    if not b.moving or InCombatLockdown() then return end
-    b:StopMovingOrSizing()
-    b.moving = nil
-    savePosition(b)
+-- A save in the current form: CENTER on what the frame is anchored to now.
+local function canonical(unit, p)
+    return p and p[1] == "CENTER" and p[3] == "CENTER" and p[2] == Frames.AnchorOf(unit)
 end
 
--- PLAYER_REGEN_DISABLED fires before lockdown begins: last chance to drop a drag.
-function Frames.StopMoving()
-    for _, b in pairs(Frames.byUnit) do onDragStop(b) end
+-- Where a frame is: CENTER offsets from its anchor (see AnchorOf), and that
+-- anchor's name. An older save (another point, or a follower saved on the
+-- screen) is measured from the live rects; nil when they aren't laid out, so
+-- a nudge never invents a position.
+function Frames.PositionOf(unit)
+    local b = Frames.byUnit[unit]
+    if not b then return nil end
+    local rel, rf = Frames.AnchorOf(unit)
+    local p = validSaved(unit)
+    if canonical(unit, p) then return p[4], p[5], rel end
+    if not p then
+        local x, y = defaultOffset(unit)
+        return x, y, rel
+    end
+    local bx, by = b:GetCenter()
+    local rx, ry
+    if rf then rx, ry = rf:GetCenter() end
+    if type(bx) == "number" and type(by) == "number" and type(rx) == "number" and type(ry) == "number" then
+        return bx - rx, by - ry, rel
+    end
+    return nil
+end
+
+-- Record a position without touching the frame (safe in combat): the one
+-- owner of the saved format.
+function Frames.SavePosition(unit, x, y)
+    if not (Frames.byUnit[unit] and sane(x) and sane(y)) then return false end
+    Frames.db.pos[unit] = { "CENTER", (Frames.AnchorOf(unit)), "CENTER", x, y }
+    return true
+end
+
+-- Place one frame at CENTER offsets from its leader (or the screen centre),
+-- rounded to 0.5 units; saved unless `live` (the unlock-mode drag in flight).
+-- Refused in combat: these are protected frames.
+-- Returns true and the (rounded) offsets it applied.
+function Frames.SetPosition(unit, x, y, live)
+    local b = Frames.byUnit[unit]
+    if not b or InCombatLockdown() then return false end
+    if not (sane(x) and sane(y)) then return false end
+    x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
+    local _, rf = Frames.AnchorOf(unit)
+    b:ClearAllPoints()
+    b:SetPoint("CENTER", rf, "CENTER", x, y)
+    if not live then Frames.SavePosition(unit, x, y) end
+    return true, x, y
+end
+
+-- Rewrite older saves in the current form, measured from the live rects (out
+-- of combat, when the frames are laid out; unlock mode runs it first).
+function Frames.NormalizeSaves()
+    if InCombatLockdown() then return end
+    for _, unit in ipairs(Frames.ORDER) do
+        local p = validSaved(unit)
+        if p and not canonical(unit, p) then
+            local x, y = Frames.PositionOf(unit)
+            if x then Frames.SetPosition(unit, x, y) end
+        end
+    end
+end
+
+-- One frame back to its default (and, for a leader, its followers with it).
+function Frames.ResetPosition(unit)
+    local b = Frames.byUnit[unit]
+    if not b or InCombatLockdown() then return false end
+    Frames.db.pos[unit] = nil
+    applyPosition(b)
+    return true
 end
 
 function Frames.ResetPositions()
     Frames.db.pos = {}
-    for _, b in pairs(Frames.byUnit) do applyPosition(b) end
+    -- Leaders first (ORDER), so followers anchor to their final spot.
+    for _, unit in ipairs(Frames.ORDER) do
+        local b = Frames.byUnit[unit]
+        if b then applyPosition(b) end
+    end
 end
 
 -- An inside cast row: CAST_ROW px plus CAST_GAP above it and between
@@ -971,11 +1089,7 @@ local function build(unit)
     b:SetAttribute("*type2", "togglemenu")
     b:RegisterForClicks(API.UnitButtonClicks())
     b:SetClampedToScreen(true)
-    b:SetMovable(true)
-    b:RegisterForDrag("LeftButton")
-    b:SetScript("OnDragStart", onDragStart)
-    b:SetScript("OnDragStop", onDragStop)
-    applyPosition(b)
+    applyPosition(b)   -- leaders are built first (ORDER), so a follower's leader exists
 
     -- The glass hosts are plain children without mouse, so a click anywhere
     -- on the unit (portrait included) reaches the secure button.

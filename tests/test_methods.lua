@@ -30,9 +30,32 @@ loadAddon()
 WoW.fireAllRegistered()
 WoW.tick(); WoW.tick(0.1)
 WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "player"); WoW.flushTimers()
-WoW.shift = true
-local p = button("player")
-p._scripts.OnDragStart(p); p._scripts.OnDragStop(p)
+-- Unlock mode: movers, a drag, the nudge panel (so their methods are checked).
+UIParent._center = { 512, 384 }
+GlassUF.Movers.Unlock()
+local mv = GlassUF.Movers._test.movers.target
+mv._center = { 800, 300 }
+mv._scripts.OnDragStart(mv); mv._scripts.OnUpdate(mv); mv._scripts.OnDragStop(mv)
+mv._scripts.OnMouseUp(mv)
+-- Every handler the nudge panel installs, through its own closure.
+local np = GlassUF.Movers._test.panel()
+for _, k in ipairs({ "left", "right", "up", "down" }) do np.buttons[k]._scripts.OnClick(np.buttons[k]) end
+for _, e in ipairs({ np.x, np.y }) do
+    e:SetText("12"); e._scripts.OnEnterPressed(e)
+    e._scripts.OnEscapePressed(e)
+end
+np.buttons.reset._scripts.OnClick(np.buttons.reset)
+np.buttons.lock._scripts.OnClick(np.buttons.lock)
+-- The options panel's Unlock button (it closes the Settings window).
+local sp = CreateFrame("Frame", "SettingsPanel", UIParent)
+rawset(sp, "Close", function(self) self._closed = true end)   -- SettingsPanel.Close (a mixin method, in the dump's _G walk)
+local optPanel = GlassUF.Options._test.panel
+optPanel._scripts.OnShow(optPanel)
+for _, w in ipairs(WoW.frames) do
+    if w._type == "Button" and w._text == "Unlock frames" then w._scripts.OnClick(w) end
+end
+check(sp._closed, "Unlock frames closes the Settings window through its own Close")
+GlassUF.Movers.Lock()
 SlashCmdList.GLASSUNITFRAMES("font friz")
 SlashCmdList.GLASSUNITFRAMES("reset")
 -- Build the options panel so its widget methods are checked too.

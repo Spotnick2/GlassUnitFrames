@@ -249,6 +249,8 @@ function Methods.SetAttribute(w, k, v) if guard(w, "SetAttribute") then w._attrs
 function Methods.GetAttribute(w, k) return w._attrs[k] end
 function Methods.RegisterForClicks(w, ...) if guard(w, "RegisterForClicks") then w._clicks = { ... } end end
 function Methods.StartMoving(w) if guard(w, "StartMoving") then w._moving = true end end
+-- No real geometry in the stub: a test sets w._center = { x, y } where it matters.
+function Methods.GetCenter(w) if w._center then return w._center[1], w._center[2] end end
 function Methods.StopMovingOrSizing(w)
     if guard(w, "StopMovingOrSizing") then
         w._moving = false
@@ -287,6 +289,9 @@ function Methods.SetChecked(cb, v) cb._checked = v and true or false end
 function Methods.GetChecked(cb) return cb._checked == true end
 function Methods.LockHighlight(b) b._highlightLocked = true end
 function Methods.SetScrollChild(sf, child) sf._scrollChild = child end
+function Methods.SetFocus(e) e._focus = true end
+function Methods.ClearFocus(e) e._focus = false end
+function Methods.HasFocus(e) return e._focus == true end
 function Methods.GetScrollChild(sf) return sf._scrollChild end
 -- Button state textures: Set<State>Texture creates the texture, Get<State>Texture returns it.
 for _, state in ipairs({ "Normal", "Pushed", "Highlight", "Checked", "Disabled" }) do

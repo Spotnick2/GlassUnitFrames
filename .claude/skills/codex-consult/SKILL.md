@@ -48,6 +48,9 @@ timeout 300 codex exec \
 - **`-c model_reasoning_effort=medium`** — the default. Bumping to `high` costs more and runs
   longer; **ask the owner before using `high`**, then pass it for that one run. Add
   `-c web_search=live` if it needs the web. Add `-m <model>` to pin a model (else default).
+  The owner's default (`~/.codex/config.toml`) is **`gpt-6-astra`**, the model they use for
+  reviews ("astra"), so omitting `-m` already uses it. The short name `-m astra` is **rejected**
+  ("not supported when using Codex with a ChatGPT account"); pin it as `-m gpt-6-astra` if needed.
 - **`timeout <sec>`** — always wrap it (300–420s is typical) so a stuck run can't hang forever.
 
 ## Prompt shape — pick the mode

@@ -204,12 +204,12 @@ local HELP = {
     "happiness left|right|under  - hunter pet happiness: left of the pet's portrait, right of the frame, or under the portrait (saved)",
     "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
     "mark name|top|right  - raid mark before the name, on the top edge, or right of the frame (saved)",
+    "unlock | lock  - move frames: drag (the target carries its group, the player its pet), click to nudge x/y",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
     "totem  - where Blizzard's totem bar lives (measurement for shaman support)",
     "frame <Name>  - where any Blizzard frame lives, e.g. /glass frame PetActionBar",
-    "Shift-drag a frame to move it (out of combat).",
 }
 
 -- Apply-and-save, one helper per setting: the slash commands and the options
@@ -246,8 +246,28 @@ function Settings_.ResetLook()
     Settings_.SetFont(DEFAULTS.font)
 end
 
+-- Unlock mode (movers + nudge panel). Unlock is refused in combat, never queued.
+function Settings_.Unlock()
+    local ok, why = GlassUF.Movers.Unlock()
+    if ok then
+        say("frames unlocked: drag to move (the target carries its group), click to nudge. /glass lock when done")
+    elseif why == "combat" then
+        say("can't unlock frames in combat")
+    end
+    return ok
+end
+
+function Settings_.Lock()
+    GlassUF.Movers.Lock()
+end
+
 function Settings_.ResetPositions()
-    whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+    whenOutOfCombat("reset", function()
+        GlassUF.Movers.CancelDrag()   -- a drag in flight would re-save over the reset
+        Frames.ResetPositions()
+        GlassUF.Movers.Refresh()      -- the open nudge panel shows the new numbers
+        say("positions reset")
+    end)
 end
 
 function Settings_.SetHealthFormat(unit, kind)
@@ -332,6 +352,11 @@ local function slash(msg)
         else
             say(string.format("%s %s (now %s)", t.key, rangeText(t), tostring(Glass.STYLE[t.style])))
         end
+    elseif cmd == "unlock" or cmd == "move" then
+        Settings_.Unlock()
+    elseif cmd == "lock" then
+        Settings_.Lock()
+        say("frames locked")
     elseif cmd == "reset" then
         Settings_.ResetPositions()
     elseif cmd == "blizzard" then
@@ -383,10 +408,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
                 .. GlassUF.MEASURED_ON_BUILD .. "). Things may misbehave until it is re-checked.")
         end
     elseif event == "PLAYER_REGEN_DISABLED" then
-        Frames.StopMoving()
+        GlassUF.Movers.OnCombat()   -- unlock mode ends: protected frames can't move in combat
     elseif event == "PLAYER_REGEN_ENABLED" then
         if InCombatLockdown() then return end   -- trust the lockdown state, not the event
-        Frames.StopMoving()                     -- finish a drag combat caught mid-way
         runPending()
     end
 end)
