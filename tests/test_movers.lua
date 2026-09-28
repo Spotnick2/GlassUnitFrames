@@ -5,6 +5,7 @@ dofile("tests/harness.lua")
 standardUnits()
 loadAddon()
 UIParent._center = { 512, 384 }
+WoW.alt = true   -- free placement for the mechanics below; snapping has its own tests
 local F, M = GlassUF.Frames, GlassUF.Movers
 local t, tot, focus, ft, pet = button("target"), button("targettarget"), button("focus"), button("focustarget"), button("pet")
 
@@ -113,6 +114,79 @@ eq(button("target")._points[1][4], 300, "malformed save: default position")
 eq(button("targettarget")._points[1][2], button("target"), "wrong relative frame: default anchor")
 eq(button("pet")._points[1][1], "TOPLEFT", "an old-style save is still honoured")
 GlassUnitFramesDB = nil
+
+-- Snapping (Alt released). Frames get sizes and centres (the stub has no layout).
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon()
+F, M = GlassUF.Frames, GlassUF.Movers
+WoW.alt = false
+UIParent._center, UIParent._width, UIParent._height = { 683, 384 }, 1366, 768
+M.Unlock()
+check(M._test.overlay()._shown, "unlock shows the grid overlay")
+check(M._test.overlay().grid._shown, "the grid shows while snap-to-grid is on")
+local tgt, plr = button("target"), button("player")
+plr._center = { 683 - 300, 384 - 110 }
+tgt._width, tgt._height = 365, 62
+local mtg = M._test.movers.target
+mtg._width, mtg._height = 365, 62
+-- Grid: the centre lands on a 16-unit step from the screen centre.
+mtg._center = { 683 + 305, 384 - 101 }            -- nothing to align to nearby in y
+mtg._scripts.OnDragStart(mtg); mtg._scripts.OnUpdate(mtg); mtg._scripts.OnDragStop(mtg)
+eq(GlassUnitFramesDB.pos.target[4], 304, "grid: x snapped to 19 x 16")
+eq(GlassUnitFramesDB.pos.target[5], -96, "grid: y snapped to -6 x 16")
+-- Alignment: the target's centre within 8 of the player's centre line (y).
+plr._width, plr._height = 365, 62
+mtg._center = { 683 + 300, 384 - 115 }             -- player centre y is 384 - 110
+mtg._scripts.OnDragStart(mtg); mtg._scripts.OnUpdate(mtg)
+check(M._test.overlay().hguide._shown, "an alignment shows its guide line")
+mtg._scripts.OnDragStop(mtg)
+eq(GlassUnitFramesDB.pos.target[5], -110, "aligned with the player's centre (not the grid)")
+check(not M._test.overlay().hguide._shown, "guide hidden when the drag ends")
+-- Alt: free placement.
+WoW.alt = true
+mtg._center = { 683 + 301, 384 - 103 }
+mtg._scripts.OnDragStart(mtg); mtg._scripts.OnUpdate(mtg); mtg._scripts.OnDragStop(mtg)
+eq(GlassUnitFramesDB.pos.target[4], 301, "Alt: no snapping")
+WoW.alt = false
+-- The switches: saved only when off, the grid hides with its switch.
+local np2 = M._test.panel()
+np2.snapGrid:SetChecked(false); np2.snapGrid._scripts.OnClick(np2.snapGrid)
+eq(GlassUnitFramesDB.snapGrid, false, "grid off: saved")
+check(not M._test.overlay().grid._shown, "grid off: grid hidden")
+np2.snapGrid:SetChecked(true); np2.snapGrid._scripts.OnClick(np2.snapGrid)
+eq(GlassUnitFramesDB.snapGrid, nil, "grid on again: the default, nothing saved")
+-- A frame's own followers are not alignment lines for it (they move with it);
+-- other frames are.
+local tot = button("targettarget")
+tot._center, tot._width, tot._height = { 1000, 500 }, 180, 26
+local lx = M._test.alignLines("target", "x")
+local function has(list, v) for _, x in ipairs(list) do if x == v then return true end end return false end
+check(not has(lx, 1000 - 90), "the target's own ToT is not a line for the target")
+check(has(lx, 683 - 300 - 182.5), "the player's left edge is")
+check(has(M._test.alignLines("player", "x"), 1000 - 90), "but the ToT is a line for the player")
+eq(M._test.alignAxis(100, 10, { 95 }), 105, "alignAxis: low edge onto the line")
+-- The grid is rebuilt for a new screen size (UI scale / resolution).
+local ov = M._test.overlay()
+local before = ov.gridW
+UIParent._width = 1600
+M.Lock(); M.Unlock()
+eq(ov.gridW, 1600, "the grid is rebuilt for the new screen size")
+check(before ~= ov.gridW, "it was drawn for the old one before")
+-- /glass snap.
+SlashCmdList.GLASSUNITFRAMES("snap align off")
+eq(GlassUnitFramesDB.snapAlign, false, "/glass snap align off: saved")
+check(not M.snapAlign, "and applied")
+SlashCmdList.GLASSUNITFRAMES("snap align on")
+eq(GlassUnitFramesDB.snapAlign, nil, "on again: nothing saved")
+-- The panel (created earlier, reused) follows a slash change.
+SlashCmdList.GLASSUNITFRAMES("snap grid off")
+M.Lock(); M.Unlock()
+check(not M._test.panel().snapGrid:GetChecked(), "grid switch unticked after /glass snap grid off")
+SlashCmdList.GLASSUNITFRAMES("snap grid on")
+check(M._test.panel().snapGrid:GetChecked(), "and ticked again after on")
+M.Lock()
+check(not M._test.overlay()._shown, "lock hides the overlay")
+WoW.alt = true
 
 -- Review fixes (#52).
 WoW.reset(); standardUnits(); GlassUF = nil

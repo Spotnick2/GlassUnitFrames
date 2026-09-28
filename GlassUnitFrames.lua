@@ -208,6 +208,7 @@ local HELP = {
     "happiness left|right|under  - hunter pet happiness: left of the pet's portrait, right of the frame, or under the portrait (saved)",
     "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
     "mark name|top|right  - raid mark before the name, on the top edge, or right of the frame (saved)",
+    "snap grid|align on|off  - unlock mode: snap to the grid / align to other frames (saved)",
     "unlock | lock  - move frames: drag (the target carries its group, the player its pet), click to nudge x/y",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
@@ -259,6 +260,13 @@ function Settings_.Unlock()
         say("can't unlock frames in combat")
     end
     return ok
+end
+
+-- Unlock-mode snapping ("snapGrid" / "snapAlign"), saved only when off.
+function Settings_.SetSnap(key, on)
+    if not GlassUF.Movers.SetSnap(key, on) then return false end
+    if on then GlassUnitFramesDB[key] = nil else GlassUnitFramesDB[key] = false end
+    return true
 end
 
 function Settings_.Lock()
@@ -358,6 +366,14 @@ local function slash(msg)
         end
     elseif cmd == "unlock" or cmd == "move" then
         Settings_.Unlock()
+    elseif cmd == "snap" then
+        local which, state = arg:match("^(%S+)%s+(%S+)$")
+        local key = (which == "grid" and "snapGrid") or (which == "align" and "snapAlign") or nil
+        if key and (state == "on" or state == "off") and Settings_.SetSnap(key, state == "on") then
+            say("snap " .. which .. " " .. state)
+        else
+            say("snap grid|align on|off  (Alt while dragging places freely)")
+        end
     elseif cmd == "lock" then
         Settings_.Lock()
         say("frames locked")
@@ -401,6 +417,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         -- before it applies, but do not bet the whole addon on that.
         whenOutOfCombat("build", function()
             Frames.Build(db)
+            GlassUF.Movers.Load(db)
             if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
             -- Blizzard's own player cast bar stays unless asked (the owner likes it).
             if db.hideBlizzardCast then Blizzard.HideFrame("PlayerCastingBarFrame") end

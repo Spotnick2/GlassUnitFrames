@@ -126,7 +126,11 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   follows through `Frames.SetPosition`. **Nothing starts the client's own drag on a protected
   button** (a drag combat interrupts can't be stopped; there is no shift-drag any more). Clicking
   a mover opens the nudge panel (X/Y offsets, arrows 1 / Shift 10, reset this frame, lock).
-  Unlock and nudges are refused in combat; a combat start locks.
+  Unlock and nudges are refused in combat; a combat start locks. While dragging, a frame's
+  edges/centre **align** to other frames' (and the screen centre) within 8 units with a yellow guide
+  line, else its centre snaps to a 16-unit **grid** drawn over the screen; the frame's own
+  followers aren't alignment targets; **Alt** places freely. Both switches are in the nudge panel
+  (saved only when off: `db.snapGrid`, `db.snapAlign`).
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
   - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
     `ComboFrame` is hidden only once our combo pips exist (rogues and druids). Party is never touched, since the owner uses
