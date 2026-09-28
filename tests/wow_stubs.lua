@@ -465,8 +465,19 @@ function UnitGUID(u)
 end
 function UnitHealth(u) return unitField(u, "health") end
 function UnitHealthMax(u) return unitField(u, "maxHealth") end
-function UnitPower(u) return unitField(u, "power") end
-function UnitPowerMax(u) return unitField(u, "maxPower") end
+-- Power by type: 0 = mana (fields mana / maxMana, else the display power),
+-- 4 = combo points (field combo, max 5); none = the display power.
+local function powerFields(u, t)
+    if t == 4 then return "combo", nil end
+    if t == 0 and WoW.units[u] and WoW.units[u].mana ~= nil then return "mana", "maxMana" end
+    return "power", "maxPower"
+end
+function UnitPower(u, t) return unitField(u, (powerFields(u, t))) end
+function UnitPowerMax(u, t)
+    local _, mf = powerFields(u, t)
+    if mf == nil then return WoW.units[u] and 5 or nil end
+    return unitField(u, mf)
+end
 function UnitPowerType(u) return 0, unitField(u, "powerToken") end
 function UnitHealthPercent(u, predicted, curve)
     local h, m = unitField(u, "health"), unitField(u, "maxHealth")
@@ -493,12 +504,14 @@ function UnitLevel(u) return unitField(u, "level") end
 function UnitClassification(u) return unitField(u, "classification") end
 function UnitIsAFK(u) return unitField(u, "afk") end
 function UnitPowerPercent(u, powerType, unmodified, curve)
-    local p, m = unitField(u, "power"), unitField(u, "maxPower")
+    local pf, mf = powerFields(u, powerType)
+    local p, m = unitField(u, pf), mf and unitField(u, mf) or 5
+    if powerType == 4 and p == nil and WoW.units[u] then p = 0 end
     if p == nil then return nil end
     if curve.color then
         if secrets[p] or secrets[m] then
             -- The stub still knows the real numbers behind the fields it made secret.
-            local rp, rm = WoW.units[u].power, WoW.units[u].maxPower
+            local rp, rm = WoW.units[u][pf] or 0, mf and WoW.units[u][mf] or 5
             return curveColor(evalColor(curve, (rm and rm > 0 and not secrets[rp]) and rp / rm or 0), true)
         end
         return curveColor(evalColor(curve, (m and m > 0) and p / m or 0), false)

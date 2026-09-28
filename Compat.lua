@@ -125,6 +125,31 @@ function API.SafeFrame(ftype, parent, template, proof)
     return CreateFrame(ftype, nil, parent), false
 end
 
+-- Combo point pip `i` (1-5): alpha 0 below i/5 of the player's combo points,
+-- 1 at or above, evaluated by the client from a step colour curve. DinoUF's
+-- Forever path, exactly: UnitPowerPercent("player", 4 /*ComboPoints*/, true,
+-- curve) (modules/basecombopoints.lua). The alpha may be secret: straight to
+-- SetAlpha. nil if the API is missing.
+local COMBO_POINTS = 4
+local comboCurves = {}
+function API.ComboAlpha(i)
+    local curve = comboCurves[i]
+    if not curve then
+        if not (C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor) then return nil end
+        curve = C_CurveUtil.CreateColorCurve()
+        local types = Enum and Enum.LuaCurveType
+        if types and types.Step then curve:SetType(types.Step) end
+        curve:AddPoint(0, CreateColor(1, 1, 1, 0))
+        curve:AddPoint(i / 5, CreateColor(1, 1, 1, 1))
+        comboCurves[i] = curve
+    end
+    if not UnitPowerPercent then return nil end
+    local color = UnitPowerPercent("player", COMBO_POINTS, true, curve)
+    if not color then return nil end
+    local _, _, _, a = color:GetRGBA()
+    return a
+end
+
 -- The one place failures are recorded (first error per key), read by
 -- /glass secrets and the tests. Engine, Frames and Auras all report here.
 GlassUF.paintFailures = GlassUF.paintFailures or {}

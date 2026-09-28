@@ -40,7 +40,8 @@ Engine.CHANNEL_EVENTS = {
                  "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
                  "UNIT_SPELLCAST_CHANNEL_STOP" },
 }
-Engine.ORDER = { "name", "color", "health", "heal", "power", "portrait", "indicators", "happiness", "cast" }
+Engine.ORDER = { "name", "color", "health", "heal", "power", "portrait", "indicators", "happiness",
+                 "combo", "druidmana", "cast" }
 
 local painters = {}
 local framesByUnit = {}      -- unit -> { frame, ... }
@@ -257,6 +258,18 @@ for _, base in ipairs({ "target", "focus" }) do
     chainWatchers[base] = w
 end
 
+-- Class resources (#29): the PLAYER's power and form events drive the combo
+-- pips (drawn on the target frame) and the druid mana strip. The engine only
+-- paints a unit event on that unit's own frames, so route them here.
+-- UNIT_DISPLAYPOWER (a form change) carries no power type: never filter it out.
+local resourceWatcher = CreateFrame("Frame")
+resourceWatcher:SetScript("OnEvent", function()
+    Engine.RepaintChannel("combo")
+    Engine.RepaintChannel("druidmana")
+end)
+API.RegisterUnitEvents(resourceWatcher, { "UNIT_POWER_FREQUENT", "UNIT_POWER_UPDATE", "UNIT_MAXPOWER",
+                                          "UNIT_DISPLAYPOWER" }, "player")
+
 Engine._test = { dirty = function() return dirty end, flusher = flusher, trackers = trackers,
-                 ticker = ticker, chainWatchers = chainWatchers,
+                 ticker = ticker, chainWatchers = chainWatchers, resourceWatcher = resourceWatcher,
                  framesByUnit = framesByUnit, world = world }

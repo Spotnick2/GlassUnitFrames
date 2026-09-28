@@ -29,12 +29,12 @@ Frames.LAYOUT = {
                      -- SUF-style: the cast bar is a row INSIDE the frame, shown only while
                      -- casting; health and power shrink to make room (the pet frame sits
                      -- right under the player, so nothing may hang below it).
-                     castInside = true, healthLoss = true,
+                     castInside = true, healthLoss = true, druidMana = true,
                      indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true, resting = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
     target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
                      portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
-                     healPrediction = true, healthLoss = true,
+                     healPrediction = true, healthLoss = true, combo = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLevel = true, powerLeft = "perpp", powerRight = "curmaxpp" } },
     -- Same total width as the player frame and centred on it (portrait 32 + gap 3
@@ -81,6 +81,19 @@ local function plain(fn, ...)
     local ok, v = pcall(fn, ...)
     if not ok or API.IsSecret(v) then return nil end
     return v
+end
+
+-- The player's class and current power token (plain from the start): class
+-- resources (#29) are built and shown by them.
+local function playerClass()
+    local ok, _, class = pcall(UnitClass, "player")
+    return ok and class or nil
+end
+
+local function playerPowerToken()
+    local ok, _, token = pcall(UnitPowerType, "player")
+    if not ok or API.IsSecret(token) then return nil end
+    return token
 end
 
 -- Run a paint step; remember the first failure per step for /glass secrets.
@@ -513,6 +526,37 @@ local function petHappiness()
     if type(h) == "number" then return h end
     return nil
 end
+
+-- Rogues always; druids only in cat form (energy). Alphas straight from the
+-- client's curves; a failure leaves the pips empty, never stuck full.
+Engine.SetPainter("combo", function(f)
+    local c = f.combo
+    if not c then return end
+    local class = playerClass()
+    local active = UnitExists(f.unit) and (class == "ROGUE" or (class == "DRUID" and playerPowerToken() == "ENERGY"))
+    c.holder:SetShown(active and true or false)
+    if not active then return end
+    for i, pip in ipairs(c.pips) do
+        local ok, a = pcall(API.ComboAlpha, i)
+        if ok and (API.IsSecret(a) or type(a) == "number") then
+            if not attempt("combo pip", pip.SetAlpha, pip, a) then pip:SetAlpha(0) end
+        else
+            pip:SetAlpha(0)
+        end
+    end
+end)
+
+-- Shown while the druid's current power isn't mana. Values straight to the
+-- bar; neither the current nor the max mana is read in Lua.
+Engine.SetPainter("druidmana", function(f)
+    local d = f.druidMana
+    if not d then return end
+    local token = playerPowerToken()
+    local active = token ~= nil and token ~= "MANA"
+    d.host:SetShown(active)
+    if not active then return end
+    attempt("druid mana", Glass.SetBar, d.bar, UnitPowerMax("player", 0), UnitPower("player", 0), f.snap)
+end)
 
 Engine.SetPainter("happiness", function(f)
     local icon = f.indicators and f.indicators.happiness
@@ -1063,6 +1107,52 @@ end
 
 -- Health loss (#40): the health bar's own geometry, clipped from the fill
 -- edge. A light red, so it still reads next to a hostile (red) health fill.
+-- Combo points: five glossy pips on the target body's top edge, right half,
+-- over dim slots (0 points reads as five empty slots). No sliced masks: they
+-- break on tiles this small.
+local COMBO_COLOR = { 1.00, 0.82, 0.20 }
+local function buildCombo(b, body, g)
+    local holder = CreateFrame("Frame", nil, g.top)
+    holder:SetSize(5 * 12 + 4 * 3, 8)
+    holder:SetPoint("CENTER", body, "TOP", 90, 0)
+    holder:SetFrameLevel(g.top:GetFrameLevel() + 1)
+    local pips = {}
+    for i = 1, 5 do
+        local slot = holder:CreateTexture(nil, "ARTWORK")
+        slot:SetSize(12, 8)
+        slot:SetPoint("LEFT", holder, "LEFT", (i - 1) * 15, 0)
+        slot:SetColorTexture(0, 0, 0, 0.55)
+        local pip = holder:CreateTexture(nil, "OVERLAY")
+        pip:SetAllPoints(slot)
+        pip:SetTexture(Glass.MEDIA .. "bar_fill")
+        pip:SetVertexColor(COMBO_COLOR[1], COMBO_COLOR[2], COMBO_COLOR[3], 1)
+        pip:SetAlpha(0)
+        pips[i] = pip
+    end
+    holder:Hide()
+    b.combo = { holder = holder, pips = pips }
+    b.channels.combo = true
+end
+
+-- Druid mana while in a form (bear rage, cat energy): a thin glass strip just
+-- under the player frame (druids have no pet; the strip follows the body).
+local function buildDruidMana(b, body, L)
+    local host = CreateFrame("Frame", nil, b)
+    host:SetSize(L.w, 12)
+    host:SetPoint("TOP", body, "BOTTOM", 0, -3)
+    host:SetFrameLevel(b:GetFrameLevel() + 1)
+    Glass.Apply(host, "small")
+    local inset = Glass.Inset("small")
+    local bar = Glass.Bar(host, 12 - 2 * inset)
+    bar:SetPoint("TOPLEFT", host, "TOPLEFT", inset, -inset)
+    bar:SetPoint("TOPRIGHT", host, "TOPRIGHT", -inset, -inset)
+    bar:SetFrameLevel(Glass.ContentLevel(host))
+    bar:SetStatusBarColor(POWER_COLORS.MANA[1], POWER_COLORS.MANA[2], POWER_COLORS.MANA[3])
+    host:Hide()
+    b.druidMana = { host = host, bar = bar }
+    b.channels.druidmana = true
+end
+
 local LOSS_COLOR = { 1.00, 0.55, 0.50, 0.90 }
 local function buildHealthLoss(b)
     local loss = overlayBar(b, LOSS_COLOR, 2, true)
@@ -1179,6 +1269,9 @@ local function build(unit)
     -- built after it.
     attempt("build indicators", buildIndicators, b, body, g, L, tileGlass)
     if L.healthLoss then attempt("build health loss", buildHealthLoss, b) end
+    local class = playerClass()
+    if L.combo and (class == "ROGUE" or class == "DRUID") then attempt("build combo", buildCombo, b, body, g) end
+    if L.druidMana and class == "DRUID" then attempt("build druid mana", buildDruidMana, b, body, L) end
     if L.healPrediction then attempt("build heal prediction", buildHealPrediction, b) end
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
