@@ -69,11 +69,7 @@ local CHECK_ART = {
 -- CreateFrame with a template that may not exist on this client: a missing
 -- template doesn't throw, it returns a bare frame, so `proof` names a field
 -- the template would have created (Priestly, docs/FOREVER-PROBE.md).
-local function safeFrame(ftype, parent, template, proof)
-    local ok, f = pcall(CreateFrame, ftype, nil, parent, template)
-    if ok and f then return f, (proof == nil) or f[proof] ~= nil end
-    return CreateFrame(ftype, nil, parent), false
-end
+local safeFrame = GlassUF.API.SafeFrame
 
 local function label(parent, text, template)
     local fs = parent:CreateFontString(nil, "OVERLAY", template or "GameFontHighlight")
@@ -319,8 +315,11 @@ local function build()
     -- Unlocking closes the Settings window, or the movers would sit behind it.
     place(right, button(content, "Unlock frames", 190, function()
         if GlassUF.Settings.Unlock() then
+            -- Close through the panel's own Close (it commits or prompts for
+            -- other pages' changes), not a bare hide.
             local sp = rawget(_G, "SettingsPanel")
-            if sp and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, sp) end
+            if sp and type(sp.Close) == "function" then pcall(sp.Close, sp)
+            elseif sp and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, sp) end
         end
     end), 30, 4)
     place(right, button(content, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)

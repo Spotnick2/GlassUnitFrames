@@ -700,6 +700,13 @@ local function defaultOffset(unit)
     return L.point[4], L.point[5]
 end
 
+-- Offsets beyond this are nonsense (the UI is ~1400 x 768 units) and ±inf
+-- would poison the SavedVariables file.
+local MAX_OFFSET = 4096
+local function sane(v)
+    return type(v) == "number" and not API.IsSecret(v) and v == v and v > -MAX_OFFSET and v < MAX_OFFSET
+end
+
 local VALID_POINT = { CENTER = true, TOP = true, BOTTOM = true, LEFT = true, RIGHT = true,
                       TOPLEFT = true, TOPRIGHT = true, BOTTOMLEFT = true, BOTTOMRIGHT = true }
 
@@ -709,8 +716,7 @@ local function validSaved(unit)
     local p = Frames.db.pos[unit]
     if type(p) ~= "table" then return nil end
     if not (VALID_POINT[p[1]] and VALID_POINT[p[3]]) then return nil end
-    if type(p[4]) ~= "number" or type(p[5]) ~= "number" then return nil end
-    if API.IsSecret(p[4]) or API.IsSecret(p[5]) then return nil end
+    if not (sane(p[4]) and sane(p[5])) then return nil end
     local rel = p[2]
     if rel ~= "UIParent" and not (Frames.byUnit[rel] and rel == Frames.LAYOUT[unit].anchorTo) then return nil end
     return p
@@ -738,38 +744,77 @@ local function applyPosition(b)
     end
 end
 
--- Where a frame is: CENTER offsets and what they are relative to ("UIParent"
--- or its leader's unit). For an old-style save, measured from the live rects.
+-- What a frame's position is relative to: its leader's unit, or "UIParent";
+-- and that frame. SetPosition always places it there.
+function Frames.AnchorOf(unit)
+    local b = Frames.byUnit[unit]
+    local rel = (b and b.layout.anchorTo) or "UIParent"
+    return rel, relFrame(rel)
+end
+
+-- A save in the current form: CENTER on what the frame is anchored to now.
+local function canonical(unit, p)
+    return p and p[1] == "CENTER" and p[3] == "CENTER" and p[2] == Frames.AnchorOf(unit)
+end
+
+-- Where a frame is: CENTER offsets from its anchor (see AnchorOf), and that
+-- anchor's name. An older save (another point, or a follower saved on the
+-- screen) is measured from the live rects; nil when they aren't laid out, so
+-- a nudge never invents a position.
 function Frames.PositionOf(unit)
     local b = Frames.byUnit[unit]
     if not b then return nil end
+    local rel, rf = Frames.AnchorOf(unit)
     local p = validSaved(unit)
-    if p and p[1] == "CENTER" and p[3] == "CENTER" then return p[4], p[5], p[2] end
-    local rel = b.layout.anchorTo or "UIParent"
+    if canonical(unit, p) then return p[4], p[5], rel end
     if not p then
         local x, y = defaultOffset(unit)
         return x, y, rel
     end
     local bx, by = b:GetCenter()
-    local rx, ry = relFrame(rel):GetCenter()
-    if type(bx) == "number" and type(rx) == "number" then return bx - rx, by - ry, rel end
-    local x, y = defaultOffset(unit)
-    return x, y, rel
+    local rx, ry
+    if rf then rx, ry = rf:GetCenter() end
+    if type(bx) == "number" and type(by) == "number" and type(rx) == "number" and type(ry) == "number" then
+        return bx - rx, by - ry, rel
+    end
+    return nil
+end
+
+-- Record a position without touching the frame (safe in combat): the one
+-- owner of the saved format.
+function Frames.SavePosition(unit, x, y)
+    if not (Frames.byUnit[unit] and sane(x) and sane(y)) then return false end
+    Frames.db.pos[unit] = { "CENTER", (Frames.AnchorOf(unit)), "CENTER", x, y }
+    return true
 end
 
 -- Place one frame at CENTER offsets from its leader (or the screen centre),
 -- rounded to 0.5 units; saved unless `live` (the unlock-mode drag in flight).
 -- Refused in combat: these are protected frames.
+-- Returns true and the (rounded) offsets it applied.
 function Frames.SetPosition(unit, x, y, live)
     local b = Frames.byUnit[unit]
     if not b or InCombatLockdown() then return false end
-    if type(x) ~= "number" or type(y) ~= "number" or x ~= x or y ~= y then return false end
+    if not (sane(x) and sane(y)) then return false end
     x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
-    local rel = b.layout.anchorTo or "UIParent"
+    local _, rf = Frames.AnchorOf(unit)
     b:ClearAllPoints()
-    b:SetPoint("CENTER", relFrame(rel), "CENTER", x, y)
-    if not live then Frames.db.pos[unit] = { "CENTER", rel, "CENTER", x, y } end
-    return true
+    b:SetPoint("CENTER", rf, "CENTER", x, y)
+    if not live then Frames.SavePosition(unit, x, y) end
+    return true, x, y
+end
+
+-- Rewrite older saves in the current form, measured from the live rects (out
+-- of combat, when the frames are laid out; unlock mode runs it first).
+function Frames.NormalizeSaves()
+    if InCombatLockdown() then return end
+    for _, unit in ipairs(Frames.ORDER) do
+        local p = validSaved(unit)
+        if p and not canonical(unit, p) then
+            local x, y = Frames.PositionOf(unit)
+            if x then Frames.SetPosition(unit, x, y) end
+        end
+    end
 end
 
 -- One frame back to its default (and, for a leader, its followers with it).

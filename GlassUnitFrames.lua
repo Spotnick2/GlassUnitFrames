@@ -262,7 +262,12 @@ function Settings_.Lock()
 end
 
 function Settings_.ResetPositions()
-    whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+    whenOutOfCombat("reset", function()
+        GlassUF.Movers.CancelDrag()   -- a drag in flight would re-save over the reset
+        Frames.ResetPositions()
+        GlassUF.Movers.Refresh()      -- the open nudge panel shows the new numbers
+        say("positions reset")
+    end)
 end
 
 function Settings_.SetHealthFormat(unit, kind)

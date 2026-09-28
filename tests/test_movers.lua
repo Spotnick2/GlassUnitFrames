@@ -100,4 +100,65 @@ eq(button("targettarget")._points[1][2], button("target"), "wrong relative frame
 eq(button("pet")._points[1][1], "TOPLEFT", "an old-style save is still honoured")
 GlassUnitFramesDB = nil
 
+-- Review fixes (#52).
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon()
+UIParent._center = { 512, 384 }
+F, M = GlassUF.Frames, GlassUF.Movers
+local pl, pt = button("player"), button("pet")
+
+-- An old-style follower save on the SCREEN: measured from the live rects,
+-- never applied as leader offsets (it used to jump ~300 units on a nudge).
+GlassUnitFramesDB.pos.pet = { "CENTER", "UIParent", "CENTER", -300, -162 }
+pl._center, pt._center = { 512 - 300, 384 - 110 }, { 512 - 300, 384 - 162 }
+local x, y, rel = F.PositionOf("pet")
+eq(rel, "player", "position reported relative to what it's anchored to")
+eq(x, 0, "measured x from the player's centre")
+eq(y, -52, "measured y")
+check(M.Unlock(), "unlock")
+eq(GlassUnitFramesDB.pos.pet[2], "player", "unlock rewrites the old save in the current form")
+eq(GlassUnitFramesDB.pos.pet[5], -52, "at the same spot")
+M.Lock()
+
+-- An old-style save whose rects aren't laid out: nudges are refused, not invented.
+GlassUnitFramesDB.pos.pet = { "TOPLEFT", "UIParent", "BOTTOMLEFT", 100, 200 }
+pt._center = nil
+eq(F.PositionOf("pet"), nil, "unmeasurable: no position")
+
+-- Offsets are bounded: no ±inf (or nonsense) reaches SavedVariables.
+check(not F.SetPosition("player", 1/0, 0), "infinite x refused")
+check(not F.SetPosition("player", 5000, 0), "far-off x refused")
+check(not F.SavePosition("player", -1/0, 0), "infinite save refused")
+GlassUnitFramesDB.pos.player = { "CENTER", "UIParent", "CENTER", 1/0, 0 }
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon({ db = GlassUnitFramesDB })
+eq(button("player")._points[1][4], -300, "an infinite save falls back to the default")
+
+-- A reset during a drag wins (the drag in flight is dropped, not re-saved),
+-- and the open nudge panel shows the reset position.
+UIParent._center = { 512, 384 }
+F, M = GlassUF.Frames, GlassUF.Movers
+M.Unlock()
+local mt2 = M._test.movers.target
+mt2._center = { 512 + 380, 384 - 60 }
+mt2._scripts.OnDragStart(mt2); mt2._scripts.OnUpdate(mt2)
+SlashCmdList.GLASSUNITFRAMES("reset")
+mt2._scripts.OnDragStop(mt2)
+eq(GlassUnitFramesDB.pos.target, nil, "the reset survives the drag's release")
+eq(button("target")._points[1][4], 300, "target at its default")
+eq(M._test.panel().x._text, "300", "the nudge panel shows the reset position")
+
+-- A drag that holds still doesn't re-anchor the frame every rendered frame.
+mt2._center = { 512 + 100, 384 - 100 }
+mt2._scripts.OnDragStart(mt2); mt2._scripts.OnUpdate(mt2)
+local calls = 0
+local realSP = button("target").SetPoint
+rawset(button("target"), "SetPoint", function(...) calls = calls + 1; return realSP(...) end)
+mt2._scripts.OnUpdate(mt2); mt2._scripts.OnUpdate(mt2)
+eq(calls, 0, "no SetPoint while the mover holds still")
+rawset(button("target"), "SetPoint", nil)
+mt2._scripts.OnDragStop(mt2)
+M.Lock()
+GlassUnitFramesDB = nil
+
 done("test_movers")

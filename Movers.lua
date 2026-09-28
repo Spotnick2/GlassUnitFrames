@@ -38,9 +38,8 @@ end
 
 -- The mover's centre as offsets from the frame's leader (or the screen).
 local function offsetsFromMover(m)
-    local _, _, rel = Frames.PositionOf(m.unit)
+    local _, relFrame = Frames.AnchorOf(m.unit)   -- what SetPosition places it on
     local mx, my = m:GetCenter()
-    local relFrame = (rel == "UIParent") and UIParent or Frames.byUnit[rel]
     -- Not `relFrame and relFrame:GetCenter()`: `and` keeps only the first return.
     local rx, ry
     if relFrame then rx, ry = relFrame:GetCenter() end
@@ -50,11 +49,11 @@ end
 
 local function refreshPanel()
     if not (panel and selected) then return end
-    local x, y, rel = Frames.PositionOf(selected)
+    local x, y = Frames.PositionOf(selected)
     panel.title:SetText(NAMES[selected] or selected)
-    panel.sub:SetText("offsets from " .. relName(rel))
-    if not panel.x:HasFocus() then panel.x:SetText(string.format("%g", x or 0)) end
-    if not panel.y:HasFocus() then panel.y:SetText(string.format("%g", y or 0)) end
+    panel.sub:SetText("offsets from " .. relName((Frames.AnchorOf(selected))))
+    if not panel.x:HasFocus() then panel.x:SetText(x and string.format("%g", x) or "?") end
+    if not panel.y:HasFocus() then panel.y:SetText(y and string.format("%g", y) or "?") end
 end
 
 -- Finish a drag in flight: the last position the frame took is saved. Safe
@@ -69,8 +68,7 @@ local function finishDrag()
         -- The frame already sits there (applied live before any lockdown);
         -- record it. In combat only the table is written, never the frame.
         if InCombatLockdown() then
-            Frames.db.pos[m.unit] = { "CENTER", Frames.byUnit[m.unit].layout.anchorTo or "UIParent",
-                                      "CENTER", m.lastX, m.lastY }
+            Frames.SavePosition(m.unit, m.lastX, m.lastY)
         else
             Frames.SetPosition(m.unit, m.lastX, m.lastY)
         end
@@ -83,9 +81,12 @@ end
 local function follow(m)
     if InCombatLockdown() then finishDrag(); return end
     local x, y = offsetsFromMover(m)
-    if x and Frames.SetPosition(m.unit, x, y, true) then
-        m.lastX, m.lastY = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
-    end
+    if not x then return end
+    -- Skip when nothing moved: every SetPoint re-lays out the whole group.
+    local rx, ry = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
+    if rx == m.lastX and ry == m.lastY then return end
+    local ok, ax, ay = Frames.SetPosition(m.unit, x, y, true)
+    if ok then m.lastX, m.lastY = ax, ay end
 end
 
 local function select_(unit)
@@ -143,12 +144,17 @@ local function nudge(dx, dy)
     if not selected or InCombatLockdown() then return end
     local step = IsShiftKeyDown() and 10 or 1
     local x, y = Frames.PositionOf(selected)
+    if not x then return end   -- can't tell where it is: never invent a position
     if Frames.SetPosition(selected, x + dx * step, y + dy * step) then refreshPanel() end
 end
 
 local function makeEdit(parent, onCommit)
-    local ok, e = pcall(CreateFrame, "EditBox", nil, parent, "InputBoxTemplate")
-    if not ok or not e then e = CreateFrame("EditBox", nil, parent) end
+    local e, templated = API.SafeFrame("EditBox", parent, "InputBoxTemplate", "Left")
+    if not templated then
+        local bg = e:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints(e)
+        bg:SetColorTexture(0, 0, 0, 0.6)
+    end
     e:SetSize(64, 20)
     e:SetAutoFocus(false)
     e:SetFontObject("GameFontHighlight")
@@ -164,8 +170,13 @@ local function makeEdit(parent, onCommit)
 end
 
 local function makeButton(parent, text, w, onClick)
-    local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
-    if not ok or not b then b = CreateFrame("Button", nil, parent) end
+    local b, templated = API.SafeFrame("Button", parent, "UIPanelButtonTemplate", "Text")
+    if not templated then
+        local bg = b:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints(b)
+        bg:SetColorTexture(0.2, 0.2, 0.25, 0.9)
+        b:SetNormalFontObject("GameFontHighlight")
+    end
     b:SetSize(w, 20)
     b:SetText(text)
     b:SetScript("OnClick", onClick)
@@ -191,7 +202,7 @@ local function makePanel()
     xl:SetText("X")
     p.x = makeEdit(p, function(v)
         local _, y = Frames.PositionOf(selected)
-        Frames.SetPosition(selected, v, y)
+        if y then Frames.SetPosition(selected, v, y) end
     end)
     p.x:SetPoint("LEFT", xl, "RIGHT", 8, 0)
     local yl = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -199,7 +210,7 @@ local function makePanel()
     yl:SetText("Y")
     p.y = makeEdit(p, function(v)
         local x = Frames.PositionOf(selected)
-        Frames.SetPosition(selected, x, v)
+        if x then Frames.SetPosition(selected, x, v) end
     end)
     p.y:SetPoint("LEFT", yl, "RIGHT", 8, 0)
     -- Arrows: 1 unit, Shift 10. Plain characters (every font has them).
@@ -227,6 +238,7 @@ function Movers.Unlock()
     if InCombatLockdown() then return false, "combat" end
     if not next(Frames.byUnit) then return false, "not built" end
     panel = panel or makePanel()
+    Frames.NormalizeSaves()   -- older saves rewritten from the live rects, once
     for unit, b in pairs(Frames.byUnit) do
         movers[unit] = movers[unit] or makeMover(unit, b)
         movers[unit]:Show()
@@ -245,6 +257,21 @@ function Movers.Lock()
     Movers.unlocked = false
     return true
 end
+
+-- Drop a drag in flight WITHOUT saving it (a reset is about to run: it must
+-- win), and bring the panel up to date afterwards.
+function Movers.CancelDrag()
+    local m = dragging
+    if not m then return end
+    dragging = nil
+    m:SetScript("OnUpdate", nil)
+    m:StopMovingOrSizing()
+    m.lastX, m.lastY = nil, nil
+    m:ClearAllPoints()
+    m:SetAllPoints(Frames.byUnit[m.unit])
+end
+
+function Movers.Refresh() refreshPanel() end
 
 -- Combat started: lock (a protected frame can't move under lockdown).
 function Movers.OnCombat()
