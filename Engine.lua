@@ -23,8 +23,10 @@ Engine.CHANNEL_EVENTS = {
     heal     = { "UNIT_HEAL_PREDICTION", "UNIT_MAXHEALTH", "UNIT_HEALTH", "UNIT_CONNECTION" },
     power    = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" },
     -- The name painter also paints the target's level/classification text.
+    -- UNIT_FLAGS (combat state) and UNIT_THREAT_LIST_UPDATE: a neutral NPC
+    -- that starts fighting you turns red (#28).
     name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CLASSIFICATION_CHANGED",
-                 "UNIT_CONNECTION" },
+                 "UNIT_CONNECTION", "UNIT_FLAGS", "UNIT_THREAT_LIST_UPDATE" },
     portrait = { "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" },
     -- Raid target / leader / loot / PvP icons. Most of their triggers are
     -- group-wide events, handled by the world frame below; only the PvP flag

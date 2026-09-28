@@ -226,6 +226,11 @@ local function build()
         function(v) db().hideBlizzardCast = v or nil end)
     note(right, "Both take effect after a /reload.")
 
+    header(right, "Colours")
+    controls.aggroRed = checkbox(right, "Neutral NPCs turn red while they fight you",
+        function() return Frames.aggroRed end,
+        GlassUF.Settings.SetAggroRed)
+
     header(right, "Positions")
     place(right, button(panel, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
 end

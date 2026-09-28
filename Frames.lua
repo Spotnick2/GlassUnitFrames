@@ -86,6 +86,18 @@ local function attempt(key, fn, ...)
     return ok
 end
 
+-- A neutral NPC fighting you reads red, as Blizzard's nameplate does (#28).
+-- Its reaction stays neutral, so ask what the nameplate asks: the selection
+-- type (0 hostile, 1 unfriendly on Retail), then, failing that, whether you
+-- are on its threat list. Both through plain(): a secret answer means "don't
+-- know", and the NPC stays yellow rather than guessing. An option (on by default).
+Frames.aggroRed = true
+local function neutralFighting(u)
+    local st = plain(UnitSelectionType, u)
+    if type(st) == "number" and st <= 1 then return true end
+    return plain(UnitThreatSituation, "player", u) ~= nil
+end
+
 local function unitColor(u)
     if plain(UnitIsConnected, u) == false then return GREY end
     if plain(UnitIsDeadOrGhost, u) == true then return GREY end   -- dead reads as dead even on name-only frames
@@ -99,7 +111,11 @@ local function unitColor(u)
     if plain(UnitIsTapDenied, u) == true then return GREY end
     local reaction = plain(UnitReaction, u, "player")
     if type(reaction) == "number" then
-        if reaction <= 3 then return HOSTILE elseif reaction == 4 then return NEUTRAL end
+        if reaction <= 3 then return HOSTILE end
+        if reaction == 4 then
+            if Frames.aggroRed and neutralFighting(u) then return HOSTILE end
+            return NEUTRAL
+        end
         return FRIENDLY
     end
     return DEFAULT
@@ -358,6 +374,11 @@ local function anchorName(b, marked)
 end
 
 -- Switch the placement live (out of combat or in: nothing here is secure).
+function Frames.SetAggroRed(on)
+    Frames.aggroRed = on and true or false
+    Engine.RepaintChannel("name")
+end
+
 function Frames.SetMarkPosition(pos)
     if not Frames.MARK_POSITIONS[pos] then return false end
     Frames.markPos = pos
@@ -919,5 +940,6 @@ end
 function Frames.Build(db)
     Frames.db = db
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
+    if db.aggroRed == false then Frames.aggroRed = false end
     for _, unit in ipairs(Frames.ORDER) do build(unit) end
 end

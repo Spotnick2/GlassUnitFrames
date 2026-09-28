@@ -512,6 +512,14 @@ function UnitIsPVPFreeForAll(u) return unitField(u, "ffa") end
 function UnitFactionGroup(u) return unitField(u, "faction") end
 function IsMasterLooter() return WoW.masterLooter == true end
 function IsResting() return WoW.resting == true end
+-- #28. Unit fields: selType (UnitSelectionType), threat (the player's
+-- UnitThreatSituation on that mob, nil = not on its list), combat.
+function UnitSelectionType(u) return unitField(u, "selType") end
+function UnitThreatSituation(u, mob)
+    if mob == nil then return nil end
+    return unitField(mob, "threat")
+end
+function UnitAffectingCombat(u) return unitField(u, "combat") end
 -- Retail's Settings framework (names from the dump's _G walk; signatures as
 -- Priestly uses them on Forever). WoW.settings records what the addon did.
 Settings = {

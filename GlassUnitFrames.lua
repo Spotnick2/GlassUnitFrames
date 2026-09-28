@@ -74,6 +74,9 @@ local SECRET_PROBES = {
     { "dead",   function(u) return UnitIsDeadOrGhost(u) end },
     { "cast",   function(u) return (API.CastDuration(u)) end },
     { "mark",   function(u) return GetRaidTargetIndex(u) end },
+    { "selType", function(u) return UnitSelectionType(u) end, value = true },   -- #28: 0/1 = hostile
+    { "threat", function(u) return UnitThreatSituation("player", u) end, value = true },
+    { "combat", function(u) return UnitAffectingCombat(u) end },
     { "pwAlpha", function(u) return API.PowerAlpha(u) end, value = true },   -- #27: the curve's opacity
 }
 
@@ -236,6 +239,13 @@ function Settings_.ResetPositions()
 end
 
 -- "show" brings back everything GlassUF hides from Blizzard, the cast bar too.
+function Settings_.SetAggroRed(on)
+    Frames.SetAggroRed(on)
+    -- Saved only when turned off (the default is on). Not `(not on) and false
+    -- or nil`: `false or nil` is nil, so "off" would never be saved.
+    if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
+end
+
 function Settings_.SetHideBlizzard(hide)
     GlassUnitFramesDB.hideBlizzard = hide and true or false
     if not hide then GlassUnitFramesDB.hideBlizzardCast = nil end
