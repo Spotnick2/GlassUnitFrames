@@ -91,6 +91,11 @@ end
 local function secretsReport()
     say(string.format("secrets report, build %s, %s. S = secret, ok = plain, ERR = threw",
         API.ClientBuild(), InCombatLockdown() and "|cffff6060IN COMBAT|r" or "out of combat"))
+    -- The hunter pet's happiness (1-3), once: C_PetInfo takes no unit.
+    local ci = rawget(_G, "C_PetInfo")
+    local okH, happy = pcall(function() return ci and ci.GetPetHappiness() end)
+    say("  petHappiness=" .. ((not okH and "ERR") or (API.IsSecret(happy) and "S")
+        or (happy == nil and "nil") or tostring(happy)))
     -- The player's own threat state (as Blizzard's raid frames read it): once, not per frame.
     local okT, myThreat = pcall(UnitThreatSituation, "player")
     say("  myThreat=" .. ((not okT and "ERR") or (API.IsSecret(myThreat) and "S")
@@ -196,6 +201,7 @@ local HELP = {
     "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
     "level power|name|portrait  - where the target's level goes (saved)",
+    "happiness left|right|under  - hunter pet happiness: left of the pet's portrait, right of the frame, or under the portrait (saved)",
     "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
     "mark name|top|right  - raid mark before the name, on the top edge, or right of the frame (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
@@ -251,6 +257,12 @@ function Settings_.SetHealthFormat(unit, kind)
     return true
 end
 
+function Settings_.SetHappinessPosition(pos)
+    if not Frames.SetHappinessPosition(pos) then return false end
+    GlassUnitFramesDB.happiness = pos
+    return true
+end
+
 function Settings_.SetLevelPosition(pos)
     if not Frames.SetLevelPosition(pos) then return false end
     GlassUnitFramesDB.level = pos
@@ -286,6 +298,12 @@ local function slash(msg)
     elseif cmd == "options" or cmd == "config" then
         if not (GlassUF.Options and GlassUF.Options.Open()) then
             say("options are in Game Menu > Options > AddOns > Glass Unit Frames")
+        end
+    elseif cmd == "happiness" then
+        if Settings_.SetHappinessPosition(arg) then
+            say("pet happiness " .. arg)
+        else
+            say("happiness left|right|under (now " .. Frames.happinessPos .. ")")
         end
     elseif cmd == "level" then
         if Settings_.SetLevelPosition(arg) then

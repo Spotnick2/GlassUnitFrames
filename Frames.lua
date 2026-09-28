@@ -38,7 +38,7 @@ Frames.LAYOUT = {
     -- owner's SUF had it.
     pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -162 },
                      portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
-                     indicators = { raidTarget = true } },
+                     indicators = { raidTarget = true, happiness = true } },
     -- The target cluster, SUF-style: targettarget and targettargettarget side by
     -- side ABOVE the target body (x 117.5..417.5, top at -79), 12 px up so the
     -- target's raid mark and leader crown (centred on its top edge, up to
@@ -365,7 +365,13 @@ local function placeMark(b)
     if pos == "top" then
         icon:SetPoint("CENTER", b.body, "TOP", 0, 0)
     elseif pos == "right" then
-        icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+        -- Past the pet's happiness icon when that is on the right too.
+        local happy = b.indicators.happiness
+        if happy and Frames.happinessPos == "right" then
+            icon:SetPoint("LEFT", happy, "RIGHT", 4, 0)
+        else
+            icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+        end
     else
         icon:SetPoint("LEFT", b.health, "LEFT", b.namePad or 5, 0)
     end
@@ -437,6 +443,36 @@ function Frames.SetAggroRed(on)
     Engine.RepaintChannel("color")
 end
 
+-- Pet happiness placement: "left" (default, the owner's pick: left of the
+-- pet's portrait, which sits at the frame's left edge), "right" (right of
+-- the frame, where Blizzard's PetFrame shows it) or "under" (under the portrait).
+Frames.HAPPINESS_POSITIONS = { left = true, right = true, under = true }
+Frames.happinessPos = "left"
+
+local function placeHappiness(b)
+    local icon = b.indicators and b.indicators.happiness
+    if not icon then return end
+    icon:ClearAllPoints()
+    local pos, anchor = Frames.happinessPos, b.tile or b
+    if pos == "right" then
+        icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+    elseif pos == "under" then
+        icon:SetPoint("TOP", anchor, "BOTTOM", 0, -3)
+    else
+        icon:SetPoint("RIGHT", anchor, "LEFT", -4, 0)
+    end
+end
+
+function Frames.SetHappinessPosition(pos)
+    if not Frames.HAPPINESS_POSITIONS[pos] then return false end
+    Frames.happinessPos = pos
+    for _, b in pairs(Frames.byUnit) do
+        placeHappiness(b)
+        placeMark(b)   -- a right-hand mark steps past a right-hand happiness icon
+    end
+    return true
+end
+
 -- Switch the placement live (out of combat or in: nothing here is secure).
 function Frames.SetMarkPosition(pos)
     if not Frames.MARK_POSITIONS[pos] then return false end
@@ -448,6 +484,43 @@ function Frames.SetMarkPosition(pos)
     end
     return true
 end
+
+-- Hunter pet happiness: 1 unhappy, 2 content, 3 happy (the cells of
+-- UI-PetHappiness, as Blizzard's PetFrame and SUF use them). The legacy
+-- GetPetHappiness global is gone on Forever (DinoUF), but C_PetInfo has it.
+-- Only for a hunter's pet (HasPetUI's second return), never a warlock's
+-- demon. Plain values only; anything else hides the icon.
+local HAPPINESS_CELLS = { { 0.375, 0.5625 }, { 0.1875, 0.375 }, { 0, 0.1875 } }
+local function isHunterPet()
+    local hasUI = rawget(_G, "HasPetUI")
+    if hasUI then
+        local ok, _, hunter = pcall(hasUI)
+        return ok and not API.IsSecret(hunter) and hunter == true
+    end
+    -- No HasPetUI: fail closed on anything but a hunter's own pet.
+    local ok, _, class = pcall(UnitClass, "player")
+    return ok and class == "HUNTER"
+end
+
+local function petHappiness()
+    if not isHunterPet() then return nil end
+    local ci = rawget(_G, "C_PetInfo")
+    local h = ci and plain(ci.GetPetHappiness)
+    if type(h) == "number" then return h end
+    return nil
+end
+
+Engine.SetPainter("happiness", function(f)
+    local icon = f.indicators and f.indicators.happiness
+    if not icon then return end
+    local cell = UnitExists(f.unit) and HAPPINESS_CELLS[petHappiness()]
+    if cell then
+        icon:SetTexCoord(cell[1], cell[2], 0, 0.359375)
+        icon:Show()
+    else
+        icon:Hide()
+    end
+end)
 
 Engine.SetPainter("indicators", function(f)
     local ind, u = f.indicators, f.unit
@@ -814,6 +887,17 @@ local function buildIndicators(b, body, g, L, tileGlass)
         ind.pvp:Hide()
     end
     if want.resting and tileGlass then ind.resting = buildResting(tileGlass.top, large) end
+    -- Hunter pet happiness: its own square, nearly as tall as the frame,
+    -- placed by placeHappiness (left of the portrait by default). No glass
+    -- tile: the texture has its own border, and sliced masks break on tiles
+    -- this small (GLASS-MATERIAL §6).
+    if want.happiness then
+        local s = L.h - 6
+        ind.happiness = g.top:CreateTexture(nil, "OVERLAY", nil, 7)
+        ind.happiness:SetSize(s, s)
+        ind.happiness:SetTexture("Interface\\PetPaperDollFrame\\UI-PetHappiness")
+        ind.happiness:Hide()
+    end
     b.indicators = ind
 end
 
@@ -877,6 +961,7 @@ local function build(unit)
     b.unit, b.layout = unit, L
     local hasPower = L.power and not L.nameOnly   -- nameOnly: just the name over a health bar
     b.channels = { name = true, color = true, health = true, power = hasPower or nil,
+                   happiness = (L.indicators and L.indicators.happiness) or nil,
                    indicators = L.indicators and true or nil,
                    heal = L.healPrediction or nil,
                    portrait = L.portrait and true or nil, cast = L.cast or nil }
@@ -985,6 +1070,8 @@ local function build(unit)
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     placeLevel(b)
+    placeHappiness(b)   -- after the portrait tile exists
+    placeMark(b)        -- a right-hand mark may step past the happiness icon
     RegisterUnitWatch(b)
     Engine.Register(b, { ticker = L.ticker })
     Frames.byUnit[unit] = b
@@ -1010,6 +1097,7 @@ function Frames.Build(db)
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
     if db.aggroRed == false then Frames.aggroRed = false end
     if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
+    if Frames.HAPPINESS_POSITIONS[db.happiness] then Frames.happinessPos = db.happiness end
     if type(db.healthText) == "table" then
         for unit, kind in pairs(db.healthText) do
             if HEALTH_FORMAT_OK[kind] then Frames.healthFormat[unit] = kind end
