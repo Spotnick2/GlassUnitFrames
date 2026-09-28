@@ -34,7 +34,7 @@ What makes it read as glass, in order of importance:
 
 | Feature | API | Notes |
 |---|---|---|
-| 9-slice scaling | `Texture:SetTextureSliceMargins(l, t, r, b)` + `SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)` | Margins are in texture pixels. Works on MaskTextures too. |
+| 9-slice scaling | `Texture:SetTextureSliceMargins(l, t, r, b)` + `SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)` | Margins are in texture pixels. Works on MaskTextures too, **except on boxes small in both directions** (see §6). |
 | Rounded masks | `frame:CreateMaskTexture()`, `mask:SetTexture(file, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")`, `tex:AddMaskTexture(mask)` | Works on a `StatusBar:GetStatusBarTexture()` fill: rounded at 0%, 3%, 50% and 100%. The moving fill edge stays square. |
 | Gradients | `tex:SetGradient("VERTICAL", CreateColor(...), CreateColor(...))` | Takes **colour objects**, not numeric RGBA. VERTICAL: min = bottom, max = top. |
 | Additive highlights | `tex:SetBlendMode("ADD")` | |
@@ -165,6 +165,17 @@ Glass.SetFont("friz")                            -- restyles every Glass.Font st
 
 - **Slice margins vs. frame size.** A frame smaller than twice the slice margin still rendered
   in testing, but the corners get squeezed. Use the `small` set below ~40px tall.
+- **Sliced masks fail on boxes small in BOTH directions.** Measured in a sibling glass addon on
+  70009: a sliced `bar_mask`/`bar_edge` at margin 8 did not render correctly on 16-22 px
+  **square** icon tiles. The same asset at margin 8 renders fine on bars that are small in one
+  direction only (GlassUnitFrames' 300x12 and 330x7 power bars), and GlassUnitFrames' 32x32 pet
+  portrait tile renders fine on `body_mask_small`. It isn't "short" that fails; which axis
+  decides, and where the threshold sits between 22 and 32, is **unmeasured** (a settling test:
+  three sliced tiles at 32x32, 64x20 and 20x64 in one screenshot).
+- **Never scale a slice margin down to fit a small box.** Margins are in texture pixels and must
+  match the generator (`bar_mask`/`bar_edge` are drawn at 32 px, radius 5, margin 8): a margin of
+  4 cuts straight through the corner arc. A box too small for the asset's margin needs a smaller
+  asset, not a smaller margin.
 - **3D models can't be masked.** A `PlayerModel` draws a rectangle. Inset it inside the tile;
   its background is transparent, so the glass shows through behind the head, which looks good.
 - **2D portraits come on black.** `SetPortraitTexture(tex, unit, true)` (`disableMasking`)
