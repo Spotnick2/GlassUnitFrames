@@ -6,19 +6,15 @@ standardUnits()
 loadAddon()
 local p = button("player")
 
--- Drag: shift required, refused in combat, dropped at PLAYER_REGEN_DISABLED.
-p._scripts.OnDragStart(p)
-check(not p._moving, "no drag without shift")
-WoW.shift = true
-p._scripts.OnDragStart(p)
-check(p._moving, "shift-drag starts out of combat")
-WoW.fire("PLAYER_REGEN_DISABLED")          -- fires before lockdown begins
-check(not p._moving, "drag dropped when combat starts")
-eq(GlassUnitFramesDB.pos.player[4], 111, "dropped position saved")
+-- The unit buttons are never dragged by the client (no shift-drag any more):
+-- unlock mode moves them through SetPoint, out of combat only.
+check(p._scripts.OnDragStart == nil, "no client drag on the protected button")
+GlassUF.Frames.SetPosition("player", -250, -100)
+eq(GlassUnitFramesDB.pos.player[4], -250, "a position is saved")
 
 WoW.combat = true
-p._scripts.OnDragStart(p)
-check(not p._moving, "no drag in combat")
+check(not GlassUF.Movers.Unlock(), "unlock refused in combat")
+check(not GlassUF.Frames.SetPosition("player", 0, 0), "positions refused in combat")
 
 -- /glass reset in combat waits for PLAYER_REGEN_ENABLED.
 SlashCmdList.GLASSUNITFRAMES("reset")
@@ -42,15 +38,21 @@ WoW.fire("PLAYER_REGEN_ENABLED")
 eq(GlassUnitFramesDB.pos.player, nil, "deferred reset ran after combat")
 eq(p._points[1][4], -300, "player back at the default position")
 
--- A drag that combat caught mid-way is finished when combat ends.
-WoW.shift = true
-p._scripts.OnDragStart(p)
+-- An unlock-mode drag that combat catches: the mover (insecure) stops, the
+-- frame keeps its last position, nothing protected is touched under lockdown.
+UIParent._center = { 512, 384 }
+check(GlassUF.Movers.Unlock(), "unlocked out of combat")
+local m = GlassUF.Movers._test.movers.player
+m._center = { 512 - 300, 384 - 90 }
+m._scripts.OnDragStart(m)
+m._scripts.OnUpdate(m)
 WoW.combat = true
-WoW.fire("PLAYER_REGEN_DISABLED")           -- worst case: lockdown already on
-check(p.moving, "drag cannot be stopped under lockdown")
+WoW.fire("PLAYER_REGEN_DISABLED")
+check(not GlassUF.Movers.unlocked, "combat locks unlock mode")
+check(not m._shown, "movers hidden")
+eq(GlassUnitFramesDB.pos.player[5], -90, "the last live position is kept")
 WoW.combat = false
 WoW.fire("PLAYER_REGEN_ENABLED")
-check(not p.moving and not p._moving, "drag finished after combat")
 eq(#WoW.blocked, 0, "nothing touched while locked: " .. table.concat(WoW.blocked, ", "))
 
 -- Loaded under lockdown: the build waits for combat to end.

@@ -249,6 +249,8 @@ function Methods.SetAttribute(w, k, v) if guard(w, "SetAttribute") then w._attrs
 function Methods.GetAttribute(w, k) return w._attrs[k] end
 function Methods.RegisterForClicks(w, ...) if guard(w, "RegisterForClicks") then w._clicks = { ... } end end
 function Methods.StartMoving(w) if guard(w, "StartMoving") then w._moving = true end end
+-- No real geometry in the stub: a test sets w._center = { x, y } where it matters.
+function Methods.GetCenter(w) if w._center then return w._center[1], w._center[2] end end
 function Methods.StopMovingOrSizing(w)
     if guard(w, "StopMovingOrSizing") then
         w._moving = false

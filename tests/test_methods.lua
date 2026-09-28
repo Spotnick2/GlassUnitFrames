@@ -30,9 +30,18 @@ loadAddon()
 WoW.fireAllRegistered()
 WoW.tick(); WoW.tick(0.1)
 WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "player"); WoW.flushTimers()
-WoW.shift = true
-local p = button("player")
-p._scripts.OnDragStart(p); p._scripts.OnDragStop(p)
+-- Unlock mode: movers, a drag, the nudge panel (so their methods are checked).
+UIParent._center = { 512, 384 }
+GlassUF.Movers.Unlock()
+local mv = GlassUF.Movers._test.movers.target
+mv._center = { 800, 300 }
+mv._scripts.OnDragStart(mv); mv._scripts.OnUpdate(mv); mv._scripts.OnDragStop(mv)
+mv._scripts.OnMouseUp(mv)
+GlassUF.Movers._test.nudge(1, 0)
+local np = GlassUF.Movers._test.panel()
+np.x._scripts.OnEnterPressed(np.x)
+np.buttons.reset._scripts.OnClick(np.buttons.reset)
+GlassUF.Movers.Lock()
 SlashCmdList.GLASSUNITFRAMES("font friz")
 SlashCmdList.GLASSUNITFRAMES("reset")
 -- Build the options panel so its widget methods are checked too.

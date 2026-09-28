@@ -30,7 +30,7 @@ GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 ## Layout
 
 TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `Auras.lua` →
-`Blizzard.lua` → `GlassUnitFrames.lua` → `Options.lua`.
+`Blizzard.lua` → `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
   - `IsSecret`;
@@ -109,6 +109,19 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     under secrecy).
   - The container API isn't in the dump; `test_methods.lua` allowlists exactly those methods,
     with DinoUF as the evidence.
+- **Positions** (`Frames.lua`): every frame sits CENTER-on-CENTER on its leader (`LAYOUT[unit].anchorTo`:
+  pet→player, ToT/ToTT/focus→target, focustarget→focus) or on UIParent, so moving a leader carries
+  its group. Saved as `{ "CENTER", "UIParent"|leaderUnit, "CENTER", x, y }`; saved entries are
+  **validated** (a malformed one falls back to the default instead of aborting the build), and
+  old-style saves are still honoured. Positions change only through `Frames.SetPosition` /
+  `ResetPosition` / `ResetPositions`, **out of combat**.
+- **`Movers.lua`**: unlock mode (`/glass unlock|lock`, the options panel's Unlock button). One
+  plain, insecure mover per frame on UIParent, **anchored to the button, never the reverse** (a
+  frame a protected frame anchors to becomes protected). Dragging moves the mover; the button
+  follows through `Frames.SetPosition`. **Nothing starts the client's own drag on a protected
+  button** (a drag combat interrupts can't be stopped; there is no shift-drag any more). Clicking
+  a mover opens the nudge panel (X/Y offsets, arrows 1 / Shift 10, reset this frame, lock).
+  Unlock and nudges are refused in combat; a combat start locks.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
   - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
     `ComboFrame` stays until we draw combo points. Party is never touched, since the owner uses

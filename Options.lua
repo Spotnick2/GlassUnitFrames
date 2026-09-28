@@ -250,7 +250,7 @@ function Options.ResetLook() GlassUF.Settings.ResetLook() end
 local function build()
     local title = label(content, "Glass Unit Frames", "GameFontNormalHuge")
     title:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -16)
-    local sub = label(content, "Liquid-glass unit frames. Shift-drag a frame to move it (out of combat). /glass lists the commands.",
+    local sub = label(content, "Liquid-glass unit frames. Unlock them below to move them. /glass lists the commands.",
         "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
 
@@ -316,6 +316,13 @@ local function build()
     note(right, "While they fight you or your group.", 270)
 
     header(right, "Positions")
+    -- Unlocking closes the Settings window, or the movers would sit behind it.
+    place(right, button(content, "Unlock frames", 190, function()
+        if GlassUF.Settings.Unlock() then
+            local sp = rawget(_G, "SettingsPanel")
+            if sp and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, sp) end
+        end
+    end), 30, 4)
     place(right, button(content, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
 
     -- Tall enough for the taller column; the scroll bar appears once that
