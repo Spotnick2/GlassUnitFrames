@@ -38,6 +38,39 @@ local panel
 local GRID, SNAP_DIST = 16, 8
 local OVERLAY_LEVEL, MOVER_LEVEL = 1, 10   -- grid and guides below the movers (same strata)
 Movers.snapGrid, Movers.snapAlign = true, true
+
+-- Mirroring: the player and target frames stay symmetric around the screen
+-- centre. Moving one (drag, arrows, typed X/Y, reset) places the other at the
+-- mirrored spot (-x, same y); their groups follow through their anchors. On
+-- by default (saved when off), but it only acts on a pair that IS symmetric
+-- now: a custom asymmetric layout is never overwritten (reset both, or place
+-- them symmetrically once, to start mirroring). Alt at the START of a drag
+-- moves one alone; the choice holds for the whole drag.
+local MIRROR = { player = "target", target = "player" }
+Movers.mirror = true
+
+-- The frame mirrored with `unit` right now, or nil: mirroring on, and the
+-- pair currently symmetric (both sit on the screen centre-on-centre, so the
+-- mirror is simply -x; within half a unit, the offsets' rounding).
+local function mirrorOf(unit)
+    local other = Movers.mirror and MIRROR[unit]
+    if not other or not Frames.byUnit[other] then return nil end
+    local ux, uy = Frames.PositionOf(unit)
+    local ox, oy = Frames.PositionOf(other)
+    if not (ux and ox) then return nil end
+    if math.abs(ux + ox) > 0.5 or math.abs(uy - oy) > 0.5 then return nil end
+    return other
+end
+
+-- Place `unit` and, if given, its mirror `other` at -x (the one mirror rule);
+-- `live` = a drag in flight (not saved yet). Returns ok and the offsets
+-- applied to `unit`.
+local function place(unit, x, y, live, other)
+    local ok, ax, ay = Frames.SetPosition(unit, x, y, live)
+    if not ok then return false end
+    if other then Frames.SetPosition(other, -ax, ay, live) end
+    return true, ax, ay
+end
 local overlay   -- the grid and the guide lines, full screen, under the movers
 
 local function relName(rel)
@@ -80,12 +113,14 @@ local function endDrag(save)
     m:StopMovingOrSizing()
     if save and m.lastX then
         if InCombatLockdown() then
+            -- Only the table (never a protected frame under lockdown).
             Frames.SavePosition(m.unit, m.lastX, m.lastY)
+            if m.partner then Frames.SavePosition(m.partner, -m.lastX, m.lastY) end
         else
-            Frames.SetPosition(m.unit, m.lastX, m.lastY)
+            place(m.unit, m.lastX, m.lastY, false, m.partner)
         end
     end
-    m.lastX, m.lastY, m.lines = nil, nil, nil
+    m.lastX, m.lastY, m.lines, m.partner = nil, nil, nil, nil
     m:ClearAllPoints()
     m:SetAllPoints(Frames.byUnit[m.unit])
     showGuide("vguide", nil)
@@ -114,8 +149,10 @@ local function alignLines(unit, axis)
     local centre
     if axis == "x" then centre = ucx else centre = ucy end
     if type(centre) == "number" then lines[#lines + 1] = centre end
+    local m = movers[unit]
+    local partner = m and m.partner
     for u, b in pairs(Frames.byUnit) do
-        if u ~= unit and not followsFrom(u, unit) then
+        if u ~= unit and not followsFrom(u, unit) and u ~= partner and not (partner and followsFrom(u, partner)) then
             local lo, hi
             if axis == "x" then lo, hi = b:GetLeft(), b:GetRight() else lo, hi = b:GetBottom(), b:GetTop() end
             if type(lo) == "number" and type(hi) == "number" then
@@ -201,7 +238,7 @@ local function follow(m)
     -- Skip when nothing moved: every SetPoint re-lays out the whole group.
     local rx, ry = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
     if rx == m.lastX and ry == m.lastY then return end
-    local ok, ax, ay = Frames.SetPosition(m.unit, x, y, true)
+    local ok, ax, ay = place(m.unit, x, y, true, m.partner)
     if ok then m.lastX, m.lastY = ax, ay end
 end
 
@@ -247,6 +284,9 @@ local function makeMover(unit, b)
     m:SetScript("OnDragStart", function(self)
         if InCombatLockdown() then return end
         select_(self.unit)
+        -- Mirror or not is decided now (Alt held = alone) and holds for the
+        -- whole drag, so what's seen is what's saved.
+        self.partner = (not IsAltKeyDown()) and mirrorOf(self.unit) or nil
         self:StartMoving()
         dragging = self
         self:SetScript("OnUpdate", follow)
@@ -268,7 +308,7 @@ local function nudge(dx, dy)
     local step = IsShiftKeyDown() and 10 or 1
     local x, y = Frames.PositionOf(selected)
     if not x then return end   -- can't tell where it is: never invent a position
-    if Frames.SetPosition(selected, x + dx * step, y + dy * step) then refreshPanel() end
+    if place(selected, x + dx * step, y + dy * step, false, mirrorOf(selected)) then refreshPanel() end
 end
 
 local function makeEdit(parent, onCommit)
@@ -310,7 +350,7 @@ local function makePanel()
     local p = CreateFrame("Frame", nil, UIParent)
     p:SetFrameStrata("DIALOG")
     p:SetFrameLevel(100)
-    p:SetSize(250, 120)
+    p:SetSize(250, 140)
     p:SetClampedToScreen(true)
     p:EnableMouse(true)
     local bg = p:CreateTexture(nil, "BACKGROUND")
@@ -325,7 +365,7 @@ local function makePanel()
     xl:SetText("X")
     p.x = makeEdit(p, function(v)
         local _, y = Frames.PositionOf(selected)
-        if y then Frames.SetPosition(selected, v, y) end
+        if y then place(selected, v, y, false, mirrorOf(selected)) end
     end)
     p.x:SetPoint("LEFT", xl, "RIGHT", 8, 0)
     local yl = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -333,7 +373,7 @@ local function makePanel()
     yl:SetText("Y")
     p.y = makeEdit(p, function(v)
         local x = Frames.PositionOf(selected)
-        if x then Frames.SetPosition(selected, x, v) end
+        if x then place(selected, x, v, false, mirrorOf(selected)) end
     end)
     p.y:SetPoint("LEFT", yl, "RIGHT", 8, 0)
     -- Arrows: 1 unit, Shift 10. Plain characters (every font has them).
@@ -346,14 +386,18 @@ local function makePanel()
     up:SetPoint("LEFT", right, "RIGHT", 2, 0)
     down:SetPoint("LEFT", up, "RIGHT", 2, 0)
     local reset = makeButton(p, "Reset", 52, function()
-        if selected and Frames.ResetPosition(selected) then refreshPanel() end
+        local other = selected and mirrorOf(selected)   -- before the reset changes it
+        if selected and Frames.ResetPosition(selected) then
+            if other then Frames.ResetPosition(other) end
+            refreshPanel()
+        end
     end)
     reset:SetPoint("LEFT", down, "RIGHT", 8, 0)
     local lock = makeButton(p, "Lock", 44, function() Movers.Lock() end)
     lock:SetPoint("LEFT", reset, "RIGHT", 4, 0)
     p.buttons = { left = left, right = right, up = up, down = down, reset = reset, lock = lock }
     -- Snapping switches (Alt while dragging places freely).
-    local function toggle(text, key, x)
+    local function toggle(text, key, x, y, setter)
         local cb, templated = API.SafeFrame("CheckButton", p, "UICheckButtonTemplate", "text")
         cb:SetSize(20, 20)
         if not templated then
@@ -361,16 +405,18 @@ local function makePanel()
             cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
             cb:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
         end
-        cb:SetPoint("TOPLEFT", p, "TOPLEFT", x, -68)
+        cb:SetPoint("TOPLEFT", p, "TOPLEFT", x, y)
         local fs = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
         fs:SetText(text)
         cb:SetChecked(Movers[key])
-        cb:SetScript("OnClick", function(self) GlassUF.Settings.SetSnap(key, self:GetChecked() and true or false) end)
+        cb:SetScript("OnClick", function(self) setter(key, self:GetChecked() and true or false) end)
         return cb
     end
-    p.snapGrid = toggle("Snap to grid", "snapGrid", 8)
-    p.snapAlign = toggle("Align to frames", "snapAlign", 120)
+    local function snap(key, on) GlassUF.Settings.SetSnap(key, on) end
+    p.snapGrid = toggle("Snap to grid", "snapGrid", 8, -68, snap)
+    p.snapAlign = toggle("Align to frames", "snapAlign", 120, -68, snap)
+    p.mirror = toggle("Mirror player / target", "mirror", 8, -88, function(_, on) GlassUF.Settings.SetMirror(on) end)
     p:Hide()
     return p
 end
@@ -482,6 +528,13 @@ end
 function Movers.Load(db)
     Movers.snapGrid = db.snapGrid ~= false
     Movers.snapAlign = db.snapAlign ~= false
+    Movers.mirror = db.mirror ~= false
+end
+
+-- Mirroring on or off (GlassUF.Settings.SetMirror saves it).
+function Movers.SetMirror(on)
+    Movers.mirror = on and true or false
+    if panel and panel.mirror then panel.mirror:SetChecked(Movers.mirror) end
 end
 
 -- Combat started: lock (a protected frame can't move under lockdown).
