@@ -43,6 +43,13 @@ if not scroll.ScrollBar then
         self:SetVerticalScroll(v)
     end)
 end
+-- The template shows its bar even with nothing to scroll: show it only when
+-- the content is taller than the canvas.
+if scroll.ScrollBar then
+    scroll:HookScript("OnScrollRangeChanged", function(self, _, yrange)
+        self.ScrollBar:SetShown((yrange or self:GetVerticalScrollRange()) > 0)
+    end)
+end
 -- Keep the content as wide as the visible area.
 scroll:SetScript("OnSizeChanged", function(self, w)
     if type(w) == "number" and w > 0 then content:SetWidth(w) end

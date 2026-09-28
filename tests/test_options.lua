@@ -28,6 +28,14 @@ local sc, content = O._test.scroll, O._test.content
 eq(sc._scrollChild, content, "controls sit in the scroll frame's child")
 eq(controls.slider_fill:GetParent(), content, "widgets are parented to the scroll child")
 check(content._height > 400, "content height covers both columns: " .. tostring(content._height))
+-- The scroll bar only shows when there is something to scroll.
+local bar = CreateFrame("Slider", nil, sc)
+sc.ScrollBar = bar
+check(sc._scripts.OnScrollRangeChanged ~= nil, "scroll range watched")
+sc._scripts.OnScrollRangeChanged(sc, 0, 0)
+check(bar._shown == false, "nothing to scroll: bar hidden")
+sc._scripts.OnScrollRangeChanged(sc, 0, 120)
+check(bar._shown == true, "taller than the canvas: bar shown")
 
 -- A slider drives the material and saves only what the player set.
 local s = controls.slider_fill
