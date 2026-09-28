@@ -88,6 +88,7 @@ function WoW.reset()
     WoW.raid = nil
     WoW.masterLooter = false
     WoW.resting = false
+    WoW.settings = {}
     WoW.atlases = { ["UI-HUD-UnitFrame-Player-Rest-Flipbook"] = true }
     WoW.loadedAddOns = {}
     rawset(_G, "EditModeManagerFrame", nil)
@@ -281,6 +282,10 @@ function Methods.SetTextureSliceMargins(t, l, tp, r, b) t._slice = { l, tp, r, b
 -- with any secret argument, keep the arguments unformatted instead of calling
 -- string.format (which would throw on the proxy).
 function Methods.SetText(fs, text) fs._text = text end
+function Methods.SetChecked(cb, v) cb._checked = v and true or false end
+function Methods.GetChecked(cb) return cb._checked == true end
+function Methods.LockHighlight(b) b._highlightLocked = true end
+function Methods.UnlockHighlight(b) b._highlightLocked = false end
 function Methods.GetText(fs) return fs._text end
 function Methods.SetFormattedText(fs, fmt, ...)
     local n = select("#", ...)
@@ -367,7 +372,8 @@ end
 -- name -> unit the client watches it for (ComboFrame is not unit-watched).
 local BLIZZARD_FRAMES = { { "PlayerFrame", "player" }, { "PetFrame", "pet" }, { "TargetFrame", "target" },
                           { "ComboFrame" }, { "TargetFrameToT", "targettarget" },
-                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget" } }
+                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget" },
+                          { "PlayerCastingBarFrame" } }
 function WoW.CreateBlizzardFrames()
     for _, spec in ipairs(BLIZZARD_FRAMES) do
         local f = CreateFrame("Button", spec[1], UIParent, "SecureUnitButtonTemplate")
@@ -493,6 +499,18 @@ function UnitIsPVPFreeForAll(u) return unitField(u, "ffa") end
 function UnitFactionGroup(u) return unitField(u, "faction") end
 function IsMasterLooter() return WoW.masterLooter == true end
 function IsResting() return WoW.resting == true end
+-- Retail's Settings framework (names from the dump's _G walk; signatures as
+-- Priestly uses them on Forever). WoW.settings records what the addon did.
+Settings = {
+    RegisterCanvasLayoutCategory = function(frame, name)
+        local c = { frame = frame, name = name }
+        function c:GetID() return 4242 end
+        WoW.settings.canvas = c
+        return c
+    end,
+    RegisterAddOnCategory = function(c) WoW.settings.addon = c end,
+    OpenToCategory = function(id) WoW.settings.opened = id end,
+}
 C_Texture = { GetAtlasExists = function(name) return WoW.atlases[name] == true end }
 function Methods.SetAtlas(t, name) t._atlas = name; return true end
 function Methods.Stop(ag) ag._stops = (ag._stops or 0) + 1 end

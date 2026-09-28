@@ -30,7 +30,7 @@ GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 ## Layout
 
 TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `Auras.lua` →
-`Blizzard.lua` → `GlassUnitFrames.lua`.
+`Blizzard.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
   - `IsSecret`;
@@ -128,6 +128,15 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - `/glass font|mark|reset|blizzard show|hide|secrets|totem|frame <Name>`, plus the live
     material tweaks `fill|rim|track|fade` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
+- **`Options.lua`**: the options panel under Game Menu > Options > AddOns > GlassUnitFrames
+  (`/glass options`). A canvas panel (`Settings.RegisterCanvasLayoutCategory` +
+  `RegisterAddOnCategory`, registered at `PLAYER_LOGIN`, as Priestly does). Controls are our own
+  (template-free sliders, check buttons with their own art when `UICheckButtonTemplate` is
+  missing, rows of buttons for choices): the Classic option templates aren't on this client and
+  `UIDropDownMenu` is a trap. It is built on first show and **re-synced from the current state on
+  every show**. Every control goes through the same setters as `/glass` (`Glass.TUNABLES`,
+  `Glass.SetFont`, `Frames.SetMarkPosition`); `db.hideBlizzard` / `db.hideBlizzardCast` apply
+  after a /reload.
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe.
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla

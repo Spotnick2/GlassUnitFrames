@@ -35,6 +35,8 @@ local p = button("player")
 p._scripts.OnDragStart(p); p._scripts.OnDragStop(p)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 SlashCmdList.GLASSUNITFRAMES("reset")
+-- Build the options panel so its widget methods are checked too.
+GlassUF.Options._test.panel._scripts.OnShow(GlassUF.Options._test.panel)
 -- The client builds aura buttons and calls initializeFrame: exercise it.
 for key, c in pairs(button("target").auraByKey) do
     c._groups["glass_" .. key].spec.initializeFrame(CreateFrame("Button", nil, c))
