@@ -512,11 +512,11 @@ function UnitIsPVPFreeForAll(u) return unitField(u, "ffa") end
 function UnitFactionGroup(u) return unitField(u, "faction") end
 function IsMasterLooter() return WoW.masterLooter == true end
 function IsResting() return WoW.resting == true end
--- #28. Unit fields: selType (UnitSelectionType), threat (the player's
--- UnitThreatSituation on that mob, nil = not on its list), combat.
-function UnitSelectionType(u) return unitField(u, "selType") end
+-- #28. Unit fields: threat (the player's UnitThreatSituation on that mob,
+-- nil = not on its list), ownThreat (UnitThreatSituation(unit)), combat.
 function UnitThreatSituation(u, mob)
-    if mob == nil then return nil end
+    if mob == nil then return unitField(u, "ownThreat") end
+    if u ~= "player" then return nil end   -- the `threat` field models the player's threat only
     return unitField(mob, "threat")
 end
 function UnitAffectingCombat(u) return unitField(u, "combat") end

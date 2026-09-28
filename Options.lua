@@ -227,7 +227,7 @@ local function build()
     note(right, "Both take effect after a /reload.")
 
     header(right, "Colours")
-    controls.aggroRed = checkbox(right, "Neutral NPCs turn red while they fight you",
+    controls.aggroRed = checkbox(right, "Neutral NPCs turn red while they fight you or your group",
         function() return Frames.aggroRed end,
         GlassUF.Settings.SetAggroRed)
 

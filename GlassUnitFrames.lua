@@ -74,11 +74,9 @@ local SECRET_PROBES = {
     { "dead",   function(u) return UnitIsDeadOrGhost(u) end },
     { "cast",   function(u) return (API.CastDuration(u)) end },
     { "mark",   function(u) return GetRaidTargetIndex(u) end },
-    { "selType", function(u) return UnitSelectionType(u) end, value = true },   -- #28: 0/1 = hostile
-    { "threat", function(u) return UnitThreatSituation("player", u) end, value = true },
+    { "threat", function(u) return UnitThreatSituation("player", u) end, value = true },   -- #28: your threat on it
     { "combat", function(u) return UnitAffectingCombat(u) end },
     { "tgtMe",  function(u) return UnitIsUnit(u .. "target", "player") end },   -- #28: is it targeting you?
-    { "myThreat", function() return UnitThreatSituation("player") end, value = true },   -- as Cell reads it
     { "pwAlpha", function(u) return API.PowerAlpha(u) end, value = true },   -- #27: the curve's opacity
 }
 
@@ -93,6 +91,10 @@ end
 local function secretsReport()
     say(string.format("secrets report, build %s, %s. S = secret, ok = plain, ERR = threw",
         API.ClientBuild(), InCombatLockdown() and "|cffff6060IN COMBAT|r" or "out of combat"))
+    -- The player's own threat state (as Blizzard's raid frames read it): once, not per frame.
+    local okT, myThreat = pcall(UnitThreatSituation, "player")
+    say("  myThreat=" .. ((not okT and "ERR") or (API.IsSecret(myThreat) and "S")
+        or (myThreat == nil and "nil") or tostring(myThreat)))
     for _, u in ipairs(Frames.ORDER) do
         if UnitExists(u) then
             local parts = {}
@@ -240,7 +242,6 @@ function Settings_.ResetPositions()
     whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
 end
 
--- "show" brings back everything GlassUF hides from Blizzard, the cast bar too.
 function Settings_.SetAggroRed(on)
     Frames.SetAggroRed(on)
     -- Saved only when turned off (the default is on). Not `(not on) and false
@@ -248,6 +249,7 @@ function Settings_.SetAggroRed(on)
     if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
 end
 
+-- "show" brings back everything GlassUF hides from Blizzard, the cast bar too.
 function Settings_.SetHideBlizzard(hide)
     GlassUnitFramesDB.hideBlizzard = hide and true or false
     if not hide then GlassUnitFramesDB.hideBlizzardCast = nil end

@@ -86,16 +86,14 @@ local function attempt(key, fn, ...)
     return ok
 end
 
--- A neutral NPC fighting you reads red, as Blizzard's nameplate does (#28).
--- Its reaction stays neutral, so ask what the nameplate asks: the selection
--- type (0 hostile, 1 unfriendly on Retail), then whether you are on its
--- threat list, then whether it is in combat and targeting you. All through
--- plain(): a secret answer means "don't know", and the NPC stays yellow rather
--- than guessing. An option (on by default).
+-- A neutral NPC fighting you or your group reads red, as Blizzard's nameplate
+-- does (#28). Its reaction stays neutral, and UnitSelectionType stays 2 in
+-- combat (measured), so: are you on its threat list (any status, so a healer
+-- sees their group's fight too), or is it in combat and targeting you. Both
+-- through plain(): a secret answer means "don't know", and the NPC stays
+-- yellow rather than guessing. An option (on by default).
 Frames.aggroRed = true
 local function neutralFighting(u)
-    local st = plain(UnitSelectionType, u)
-    if type(st) == "number" and st <= 1 then return true end
     if plain(UnitThreatSituation, "player", u) ~= nil then return true end
     -- Targeting you and in combat: attacking you (the first in-game try on a
     -- neutral bat stayed yellow while it was clearly targeting the player).
@@ -250,6 +248,10 @@ local function paintColor(f, u)
     f.health:SetStatusBarColor(c[1], c[2], c[3])
 end
 
+Engine.SetPainter("color", function(f)
+    if UnitExists(f.unit) then paintColor(f, f.unit) end
+end)
+
 Engine.SetPainter("name", function(f)
     local u = f.unit
     if not UnitExists(u) then return end
@@ -377,12 +379,12 @@ local function anchorName(b, marked)
     end
 end
 
--- Switch the placement live (out of combat or in: nothing here is secure).
 function Frames.SetAggroRed(on)
     Frames.aggroRed = on and true or false
-    Engine.RepaintChannel("name")
+    Engine.RepaintChannel("color")
 end
 
+-- Switch the placement live (out of combat or in: nothing here is secure).
 function Frames.SetMarkPosition(pos)
     if not Frames.MARK_POSITIONS[pos] then return false end
     Frames.markPos = pos
@@ -821,7 +823,8 @@ local function build(unit)
     local b = CreateFrame("Button", "GlassUF_" .. unit, UIParent, "SecureUnitButtonTemplate")
     b.unit, b.layout = unit, L
     local hasPower = L.power and not L.nameOnly   -- nameOnly: just the name over a health bar
-    b.channels = { name = true, health = true, power = hasPower or nil, indicators = L.indicators and true or nil,
+    b.channels = { name = true, color = true, health = true, power = hasPower or nil,
+                   indicators = L.indicators and true or nil,
                    heal = L.healPrediction or nil,
                    portrait = L.portrait and true or nil, cast = L.cast or nil }
     b:SetSize(L.w + tileW, L.h)
