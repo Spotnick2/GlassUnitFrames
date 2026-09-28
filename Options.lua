@@ -141,6 +141,31 @@ local function radios(col, title, options, get, set)
     return group
 end
 
+-- The same, laid out side by side on one line after a row label (compact
+-- grids: one row per frame). `step` is the spacing between radios.
+local function radioRow(col, rowLabel, options, get, set, labelWidth, step)
+    local fs = label(panel, rowLabel)
+    fs:SetWidth(labelWidth)
+    place(col, fs, 0, 4)
+    local group = {}
+    for i, o in ipairs(options) do
+        local rb = checkButton(o[2], true)
+        rb.value = o[1]
+        rb:SetScript("OnClick", function()
+            set(o[1])
+            controls.refreshAll()
+        end)
+        rb:SetPoint("LEFT", fs, "LEFT", labelWidth + (i - 1) * step, 0)
+        group[#group + 1] = rb
+    end
+    col.y = col.y - 24
+    controls[#controls + 1] = function()
+        local current = get()
+        for _, rb in ipairs(group) do rb:SetChecked(rb.value == current) end
+    end
+    return group
+end
+
 local function checkbox(col, text, get, set)
     local cb = checkButton(text, false)
     place(col, cb, 28, 4)
@@ -212,10 +237,31 @@ local function build()
         controls.refreshAll()
     end), 30, 4)
 
+    -- Health text per frame: one row each, the formats side by side.
+    header(left, "Health text")
+    local FORMATS = { { "curhp", "cur" }, { "curmaxhp", "cur/max" }, { "perhp", "%" }, { "curmaxhp_perhp", "both" } }
+    local ROWS = { { "player", "Player" }, { "target", "Target" }, { "pet", "Pet" },
+                   { "targettarget", "Target of target" }, { "focus", "Focus" }, { "focustarget", "Focus target" } }
+    controls.healthRows = {}
+    for _, r in ipairs(ROWS) do
+        local unit = r[1]
+        if Frames.byUnit[unit] and Frames.byUnit[unit].valueText then
+            controls.healthRows[unit] = radioRow(left, r[2], FORMATS,
+                function() return Frames.HealthFormatOf(unit) end,
+                function(kind) return GlassUF.Settings.SetHealthFormat(unit, kind) end,
+                110, 72)
+        end
+    end
+
     header(right, "Raid mark")
     radios(right, "Placement", { { "name", "Before the name" }, { "top", "On the top edge" }, { "right", "Right of the frame" } },
         function() return Frames.markPos end,
         GlassUF.Settings.SetMark)
+
+    header(right, "Target level")
+    controls.levelRow = radioRow(right, "", { { "power", "Power line" }, { "name", "Before name" }, { "portrait", "Portrait" } },
+        function() return Frames.levelPos end,
+        GlassUF.Settings.SetLevelPosition, 0, 118)
 
     header(right, "Blizzard frames")
     controls.hideBlizzard = checkbox(right, "Hide Blizzard's frames for the units GlassUF draws",

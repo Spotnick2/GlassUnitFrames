@@ -75,6 +75,17 @@ right._scripts.OnClick(right)
 eq(GlassUF.Frames.markPos, "right", "placement switched live")
 eq(GlassUnitFramesDB.mark, "right", "and saved")
 check(right._checked and not before._checked, "only the chosen radio stays checked")
+-- Health text grid and level placement.
+local row = controls.healthRows.player
+check(row and #row == 4, "a health-text row per frame, four formats")
+check(controls.healthRows.targettargettarget == nil, "no row for the name-only frame")
+row[3]._scripts.OnClick(row[3])                       -- "%"
+eq(GlassUF.Frames.HealthFormatOf("player"), "perhp", "health text set from the panel")
+check(row[3]._checked and not row[2]._checked, "the chosen format is checked")
+local lvl = controls.levelRow
+lvl[3]._scripts.OnClick(lvl[3])                       -- "Portrait"
+eq(GlassUF.Frames.levelPos, "portrait", "level placement set from the panel")
+eq(GlassUnitFramesDB.level, "portrait", "and saved")
 local friz = findRadio("Friz Quadrata")
 friz._scripts.OnClick(friz)
 eq(GlassUnitFramesDB.font, "friz", "font choice saved")
