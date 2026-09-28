@@ -471,6 +471,9 @@ function Movers.Refresh() refreshPanel() end
 function Movers.SetSnap(key, on)
     if key ~= "snapGrid" and key ~= "snapAlign" then return false end
     Movers[key] = on and true or false
+    -- The panel is reused across unlocks: keep its switch in step with a
+    -- /glass snap change (Codex, #55).
+    if panel and panel[key] then panel[key]:SetChecked(Movers[key]) end
     showGrid()
     return true
 end

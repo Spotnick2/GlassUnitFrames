@@ -178,6 +178,12 @@ eq(GlassUnitFramesDB.snapAlign, false, "/glass snap align off: saved")
 check(not M.snapAlign, "and applied")
 SlashCmdList.GLASSUNITFRAMES("snap align on")
 eq(GlassUnitFramesDB.snapAlign, nil, "on again: nothing saved")
+-- The panel (created earlier, reused) follows a slash change.
+SlashCmdList.GLASSUNITFRAMES("snap grid off")
+M.Lock(); M.Unlock()
+check(not M._test.panel().snapGrid:GetChecked(), "grid switch unticked after /glass snap grid off")
+SlashCmdList.GLASSUNITFRAMES("snap grid on")
+check(M._test.panel().snapGrid:GetChecked(), "and ticked again after on")
 M.Lock()
 check(not M._test.overlay()._shown, "lock hides the overlay")
 WoW.alt = true
