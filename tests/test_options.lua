@@ -23,6 +23,11 @@ eq(WoW.settings.opened, 4242, "/glass options opens the category")
 check(controls.slider_fill == nil, "nothing built before the panel is shown")
 panel._scripts.OnShow(panel)
 check(controls.slider_fill ~= nil and controls.hideBlizzard ~= nil, "built on first show")
+-- Everything lives in a scroll child, sized to the taller column.
+local sc, content = O._test.scroll, O._test.content
+eq(sc._scrollChild, content, "controls sit in the scroll frame's child")
+eq(controls.slider_fill:GetParent(), content, "widgets are parented to the scroll child")
+check(content._height > 400, "content height covers both columns: " .. tostring(content._height))
 
 -- A slider drives the material and saves only what the player set.
 local s = controls.slider_fill

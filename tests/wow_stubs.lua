@@ -285,6 +285,8 @@ function Methods.SetText(fs, text) fs._text = text end
 function Methods.SetChecked(cb, v) cb._checked = v and true or false end
 function Methods.GetChecked(cb) return cb._checked == true end
 function Methods.LockHighlight(b) b._highlightLocked = true end
+function Methods.SetScrollChild(sf, child) sf._scrollChild = child end
+function Methods.GetScrollChild(sf) return sf._scrollChild end
 -- Button state textures: Set<State>Texture creates the texture, Get<State>Texture returns it.
 for _, state in ipairs({ "Normal", "Pushed", "Highlight", "Checked", "Disabled" }) do
     Methods["Set" .. state .. "Texture"] = function(b, file)
