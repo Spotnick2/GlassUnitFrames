@@ -96,23 +96,35 @@ end
 -- fraction, so a secret power or max never meets Lua (DinoUF drives combo
 -- points the same way, modules/basecombopoints.lua). The result may itself be
 -- secret: hand it straight to SetAlpha. nil if the API is missing.
-local visibleCurve
-function API.PowerAlpha(unit)
-    if not visibleCurve then
-        if C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor then
-            local curve = C_CurveUtil.CreateColorCurve()
-            local types = Enum and Enum.LuaCurveType
-            if types and types.Step then curve:SetType(types.Step) end
-            curve:AddPoint(0, CreateColor(1, 1, 1, 0))
-            curve:AddPoint(0.001, CreateColor(1, 1, 1, 1))
-            visibleCurve = curve
-        end
-    end
-    if not (visibleCurve and UnitPowerPercent) then return nil end
-    local color = UnitPowerPercent(unit, nil, false, visibleCurve)
+-- A step colour curve: alpha 0 below `threshold`, 1 at or above it. Step
+-- type when the client has it; the extra point just below the threshold makes
+-- a linear curve step too (the measured power fade works either way, so
+-- nothing may depend on Step existing).
+local function stepCurve(threshold)
+    if not (C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor) then return nil end
+    local curve = C_CurveUtil.CreateColorCurve()
+    local types = Enum and Enum.LuaCurveType
+    if types and types.Step then curve:SetType(types.Step) end
+    curve:AddPoint(0, CreateColor(1, 1, 1, 0))
+    if threshold > 0.002 then curve:AddPoint(threshold - 0.001, CreateColor(1, 1, 1, 0)) end
+    curve:AddPoint(threshold, CreateColor(1, 1, 1, 1))
+    return curve
+end
+
+-- The client evaluates `curve` over the unit's power fraction; returns the
+-- alpha (possibly secret: straight to SetAlpha) or nil.
+local function curveAlpha(unit, powerType, unmodified, curve)
+    if not (curve and UnitPowerPercent) then return nil end
+    local color = UnitPowerPercent(unit, powerType, unmodified, curve)
     if not color then return nil end
     local _, _, _, a = color:GetRGBA()
     return a
+end
+
+local visibleCurve
+function API.PowerAlpha(unit)
+    visibleCurve = visibleCurve or stepCurve(0.001)
+    return curveAlpha(unit, nil, false, visibleCurve)
 end
 
 -- CreateFrame with a template that may be missing on this client. A missing
@@ -125,29 +137,18 @@ function API.SafeFrame(ftype, parent, template, proof)
     return CreateFrame(ftype, nil, parent), false
 end
 
--- Combo point pip `i` (1-5): alpha 0 below i/5 of the player's combo points,
--- 1 at or above, evaluated by the client from a step colour curve. DinoUF's
+-- Combo point pip `i` (1-5): lit once the player has i points, evaluated by
+-- the client from a step colour curve. DinoUF's
 -- Forever path, exactly: UnitPowerPercent("player", 4 /*ComboPoints*/, true,
 -- curve) (modules/basecombopoints.lua). The alpha may be secret: straight to
 -- SetAlpha. nil if the API is missing.
 local COMBO_POINTS = 4
 local comboCurves = {}
 function API.ComboAlpha(i)
-    local curve = comboCurves[i]
-    if not curve then
-        if not (C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor) then return nil end
-        curve = C_CurveUtil.CreateColorCurve()
-        local types = Enum and Enum.LuaCurveType
-        if types and types.Step then curve:SetType(types.Step) end
-        curve:AddPoint(0, CreateColor(1, 1, 1, 0))
-        curve:AddPoint(i / 5, CreateColor(1, 1, 1, 1))
-        comboCurves[i] = curve
-    end
-    if not UnitPowerPercent then return nil end
-    local color = UnitPowerPercent("player", COMBO_POINTS, true, curve)
-    if not color then return nil end
-    local _, _, _, a = color:GetRGBA()
-    return a
+    -- Midway between i-1 and i points, so float rounding (or a strict Step
+    -- lookup) at exactly i/5 can't leave pip i dark with i points.
+    comboCurves[i] = comboCurves[i] or stepCurve((i - 0.5) / 5)
+    return curveAlpha("player", COMBO_POINTS, true, comboCurves[i])
 end
 
 -- The one place failures are recorded (first error per key), read by

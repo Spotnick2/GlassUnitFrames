@@ -9,8 +9,8 @@
 -- waits for combat to end (through the addon's one combat queue) if the
 -- frame is protected.
 --
--- Only frames GlassUF replaces are hidden. ComboFrame stays until GlassUF
--- draws combo points. Target auras go with TargetFrame until #12 draws them.
+-- Only frames GlassUF replaces are hidden. ComboFrame goes only once GlassUF
+-- has drawn combo pips (rogues and druids; GlassUnitFrames.lua).
 --
 -- Hiding is one-way for a session: /glass blizzard show takes effect after
 -- /reload. Party frames are never touched (the owner uses Cell).

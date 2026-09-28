@@ -505,7 +505,8 @@ function UnitClassification(u) return unitField(u, "classification") end
 function UnitIsAFK(u) return unitField(u, "afk") end
 function UnitPowerPercent(u, powerType, unmodified, curve)
     local pf, mf = powerFields(u, powerType)
-    local p, m = unitField(u, pf), mf and unitField(u, mf) or 5
+    local p, m = unitField(u, pf), nil
+    if pf == "combo" then m = 5 else m = unitField(u, mf) end
     if powerType == 4 and p == nil and WoW.units[u] then p = 0 end
     if p == nil then return nil end
     if curve.color then

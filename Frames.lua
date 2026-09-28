@@ -532,8 +532,10 @@ end
 Engine.SetPainter("combo", function(f)
     local c = f.combo
     if not c then return end
-    local class = playerClass()
-    local active = UnitExists(f.unit) and (class == "ROGUE" or (class == "DRUID" and playerPowerToken() == "ENERGY"))
+    -- The class is fixed at build; a dead target shows no points (DinoUF: no
+    -- stale pips on a corpse).
+    local active = UnitExists(f.unit) and plain(UnitIsDeadOrGhost, f.unit) ~= true
+        and (c.class == "ROGUE" or (c.class == "DRUID" and playerPowerToken() == "ENERGY"))
     c.holder:SetShown(active and true or false)
     if not active then return end
     for i, pip in ipairs(c.pips) do
@@ -1105,8 +1107,6 @@ local function buildHealPrediction(b)
     b.healCalc, b.healPred = calc, pred
 end
 
--- Health loss (#40): the health bar's own geometry, clipped from the fill
--- edge. A light red, so it still reads next to a hostile (red) health fill.
 -- Combo points: five glossy pips on the target body's top edge, right half,
 -- over dim slots (0 points reads as five empty slots). No sliced masks: they
 -- break on tiles this small.
@@ -1130,7 +1130,7 @@ local function buildCombo(b, body, g)
         pips[i] = pip
     end
     holder:Hide()
-    b.combo = { holder = holder, pips = pips }
+    b.combo = { holder = holder, pips = pips, class = playerClass() }
     b.channels.combo = true
 end
 
@@ -1138,12 +1138,12 @@ end
 -- under the player frame (druids have no pet; the strip follows the body).
 local function buildDruidMana(b, body, L)
     local host = CreateFrame("Frame", nil, b)
-    host:SetSize(L.w, 12)
+    host:SetSize(L.w, 16)
     host:SetPoint("TOP", body, "BOTTOM", 0, -3)
     host:SetFrameLevel(b:GetFrameLevel() + 1)
     Glass.Apply(host, "small")
     local inset = Glass.Inset("small")
-    local bar = Glass.Bar(host, 12 - 2 * inset)
+    local bar = Glass.Bar(host, 16 - 2 * inset)
     bar:SetPoint("TOPLEFT", host, "TOPLEFT", inset, -inset)
     bar:SetPoint("TOPRIGHT", host, "TOPRIGHT", -inset, -inset)
     bar:SetFrameLevel(Glass.ContentLevel(host))
@@ -1153,6 +1153,8 @@ local function buildDruidMana(b, body, L)
     b.channels.druidmana = true
 end
 
+-- Health loss (#40): the health bar's own geometry, clipped from the fill
+-- edge. A light red, so it still reads next to a hostile (red) health fill.
 local LOSS_COLOR = { 1.00, 0.55, 0.50, 0.90 }
 local function buildHealthLoss(b)
     local loss = overlayBar(b, LOSS_COLOR, 2, true)

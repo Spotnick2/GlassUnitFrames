@@ -33,6 +33,9 @@ Engine.CHANNEL_EVENTS = {
     -- group-wide events, handled by the world frame below; only the PvP flag
     -- is per unit.
     indicators = { "UNIT_FACTION" },
+    -- Combo pips on the target: its death hides them (the player's power events
+    -- arrive through resourceWatcher below).
+    combo = { "UNIT_HEALTH" },
     -- The hunter pet's mood, only on the pet frame (like heal on predicting frames).
     happiness = { "UNIT_HAPPINESS" },
     cast     = { "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
@@ -262,10 +265,14 @@ end
 -- pips (drawn on the target frame) and the druid mana strip. The engine only
 -- paints a unit event on that unit's own frames, so route them here.
 -- UNIT_DISPLAYPOWER (a form change) carries no power type: never filter it out.
+-- Which player power type each channel follows (nil: every power event).
+Engine.PLAYER_DRIVEN = { combo = "COMBO_POINTS", druidmana = "MANA" }
 local resourceWatcher = CreateFrame("Frame")
-resourceWatcher:SetScript("OnEvent", function()
-    Engine.RepaintChannel("combo")
-    Engine.RepaintChannel("druidmana")
+resourceWatcher:SetScript("OnEvent", function(_, event, _, powerType)
+    for channel, want in pairs(Engine.PLAYER_DRIVEN) do
+        -- Energy/mana ticks many times a second: only the matching type counts.
+        if event == "UNIT_DISPLAYPOWER" or powerType == want then Engine.RepaintChannel(channel) end
+    end
 end)
 API.RegisterUnitEvents(resourceWatcher, { "UNIT_POWER_FREQUENT", "UNIT_POWER_UPDATE", "UNIT_MAXPOWER",
                                           "UNIT_DISPLAYPOWER" }, "player")

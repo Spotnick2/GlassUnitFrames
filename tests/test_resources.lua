@@ -26,6 +26,23 @@ WoW.units.player.combo = 5
 WoW.fire("UNIT_POWER_FREQUENT", "player", "COMBO_POINTS"); WoW.tick()
 eq(c.pips[5]._alpha, 1, "5 points: all lit")
 
+-- Energy ticks don't repaint the pips: only COMBO_POINTS (or a form change) does.
+WoW.units.player.combo = 2
+WoW.fire("UNIT_POWER_FREQUENT", "player", "ENERGY"); WoW.tick()
+eq(c.pips[5]._alpha, 1, "an energy tick leaves the pips alone")
+WoW.fire("UNIT_POWER_UPDATE", "player", "COMBO_POINTS"); WoW.tick()
+eq(c.pips[3]._alpha, 0, "the combo event repaints them (2 points)")
+
+-- A dead target shows no points.
+WoW.units.target.dead = true
+WoW.fire("UNIT_HEALTH", "target"); WoW.tick()
+check(not c.holder._shown, "dead target: pips hidden")
+WoW.units.target.dead = false
+WoW.fire("UNIT_HEALTH", "target"); WoW.tick()
+check(c.holder._shown, "alive again: pips back")
+WoW.units.player.combo = 5
+WoW.fire("UNIT_POWER_UPDATE", "player", "COMBO_POINTS"); WoW.tick()
+
 -- Secret combo points: the (secret) alpha goes straight to the pips.
 WoW.secretFields.combo = true
 WoW.fire("UNIT_POWER_UPDATE", "player", "COMBO_POINTS"); WoW.tick()

@@ -129,7 +129,7 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   Unlock and nudges are refused in combat; a combat start locks.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
   - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
-    `ComboFrame` stays until we draw combo points. Party is never touched, since the owner uses
+    `ComboFrame` is hidden only once our combo pips exist (rogues and druids). Party is never touched, since the owner uses
     Cell.
   - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.
   - A `SetParent` post-hook undoes Edit Mode's reparenting **on a timer, never
