@@ -83,6 +83,7 @@ function WoW.reset()
     WoW.methodsCalled = {}
     WoW.combat = false
     WoW.shift = false
+    WoW.alt = false
     WoW.secretFields = {}     -- field -> true: that unit field comes back secret for every unit
     WoW.units = {}
     WoW.raid = nil

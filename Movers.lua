@@ -36,6 +36,7 @@ local panel
 -- match; else its centre to a GRID. Both on by default (saved when off); Alt
 -- held places freely. Everything is in UIParent units, like the offsets.
 local GRID, SNAP_DIST = 16, 8
+local OVERLAY_LEVEL, MOVER_LEVEL = 1, 10   -- grid and guides below the movers (same strata)
 Movers.snapGrid, Movers.snapAlign = true, true
 local overlay   -- the grid and the guide lines, full screen, under the movers
 
@@ -68,27 +69,30 @@ end
 
 -- Finish a drag in flight: the last position the frame took is saved. Safe
 -- in combat (only the insecure mover and a table write are touched).
-local function finishDrag()
+-- End a drag in flight. `save`: record the last position the frame took
+-- (safe in combat: only the insecure mover and a table write are touched);
+-- otherwise drop it (a reset is about to run and must win).
+local function endDrag(save)
     local m = dragging
     if not m then return end
     dragging = nil
     m:SetScript("OnUpdate", nil)
     m:StopMovingOrSizing()
-    if m.lastX then
-        -- The frame already sits there (applied live before any lockdown);
-        -- record it. In combat only the table is written, never the frame.
+    if save and m.lastX then
         if InCombatLockdown() then
             Frames.SavePosition(m.unit, m.lastX, m.lastY)
         else
             Frames.SetPosition(m.unit, m.lastX, m.lastY)
         end
     end
-    m.lastX, m.lastY = nil, nil
+    m.lastX, m.lastY, m.lines = nil, nil, nil
     m:ClearAllPoints()
     m:SetAllPoints(Frames.byUnit[m.unit])
     showGuide("vguide", nil)
     showGuide("hguide", nil)
 end
+
+local function finishDrag() endDrag(true) end
 
 -- Is `unit` carried by `leader` (anchored to it, directly or through a chain)?
 local function followsFrom(unit, leader)
@@ -106,7 +110,10 @@ end
 local function alignLines(unit, axis)
     local lines = {}
     local ucx, ucy = UIParent:GetCenter()
-    lines[#lines + 1] = (axis == "x") and ucx or ucy
+    -- Not `axis == "x" and ucx or ucy`: a nil ucx would hand x the y centre.
+    local centre
+    if axis == "x" then centre = ucx else centre = ucy end
+    if type(centre) == "number" then lines[#lines + 1] = centre end
     for u, b in pairs(Frames.byUnit) do
         if u ~= unit and not followsFrom(u, unit) then
             local lo, hi
@@ -124,10 +131,12 @@ end
 -- The nearest alignment for a centre `c` with half-size `half`: its low edge,
 -- centre or high edge onto any line within SNAP_DIST. Returns the new centre
 -- and the line, or nil.
+local EDGES = { -1, 0, 1 }   -- low edge, centre, high edge (times half the size)
 local function alignAxis(c, half, lines)
     local bestD, bestC, bestLine
     for _, line in ipairs(lines) do
-        for _, off in ipairs({ -half, 0, half }) do
+        for _, k in ipairs(EDGES) do
+            local off = k * half
             local d = math.abs(c + off - line)
             if d <= SNAP_DIST and (not bestD or d < bestD) then
                 bestD, bestC, bestLine = d, line - off, line
@@ -144,7 +153,9 @@ end
 function showGuide(which, at)
     if not overlay then return end
     local line = overlay[which]
-    if not at then line:Hide() return end
+    if not at then line:Hide(); line.at = nil; return end
+    if line.at == at and line:IsShown() then return end
+    line.at = at
     line:ClearAllPoints()
     if which == "vguide" then
         line:SetPoint("TOP", UIParent, "BOTTOMLEFT", at, UIParent:GetHeight())
@@ -166,8 +177,11 @@ function snappedCenter(m)
         local ucx, ucy = UIParent:GetCenter()
         local nx, ny
         if Movers.snapAlign and type(w) == "number" and type(h) == "number" then
-            nx, gx = alignAxis(mx, w / 2, alignLines(m.unit, "x"))
-            ny, gy = alignAxis(my, h / 2, alignLines(m.unit, "y"))
+            -- Nothing the lines depend on moves during a drag (the dragged
+            -- frame's own group is excluded): build them once per drag.
+            m.lines = m.lines or { x = alignLines(m.unit, "x"), y = alignLines(m.unit, "y") }
+            nx, gx = alignAxis(mx, w / 2, m.lines.x)
+            ny, gy = alignAxis(my, h / 2, m.lines.y)
         end
         if Movers.snapGrid and type(ucx) == "number" then
             nx = nx or gridAxis(mx, ucx)
@@ -212,6 +226,7 @@ local function makeMover(unit, b)
     local m = CreateFrame("Frame", nil, UIParent)
     m.unit = unit
     m:SetFrameStrata("DIALOG")
+    m:SetFrameLevel(MOVER_LEVEL)   -- above the grid and guides
     m:SetAllPoints(b)
     m:EnableMouse(true)
     m:SetMovable(true)
@@ -339,14 +354,19 @@ local function makePanel()
     p.buttons = { left = left, right = right, up = up, down = down, reset = reset, lock = lock }
     -- Snapping switches (Alt while dragging places freely).
     local function toggle(text, key, x)
-        local cb = API.SafeFrame("CheckButton", p, "UICheckButtonTemplate", "text")
+        local cb, templated = API.SafeFrame("CheckButton", p, "UICheckButtonTemplate", "text")
         cb:SetSize(20, 20)
+        if not templated then
+            cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
+            cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
+            cb:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        end
         cb:SetPoint("TOPLEFT", p, "TOPLEFT", x, -68)
         local fs = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
         fs:SetText(text)
         cb:SetChecked(Movers[key])
-        cb:SetScript("OnClick", function(self) Movers.SetSnap(key, self:GetChecked() and true or false) end)
+        cb:SetScript("OnClick", function(self) GlassUF.Settings.SetSnap(key, self:GetChecked() and true or false) end)
         return cb
     end
     p.snapGrid = toggle("Snap to grid", "snapGrid", 8)
@@ -357,28 +377,46 @@ end
 
 -- Full-screen overlay: the grid (every GRID units from the screen centre,
 -- the centre lines brighter) and the two guide lines.
+-- (Re)draw the grid for the current screen: every GRID units from the screen
+-- centre, the centre lines brighter; each line CENTRED on its spot, where the
+-- snapped centres land. Reuses its textures; rebuilt when the size changed
+-- (UI scale, resolution) since the last unlock.
+local function drawGrid(o)
+    local w, h = UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
+    if o.gridW == w and o.gridH == h then return end
+    o.gridW, o.gridH = w, h
+    for _, t in ipairs(o.gridLines) do t:Hide() end
+    local n, cx, cy = 0, w / 2, h / 2
+    local function line(vertical, at, alpha)
+        n = n + 1
+        local t = o.gridLines[n] or o.grid:CreateTexture(nil, "BACKGROUND")
+        o.gridLines[n] = t
+        t:ClearAllPoints()
+        t:SetColorTexture(1, 1, 1, alpha)
+        if vertical then
+            t:SetSize(1, h)
+            t:SetPoint("BOTTOM", o, "BOTTOMLEFT", at, 0)
+        else
+            t:SetSize(w, 1)
+            t:SetPoint("LEFT", o, "BOTTOMLEFT", 0, at)
+        end
+        t:Show()
+    end
+    for i = -math.floor(cx / GRID), math.floor(cx / GRID) do line(true, cx + i * GRID, i == 0 and 0.35 or 0.08) end
+    for i = -math.floor(cy / GRID), math.floor(cy / GRID) do line(false, cy + i * GRID, i == 0 and 0.35 or 0.08) end
+end
+
+-- The overlay: the grid and the two guide lines, full screen, BELOW the
+-- movers (they sit a few levels up in the same strata).
 local function makeOverlay()
     local o = CreateFrame("Frame", nil, UIParent)
     o:SetAllPoints(UIParent)
     o:SetFrameStrata("DIALOG")
-    o:SetFrameLevel(1)
+    o:SetFrameLevel(OVERLAY_LEVEL)
     local grid = CreateFrame("Frame", nil, o)
     grid:SetAllPoints(o)
-    local w, h = UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
-    local cx, cy = w / 2, h / 2
-    local function line(x, y, lw, lh, a)
-        local t = grid:CreateTexture(nil, "BACKGROUND")
-        t:SetColorTexture(1, 1, 1, a)
-        t:SetSize(lw, lh)
-        t:SetPoint("BOTTOMLEFT", o, "BOTTOMLEFT", x, y)
-    end
-    for i = -math.floor(cx / GRID), math.floor(cx / GRID) do
-        line(cx + i * GRID, 0, 1, h, i == 0 and 0.35 or 0.08)
-    end
-    for i = -math.floor(cy / GRID), math.floor(cy / GRID) do
-        line(0, cy + i * GRID, w, 1, i == 0 and 0.35 or 0.08)
-    end
-    o.grid = grid
+    grid:SetFrameLevel(OVERLAY_LEVEL)
+    o.grid, o.gridLines = grid, {}
     for _, k in ipairs({ "vguide", "hguide" }) do
         local g = o:CreateTexture(nil, "OVERLAY")
         g:SetColorTexture(1, 0.82, 0, 0.9)
@@ -399,6 +437,7 @@ function Movers.Unlock()
     if not next(Frames.byUnit) then return false, "not built" end
     panel = panel or makePanel()
     overlay = overlay or makeOverlay()
+    drawGrid(overlay)
     overlay:Show()
     showGrid()
     Frames.NormalizeSaves()   -- older saves rewritten from the live rects, once
@@ -424,26 +463,14 @@ end
 
 -- Drop a drag in flight WITHOUT saving it (a reset is about to run: it must
 -- win), and bring the panel up to date afterwards.
-function Movers.CancelDrag()
-    local m = dragging
-    if not m then return end
-    dragging = nil
-    m:SetScript("OnUpdate", nil)
-    m:StopMovingOrSizing()
-    m.lastX, m.lastY = nil, nil
-    m:ClearAllPoints()
-    m:SetAllPoints(Frames.byUnit[m.unit])
-    showGuide("vguide", nil)
-    showGuide("hguide", nil)
-end
+function Movers.CancelDrag() endDrag(false) end
 
 function Movers.Refresh() refreshPanel() end
 
--- Turn a snapping mode on or off (saved only when off, the default is on).
+-- Turn a snapping mode on or off (GlassUF.Settings.SetSnap saves it).
 function Movers.SetSnap(key, on)
     if key ~= "snapGrid" and key ~= "snapAlign" then return false end
     Movers[key] = on and true or false
-    if on then Frames.db[key] = nil else Frames.db[key] = false end
     showGrid()
     return true
 end
@@ -460,5 +487,5 @@ function Movers.OnCombat()
 end
 
 Movers._test = { movers = movers, panel = function() return panel end,
-                 overlay = function() return overlay end, alignAxis = alignAxis,
+                 overlay = function() return overlay end, alignAxis = alignAxis, alignLines = alignLines,
                  selected = function() return selected end, nudge = nudge }

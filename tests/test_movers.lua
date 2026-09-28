@@ -155,9 +155,29 @@ eq(GlassUnitFramesDB.snapGrid, false, "grid off: saved")
 check(not M._test.overlay().grid._shown, "grid off: grid hidden")
 np2.snapGrid:SetChecked(true); np2.snapGrid._scripts.OnClick(np2.snapGrid)
 eq(GlassUnitFramesDB.snapGrid, nil, "grid on again: the default, nothing saved")
--- A follower is not an alignment line for its own leader.
-local aligns = M._test.alignAxis(100, 10, { 95 })
-eq(aligns, 105, "alignAxis: low edge onto the line")
+-- A frame's own followers are not alignment lines for it (they move with it);
+-- other frames are.
+local tot = button("targettarget")
+tot._center, tot._width, tot._height = { 1000, 500 }, 180, 26
+local lx = M._test.alignLines("target", "x")
+local function has(list, v) for _, x in ipairs(list) do if x == v then return true end end return false end
+check(not has(lx, 1000 - 90), "the target's own ToT is not a line for the target")
+check(has(lx, 683 - 300 - 182.5), "the player's left edge is")
+check(has(M._test.alignLines("player", "x"), 1000 - 90), "but the ToT is a line for the player")
+eq(M._test.alignAxis(100, 10, { 95 }), 105, "alignAxis: low edge onto the line")
+-- The grid is rebuilt for a new screen size (UI scale / resolution).
+local ov = M._test.overlay()
+local before = ov.gridW
+UIParent._width = 1600
+M.Lock(); M.Unlock()
+eq(ov.gridW, 1600, "the grid is rebuilt for the new screen size")
+check(before ~= ov.gridW, "it was drawn for the old one before")
+-- /glass snap.
+SlashCmdList.GLASSUNITFRAMES("snap align off")
+eq(GlassUnitFramesDB.snapAlign, false, "/glass snap align off: saved")
+check(not M.snapAlign, "and applied")
+SlashCmdList.GLASSUNITFRAMES("snap align on")
+eq(GlassUnitFramesDB.snapAlign, nil, "on again: nothing saved")
 M.Lock()
 check(not M._test.overlay()._shown, "lock hides the overlay")
 WoW.alt = true
