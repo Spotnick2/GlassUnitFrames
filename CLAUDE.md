@@ -136,6 +136,11 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     synchronously**: doing it inside the caller taints secret reads for the session
     (EllesmereUI's finding). It waits while Edit Mode is open, and a protected frame waits for
     combat to end through `GlassUF.WhenOutOfCombat`.
+  - **Shaman totems** (#18): `Blizzard.HostTotems` reparents Blizzard's own `TotemFrame` into a
+    holder under our player frame (GlassUF can't draw totems: `GetTotemInfo` is secret), with the
+    decorative glass as `TotemFrame`'s child so Blizzard's shown state carries it. `Update`,
+    `SetParent` and `SetPoint` hooks schedule one **deferred** repair (Edit Mode wait; the combat
+    queue if protected, unmeasured with totems down).
   - `Blizzard.active` records whether anything was hidden this session. Hiding is one-way per
     session.
 - **`GlassUnitFrames.lua`**:

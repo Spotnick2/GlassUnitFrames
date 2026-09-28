@@ -407,6 +407,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             -- Our combo pips replace Blizzard's (only built for rogues and druids).
             local t = Frames.byUnit.target
             if db.hideBlizzard and t and t.combo then Blizzard.HideFrame("ComboFrame") end
+            -- A shaman keeps Blizzard's totem timers, hosted under our player frame.
+            local pl = Frames.byUnit.player
+            if db.hideBlizzard and pl then Blizzard.HostTotems(pl.body) end
         end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- arg1 = isInitialLogin: warn at a real login, never on /reload.

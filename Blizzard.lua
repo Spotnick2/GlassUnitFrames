@@ -93,4 +93,72 @@ function Blizzard.HideFor(units)
     end
 end
 
-Blizzard._test = { hooked = hooked, pending = pending }
+-- Shaman totems (#18). GlassUF can't draw totems (GetTotemInfo is secret),
+-- and hiding PlayerFrame hides its child TotemFrame too. So host Blizzard's
+-- OWN TotemFrame in a holder under our player frame: Blizzard keeps drawing
+-- the timers, swipes and right-click-to-destroy (EllesmereUI's approach).
+-- The decorative glass is a child of TotemFrame itself, so Blizzard's own
+-- shown state carries it (no totems, no glass).
+--
+-- Blizzard can put it back: TotemFrame.Update re-lays it out, and anything
+-- may SetParent / SetPoint it. Each of those schedules ONE deferred repair
+-- (never inside Blizzard's own call: the Edit Mode taint rule), which waits
+-- while Edit Mode is open and, if the frame is protected in combat (unmeasured
+-- with totems down), queues itself for after combat.
+local totem = { holder = nil, applying = false, scheduled = false }
+
+local function placeTotems()
+    local tf, holder = rawget(_G, "TotemFrame"), totem.holder
+    if not (tf and holder) then return end
+    totem.applying = true
+    if tf:GetParent() ~= holder then tf:SetParent(holder) end
+    tf:ClearAllPoints()
+    tf:SetPoint("TOP", holder, "TOP", 0, 0)
+    totem.applying = false
+end
+
+local function repairTotems()
+    totem.scheduled = false
+    local tf = rawget(_G, "TotemFrame")
+    if not (tf and totem.holder) then return end
+    if editModeOpen() then
+        totem.scheduled = true
+        C_Timer.After(0.25, repairTotems)
+    elseif InCombatLockdown() and tf:IsProtected() then
+        GlassUF.WhenOutOfCombat("totems", placeTotems, false)
+    else
+        placeTotems()
+    end
+end
+
+local function scheduleTotems()
+    if totem.applying or totem.scheduled then return end
+    totem.scheduled = true
+    C_Timer.After(0, repairTotems)
+end
+
+-- Host TotemFrame under `anchor` (the player frame's body). Shamans only,
+-- and only while PlayerFrame is hidden (else it's fine where it is).
+function Blizzard.HostTotems(anchor)
+    local tf = rawget(_G, "TotemFrame")
+    local ok, _, class = pcall(UnitClass, "player")
+    if not (tf and anchor and ok and class == "SHAMAN") or totem.holder then return false end
+    local holder = CreateFrame("Frame", "GlassUF_TotemHolder", UIParent)
+    holder:SetSize(1, 1)
+    holder:SetPoint("TOP", anchor, "BOTTOM", 0, -6)
+    totem.holder = holder
+    -- The glass sits behind the totem buttons and shows only with TotemFrame.
+    local glass = CreateFrame("Frame", nil, tf)
+    glass:SetPoint("TOPLEFT", tf, "TOPLEFT", -4, 4)
+    glass:SetPoint("BOTTOMRIGHT", tf, "BOTTOMRIGHT", 4, -4)
+    glass:SetFrameLevel(math.max(0, tf:GetFrameLevel() - 1))
+    GlassUF.Glass.Apply(glass, "small")
+    totem.glass = glass
+    if type(tf.Update) == "function" then hooksecurefunc(tf, "Update", scheduleTotems) end
+    hooksecurefunc(tf, "SetParent", function(_, parent) if parent ~= totem.holder then scheduleTotems() end end)
+    hooksecurefunc(tf, "SetPoint", function() scheduleTotems() end)
+    repairTotems()
+    return true
+end
+
+Blizzard._test = { hooked = hooked, pending = pending, totem = totem }
