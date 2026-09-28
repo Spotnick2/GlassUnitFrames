@@ -1,5 +1,5 @@
 -- GlassUnitFrames options panel (#39): Game Menu > Options > AddOns > Glass
--- GlassUnitFrames. A canvas panel registered with Retail's Settings framework
+-- Unit Frames. A canvas panel registered with Retail's Settings framework
 -- (Settings.RegisterCanvasLayoutCategory + RegisterAddOnCategory, as Priestly
 -- does on Forever). Check and radio buttons use UICheckButtonTemplate /
 -- UIRadioButtonTemplate (both exist here, per the porting guide and Priestly),
