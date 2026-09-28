@@ -165,9 +165,14 @@ local function has(list, v) for _, x in ipairs(list) do if x == v then return tr
 check(not has(lx, 1000 - 90), "the target's own ToT is not a line for the target")
 check(has(lx, 683 - 300 - 182.5), "the player's left edge is")
 check(has(M._test.alignLines("player", "x"), 1000 - 90), "but the ToT is a line for the player")
--- With mirroring on, the mirrored partner moves too: not a line either.
+-- With mirroring on, a drag's partner moves too: not a line either.
 M.SetMirror(true)
+local mtg2 = M._test.movers.target
+F.ResetPosition("target"); F.ResetPosition("player")        -- a symmetric pair
+mtg2._center = { 683 + 300, 384 - 110 }
+mtg2._scripts.OnDragStart(mtg2)
 check(not has(M._test.alignLines("target", "x"), 683 - 300 - 182.5), "mirroring: the player is no line for the target")
+mtg2._scripts.OnDragStop(mtg2)
 M.SetMirror(false)
 eq(M._test.alignAxis(100, 10, { 95 }), 105, "alignAxis: low edge onto the line")
 -- The grid is rebuilt for a new screen size (UI scale / resolution).
@@ -284,6 +289,20 @@ eq(GlassUnitFramesDB.pos.target[5], -60, "typed Y mirrors")
 npm.buttons.reset._scripts.OnClick(npm.buttons.reset)
 eq(GlassUnitFramesDB.pos.player, nil, "reset: player default")
 eq(GlassUnitFramesDB.pos.target, nil, "reset: target default too")
+-- Alt pressed MID-drag changes nothing: the choice was made at the start,
+-- and the partner's live spot is what gets saved.
+mp._center = { 683 - 240, 384 - 90 }
+mp._scripts.OnDragStart(mp); mp._scripts.OnUpdate(mp)
+WoW.alt = true
+mp._center = { 683 - 230, 384 - 90 }
+mp._scripts.OnUpdate(mp)
+eq(button("target")._points[1][4], 230, "Alt mid-drag: the partner still mirrors live")
+mp._scripts.OnDragStop(mp)
+WoW.alt = false
+eq(button("target")._points[1][4], 230, "the partner kept mirroring through the drag")
+eq(GlassUnitFramesDB.pos.target[4], button("target")._points[1][4], "and its live spot is its saved spot")
+npm.buttons.reset._scripts.OnClick(npm.buttons.reset)
+
 -- Alt: one alone. The pet isn't mirrored.
 WoW.alt = true
 mp._center = { 683 - 200, 384 - 90 }
@@ -298,6 +317,21 @@ M._test.nudge(1, 0)
 eq(GlassUnitFramesDB.pos.target, nil, "mirror off: the target stays put")
 npm.mirror:SetChecked(true); npm.mirror._scripts.OnClick(npm.mirror)
 eq(GlassUnitFramesDB.mirror, nil, "on again from the panel: nothing saved")
+M.Lock()
+GlassUnitFramesDB = nil
+
+-- A custom ASYMMETRIC layout is never overwritten: mirroring stays out.
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon({ db = { font = "arial", hideBlizzard = true,
+                   pos = { player = { "CENTER", "UIParent", "CENTER", -250, -90 },
+                           target = { "CENTER", "UIParent", "CENTER", 400, -140 } } } })
+M = GlassUF.Movers
+M.Unlock()
+M._test.movers.player._scripts.OnMouseUp(M._test.movers.player)
+M._test.nudge(1, 0)
+eq(GlassUnitFramesDB.pos.player[4], -249, "player nudged")
+eq(GlassUnitFramesDB.pos.target[4], 400, "the asymmetric target is left alone")
+eq(GlassUnitFramesDB.pos.target[5], -140, "both axes")
 M.Lock()
 GlassUnitFramesDB = nil
 

@@ -42,27 +42,34 @@ Movers.snapGrid, Movers.snapAlign = true, true
 -- Mirroring: the player and target frames stay symmetric around the screen
 -- centre. Moving one (drag, arrows, typed X/Y, reset) places the other at the
 -- mirrored spot (-x, same y); their groups follow through their anchors. On
--- by default (saved when off); Alt while dragging moves one alone.
+-- by default (saved when off), but it only acts on a pair that IS symmetric
+-- now: a custom asymmetric layout is never overwritten (reset both, or place
+-- them symmetrically once, to start mirroring). Alt at the START of a drag
+-- moves one alone; the choice holds for the whole drag.
 local MIRROR = { player = "target", target = "player" }
 Movers.mirror = true
 
--- The frame mirrored with `unit` right now, or nil. Both must sit on the
--- screen (they do: neither has anchorTo), so the mirror is simply -x.
+-- The frame mirrored with `unit` right now, or nil: mirroring on, and the
+-- pair currently symmetric (both sit on the screen centre-on-centre, so the
+-- mirror is simply -x; within half a unit, the offsets' rounding).
 local function mirrorOf(unit)
-    local other = Movers.mirror and not IsAltKeyDown() and MIRROR[unit]
+    local other = Movers.mirror and MIRROR[unit]
     if not other or not Frames.byUnit[other] then return nil end
-    if Frames.AnchorOf(unit) ~= "UIParent" or Frames.AnchorOf(other) ~= "UIParent" then return nil end
+    local ux, uy = Frames.PositionOf(unit)
+    local ox, oy = Frames.PositionOf(other)
+    if not (ux and ox) then return nil end
+    if math.abs(ux + ox) > 0.5 or math.abs(uy - oy) > 0.5 then return nil end
     return other
 end
 
--- Place `unit` (and its mirror); `live` = a drag in flight (not saved yet).
--- Returns ok and the offsets applied to `unit`, and the mirror's unit.
-local function place(unit, x, y, live)
+-- Place `unit` and, if given, its mirror `other` at -x (the one mirror rule);
+-- `live` = a drag in flight (not saved yet). Returns ok and the offsets
+-- applied to `unit`.
+local function place(unit, x, y, live, other)
     local ok, ax, ay = Frames.SetPosition(unit, x, y, live)
     if not ok then return false end
-    local other = mirrorOf(unit)
     if other then Frames.SetPosition(other, -ax, ay, live) end
-    return true, ax, ay, other
+    return true, ax, ay
 end
 local overlay   -- the grid and the guide lines, full screen, under the movers
 
@@ -105,18 +112,15 @@ local function endDrag(save)
     m:SetScript("OnUpdate", nil)
     m:StopMovingOrSizing()
     if save and m.lastX then
-        -- The mirror took its spot live alongside; record both.
-        local placed = { { m.unit, m.lastX, m.lastY } }
-        if m.mirrored then placed[2] = { m.mirrored, -m.lastX, m.lastY } end
-        for _, p in ipairs(placed) do
-            if InCombatLockdown() then
-                Frames.SavePosition(p[1], p[2], p[3])
-            else
-                Frames.SetPosition(p[1], p[2], p[3])
-            end
+        if InCombatLockdown() then
+            -- Only the table (never a protected frame under lockdown).
+            Frames.SavePosition(m.unit, m.lastX, m.lastY)
+            if m.partner then Frames.SavePosition(m.partner, -m.lastX, m.lastY) end
+        else
+            place(m.unit, m.lastX, m.lastY, false, m.partner)
         end
     end
-    m.lastX, m.lastY, m.lines, m.mirrored = nil, nil, nil, nil
+    m.lastX, m.lastY, m.lines, m.partner = nil, nil, nil, nil
     m:ClearAllPoints()
     m:SetAllPoints(Frames.byUnit[m.unit])
     showGuide("vguide", nil)
@@ -145,8 +149,9 @@ local function alignLines(unit, axis)
     local centre
     if axis == "x" then centre = ucx else centre = ucy end
     if type(centre) == "number" then lines[#lines + 1] = centre end
+    local m = movers[unit]
+    local partner = m and m.partner
     for u, b in pairs(Frames.byUnit) do
-        local partner = mirrorOf(unit)
         if u ~= unit and not followsFrom(u, unit) and u ~= partner and not (partner and followsFrom(u, partner)) then
             local lo, hi
             if axis == "x" then lo, hi = b:GetLeft(), b:GetRight() else lo, hi = b:GetBottom(), b:GetTop() end
@@ -233,8 +238,8 @@ local function follow(m)
     -- Skip when nothing moved: every SetPoint re-lays out the whole group.
     local rx, ry = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
     if rx == m.lastX and ry == m.lastY then return end
-    local ok, ax, ay, other = place(m.unit, x, y, true)
-    if ok then m.lastX, m.lastY, m.mirrored = ax, ay, other end
+    local ok, ax, ay = place(m.unit, x, y, true, m.partner)
+    if ok then m.lastX, m.lastY = ax, ay end
 end
 
 local function select_(unit)
@@ -279,6 +284,9 @@ local function makeMover(unit, b)
     m:SetScript("OnDragStart", function(self)
         if InCombatLockdown() then return end
         select_(self.unit)
+        -- Mirror or not is decided now (Alt held = alone) and holds for the
+        -- whole drag, so what's seen is what's saved.
+        self.partner = (not IsAltKeyDown()) and mirrorOf(self.unit) or nil
         self:StartMoving()
         dragging = self
         self:SetScript("OnUpdate", follow)
@@ -300,7 +308,7 @@ local function nudge(dx, dy)
     local step = IsShiftKeyDown() and 10 or 1
     local x, y = Frames.PositionOf(selected)
     if not x then return end   -- can't tell where it is: never invent a position
-    if place(selected, x + dx * step, y + dy * step) then refreshPanel() end
+    if place(selected, x + dx * step, y + dy * step, false, mirrorOf(selected)) then refreshPanel() end
 end
 
 local function makeEdit(parent, onCommit)
@@ -357,7 +365,7 @@ local function makePanel()
     xl:SetText("X")
     p.x = makeEdit(p, function(v)
         local _, y = Frames.PositionOf(selected)
-        if y then place(selected, v, y) end
+        if y then place(selected, v, y, false, mirrorOf(selected)) end
     end)
     p.x:SetPoint("LEFT", xl, "RIGHT", 8, 0)
     local yl = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -365,7 +373,7 @@ local function makePanel()
     yl:SetText("Y")
     p.y = makeEdit(p, function(v)
         local x = Frames.PositionOf(selected)
-        if x then place(selected, x, v) end
+        if x then place(selected, x, v, false, mirrorOf(selected)) end
     end)
     p.y:SetPoint("LEFT", yl, "RIGHT", 8, 0)
     -- Arrows: 1 unit, Shift 10. Plain characters (every font has them).
@@ -378,8 +386,8 @@ local function makePanel()
     up:SetPoint("LEFT", right, "RIGHT", 2, 0)
     down:SetPoint("LEFT", up, "RIGHT", 2, 0)
     local reset = makeButton(p, "Reset", 52, function()
+        local other = selected and mirrorOf(selected)   -- before the reset changes it
         if selected and Frames.ResetPosition(selected) then
-            local other = mirrorOf(selected)
             if other then Frames.ResetPosition(other) end
             refreshPanel()
         end

@@ -132,8 +132,9 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   followers aren't alignment targets; **Alt** places freely. Both switches are in the nudge panel
   (saved only when off: `db.snapGrid`, `db.snapAlign`). **Mirroring** (on by default,
   `db.mirror` when off, `/glass mirror`): moving the player or target frame (drag, arrows, typed
-  X/Y, reset) places the other at the mirrored spot (-x, same y); Alt moves one alone, and the
-  mirrored partner isn't an alignment target.
+  X/Y, reset) places the other at the mirrored spot (-x, same y), but only while the pair IS
+  symmetric (a custom asymmetric layout is never overwritten). Alt at the start of a drag moves one
+  alone, fixed for the whole drag; the drag's partner isn't an alignment target.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
   - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
     `ComboFrame` is hidden only once our combo pips exist (rogues and druids). Party is never touched, since the owner uses
