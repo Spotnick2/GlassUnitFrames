@@ -73,6 +73,20 @@ eq(GlassUnitFramesDB.pos.target, nil, "reset: this frame back to its default")
 eq(t._points[1][4], 300, "at the default spot")
 eq(GlassUnitFramesDB.pos.targettarget[4], -100, "reset one frame leaves the others alone")
 
+-- Switching frames with an uncommitted coordinate discards it: its Enter
+-- must never land on the newly selected frame.
+local tBefore = GlassUnitFramesDB.pos.target and GlassUnitFramesDB.pos.target[4]
+M._test.movers.target._scripts.OnMouseUp(M._test.movers.target)
+np.x:SetFocus(); np.x:SetText("325")
+local mpet = M._test.movers.pet
+mpet._scripts.OnMouseUp(mpet)
+check(not np.x:HasFocus(), "switching frames clears the pending edit's focus")
+eq(np.x._text, "0", "the X box shows the pet's own offset, not the typed text")
+np.x._scripts.OnEnterPressed(np.x)
+eq(GlassUnitFramesDB.pos.pet and GlassUnitFramesDB.pos.pet[4] or 0, 0, "the pet never received the target's pending value")
+eq(GlassUnitFramesDB.pos.target and GlassUnitFramesDB.pos.target[4], tBefore, "the target is unchanged")
+M._test.movers.target._scripts.OnMouseUp(M._test.movers.target)
+
 -- Lock, and /glass unlock|lock.
 np.buttons.lock._scripts.OnClick(np.buttons.lock)
 check(not M.unlocked and not mt._shown and not np._shown, "Lock hides the movers and the panel")

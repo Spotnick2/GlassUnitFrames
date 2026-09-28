@@ -90,6 +90,12 @@ local function follow(m)
 end
 
 local function select_(unit)
+    -- Switching frames discards a coordinate typed but not committed: its
+    -- Enter would otherwise land on the NEW frame (Codex, #52).
+    if panel and unit ~= selected then
+        panel.x:ClearFocus()
+        panel.y:ClearFocus()
+    end
     selected = unit
     for u, m in pairs(movers) do m.edge:SetShown(u == unit) end
     if panel then
