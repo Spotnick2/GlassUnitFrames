@@ -295,6 +295,11 @@ local function build()
         function() return Frames.levelPos end,
         GlassUF.Settings.SetLevelPosition)
 
+    header(right, "Pet happiness")
+    controls.happinessRow = radios(right, nil, { { "left", "Left of the portrait" }, { "right", "Right of the frame" }, { "under", "Under the portrait" } },
+        function() return Frames.happinessPos end,
+        GlassUF.Settings.SetHappinessPosition)
+
     header(right, "Blizzard frames")
     controls.hideBlizzard = checkbox(right, "Hide Blizzard's unit frames",
         function() return db().hideBlizzard end,

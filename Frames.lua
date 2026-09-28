@@ -438,6 +438,33 @@ function Frames.SetAggroRed(on)
 end
 
 -- Switch the placement live (out of combat or in: nothing here is secure).
+-- Pet happiness placement: "left" (default, the owner's pick: left of the
+-- pet's portrait, which sits at the frame's left edge), "right" (right of
+-- the frame, where Blizzard's PetFrame shows it) or "under" (under the portrait).
+Frames.HAPPINESS_POSITIONS = { left = true, right = true, under = true }
+Frames.happinessPos = "left"
+
+local function placeHappiness(b)
+    local icon = b.indicators and b.indicators.happiness
+    if not icon then return end
+    icon:ClearAllPoints()
+    local pos, anchor = Frames.happinessPos, b.tile or b
+    if pos == "right" then
+        icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+    elseif pos == "under" then
+        icon:SetPoint("TOP", anchor, "BOTTOM", 0, -3)
+    else
+        icon:SetPoint("RIGHT", anchor, "LEFT", -4, 0)
+    end
+end
+
+function Frames.SetHappinessPosition(pos)
+    if not Frames.HAPPINESS_POSITIONS[pos] then return false end
+    Frames.happinessPos = pos
+    for _, b in pairs(Frames.byUnit) do placeHappiness(b) end
+    return true
+end
+
 function Frames.SetMarkPosition(pos)
     if not Frames.MARK_POSITIONS[pos] then return false end
     Frames.markPos = pos
@@ -841,15 +868,15 @@ local function buildIndicators(b, body, g, L, tileGlass)
         ind.pvp:Hide()
     end
     if want.resting and tileGlass then ind.resting = buildResting(tileGlass.top, large) end
-    -- Hunter pet happiness, the Blizzard way: its own square just right of
-    -- the pet frame, nearly as tall as it. No glass tile: the texture has its
-    -- own border, and sliced masks break on tiles this small (GLASS-MATERIAL §6).
+    -- Hunter pet happiness: its own square, nearly as tall as the frame,
+    -- placed by placeHappiness (left of the portrait by default). No glass
+    -- tile: the texture has its own border, and sliced masks break on tiles
+    -- this small (GLASS-MATERIAL §6).
     if want.happiness then
         local s = L.h - 6
         ind.happiness = g.top:CreateTexture(nil, "OVERLAY", nil, 7)
         ind.happiness:SetSize(s, s)
         ind.happiness:SetTexture("Interface\\PetPaperDollFrame\\UI-PetHappiness")
-        ind.happiness:SetPoint("LEFT", b, "RIGHT", 4, 0)
         ind.happiness:Hide()
     end
     b.indicators = ind
@@ -1023,6 +1050,7 @@ local function build(unit)
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     placeLevel(b)
+    placeHappiness(b)   -- after the portrait tile exists
     RegisterUnitWatch(b)
     Engine.Register(b, { ticker = L.ticker })
     Frames.byUnit[unit] = b
@@ -1048,6 +1076,7 @@ function Frames.Build(db)
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
     if db.aggroRed == false then Frames.aggroRed = false end
     if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
+    if Frames.HAPPINESS_POSITIONS[db.happiness] then Frames.happinessPos = db.happiness end
     if type(db.healthText) == "table" then
         for unit, kind in pairs(db.healthText) do
             if HEALTH_FORMAT_OK[kind] then Frames.healthFormat[unit] = kind end
