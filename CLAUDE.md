@@ -109,6 +109,11 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     under secrecy).
   - The container API isn't in the dump; `test_methods.lua` allowlists exactly those methods,
     with DinoUF as the evidence.
+- **Class resources** (#29): combo pips on the target frame for rogues and cat-form druids, each
+  pip's alpha from a client colour curve (`API.ComboAlpha`, DinoUF's
+  `UnitPowerPercent("player", 4, true, curve)`); a thin druid mana strip under the player frame
+  outside caster form. Built only for those classes; the player's power/form events reach them
+  through Engine's `resourceWatcher` (the target's tracker would never see player events).
 - **Positions** (`Frames.lua`): every frame sits CENTER-on-CENTER on its leader (`LAYOUT[unit].anchorTo`:
   pet→player, ToT/ToTT/focus→target, focustarget→focus) or on UIParent, so moving a leader carries
   its group. Saved as `{ "CENTER", "UIParent"|leaderUnit, "CENTER", x, y }`; saved entries are
@@ -124,7 +129,7 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   Unlock and nudges are refused in combat; a combat start locks.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
   - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
-    `ComboFrame` stays until we draw combo points. Party is never touched, since the owner uses
+    `ComboFrame` is hidden only once our combo pips exist (rogues and druids). Party is never touched, since the owner uses
     Cell.
   - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.
   - A `SetParent` post-hook undoes Edit Mode's reparenting **on a timer, never

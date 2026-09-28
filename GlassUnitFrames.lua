@@ -96,6 +96,10 @@ local function secretsReport()
     local okH, happy = pcall(function() return ci and ci.GetPetHappiness() end)
     say("  petHappiness=" .. ((not okH and "ERR") or (API.IsSecret(happy) and "S")
         or (happy == nil and "nil") or tostring(happy)))
+    -- #29: the first combo pip's curve alpha (S = secret, 0/1 = plain), for rogues and druids.
+    local okC, c1 = pcall(API.ComboAlpha, 1)
+    say("  combo1=" .. ((not okC and "ERR") or (API.IsSecret(c1) and "S")
+        or (c1 == nil and "nil") or tostring(c1)))
     -- The player's own threat state (as Blizzard's raid frames read it): once, not per frame.
     local okT, myThreat = pcall(UnitThreatSituation, "player")
     say("  myThreat=" .. ((not okT and "ERR") or (API.IsSecret(myThreat) and "S")
@@ -400,6 +404,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
             -- Blizzard's own player cast bar stays unless asked (the owner likes it).
             if db.hideBlizzardCast then Blizzard.HideFrame("PlayerCastingBarFrame") end
+            -- Our combo pips replace Blizzard's (only built for rogues and druids).
+            local t = Frames.byUnit.target
+            if db.hideBlizzard and t and t.combo then Blizzard.HideFrame("ComboFrame") end
         end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- arg1 = isInitialLogin: warn at a real login, never on /reload.
