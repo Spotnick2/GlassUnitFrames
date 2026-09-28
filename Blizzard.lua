@@ -117,10 +117,15 @@ end
 -- already in place does nothing.
 local totem = { holder = nil, ready = false, applying = false, scheduled = false }
 
+-- Placed = in the holder with EXACTLY our one anchor. Checking only anchor 1
+-- missed a Blizzard SetPoint that ADDS an anchor (to PlayerFrame, say) without
+-- clearing ours: the repair saw anchor 1 on the holder and left both.
 local function totemsPlaced(tf)
     if tf:GetParent() ~= totem.holder then return false end
-    local ok, _, rel = pcall(tf.GetPoint, tf, 1)
-    return ok and rel == totem.holder
+    local okN, n = pcall(tf.GetNumPoints, tf)
+    if not okN or n ~= 1 then return false end
+    local ok, point, rel, relPoint, x, y = pcall(tf.GetPoint, tf, 1)
+    return ok and point == "TOP" and rel == totem.holder and relPoint == "TOP" and x == 0 and y == 0
 end
 
 local function placeTotems()

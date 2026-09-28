@@ -36,6 +36,23 @@ eq(tf._parent, T.holder, "back in the holder after the deferred repair")
 tf:SetPoint("TOPLEFT", PlayerFrame, "BOTTOMLEFT", 0, 0)
 WoW.flushTimers()
 eq(tf._points[1][2], T.holder, "re-anchored after a Blizzard SetPoint")
+-- A Blizzard SetPoint that ADDS an anchor (no ClearAllPoints first) leaves
+-- anchor 1 on the holder: the repair must still clear it back to one.
+tf:SetPoint("LEFT", PlayerFrame, "RIGHT", 0, 0)
+eq(#tf._points, 2, "Blizzard stacked a second anchor")
+WoW.flushTimers()
+local function fullAnchor(label)
+    eq(#tf._points, 1, label .. ": exactly one anchor")
+    local p = tf._points[1]
+    check(p[1] == "TOP" and p[2] == T.holder and p[3] == "TOP" and p[4] == 0 and p[5] == 0,
+          label .. ": TOP on the holder's TOP, offsets 0,0")
+end
+fullAnchor("stacked anchor repaired")
+-- Our own anchor, but at other offsets (moved by something else): repaired too.
+tf:ClearAllPoints(); tf:SetPoint("TOP", T.holder, "TOP", 40, -9)
+WoW.flushTimers()
+fullAnchor("shifted anchor repaired")
+
 -- Already in place: a repair does nothing (no churn).
 local sets = 0
 local realSet = tf.SetPoint
