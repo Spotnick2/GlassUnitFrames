@@ -1,4 +1,4 @@
--- GlassUnitFrames options panel (#39): Game Menu > Options > AddOns >
+-- GlassUnitFrames options panel (#39): Game Menu > Options > AddOns > Glass
 -- GlassUnitFrames. A canvas panel registered with Retail's Settings framework
 -- (Settings.RegisterCanvasLayoutCategory + RegisterAddOnCategory, as Priestly
 -- does on Forever). Check and radio buttons use UICheckButtonTemplate /
@@ -19,7 +19,7 @@ GlassUF.Options = Options
 local Glass, Frames, Blizzard = GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 
 local panel = CreateFrame("Frame", "GlassUnitFramesOptions")
-panel.name = "GlassUnitFrames"
+panel.name = "Glass Unit Frames"
 local controls = {}      -- refresh() callbacks, run on every OnShow
 local refreshing = false -- set while syncing controls, so a SetValue doesn't save
 local category
@@ -241,7 +241,7 @@ end
 function Options.ResetLook() GlassUF.Settings.ResetLook() end
 
 local function build()
-    local title = label(content, "GlassUnitFrames", "GameFontNormalHuge")
+    local title = label(content, "Glass Unit Frames", "GameFontNormalHuge")
     title:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -16)
     local sub = label(content, "Liquid-glass unit frames. Shift-drag a frame to move it (out of combat). /glass lists the commands.",
         "GameFontHighlightSmall")

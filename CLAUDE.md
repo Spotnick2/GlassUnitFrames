@@ -129,7 +129,7 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>`, plus the live
     material tweaks `fill|rim|track|fade` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
-- **`Options.lua`**: the options panel under Game Menu > Options > AddOns > GlassUnitFrames
+- **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames
   (`/glass options`). A canvas panel (`Settings.RegisterCanvasLayoutCategory` +
   `RegisterAddOnCategory`, registered at `PLAYER_LOGIN`, as Priestly does), two columns so it fits
   the canvas. Check and radio buttons use `UICheckButtonTemplate` / `UIRadioButtonTemplate` (the

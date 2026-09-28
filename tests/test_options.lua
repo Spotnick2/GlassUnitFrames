@@ -13,7 +13,7 @@ local Glass = GlassUF.Glass
 -- Registered with Retail's Settings framework at PLAYER_LOGIN.
 eq(WoW.settings.canvas and WoW.settings.canvas.frame, panel, "canvas category registered for the panel")
 eq(WoW.settings.addon, WoW.settings.canvas, "and added to Options > AddOns")
-eq(WoW.settings.canvas.name, "GlassUnitFrames", "under the addon's name")
+eq(WoW.settings.canvas.name, "Glass Unit Frames", "under the addon's display name")
 
 -- /glass options opens it.
 SlashCmdList.GLASSUNITFRAMES("options")

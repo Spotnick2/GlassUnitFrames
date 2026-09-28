@@ -193,7 +193,7 @@ local function frameReport(name, label)
 end
 
 local HELP = {
-    "options  - open the options panel (Options > AddOns > GlassUnitFrames)",
+    "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
     "level power|name|portrait  - where the target's level goes (saved)",
     "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
@@ -285,7 +285,7 @@ local function slash(msg)
         end
     elseif cmd == "options" or cmd == "config" then
         if not (GlassUF.Options and GlassUF.Options.Open()) then
-            say("options are in Game Menu > Options > AddOns > GlassUnitFrames")
+            say("options are in Game Menu > Options > AddOns > Glass Unit Frames")
         end
     elseif cmd == "level" then
         if Settings_.SetLevelPosition(arg) then
