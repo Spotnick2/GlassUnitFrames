@@ -86,6 +86,20 @@ local function attempt(key, fn, ...)
     return ok
 end
 
+-- A neutral NPC fighting you or your group reads red, as Blizzard's nameplate
+-- does (#28). Its reaction stays neutral, and UnitSelectionType stays 2 in
+-- combat (measured), so: are you on its threat list (any status, so a healer
+-- sees their group's fight too), or is it in combat and targeting you. Both
+-- through plain(): a secret answer means "don't know", and the NPC stays
+-- yellow rather than guessing. An option (on by default).
+Frames.aggroRed = true
+local function neutralFighting(u)
+    if plain(UnitThreatSituation, "player", u) ~= nil then return true end
+    -- Targeting you and in combat: attacking you (the first in-game try on a
+    -- neutral bat stayed yellow while it was clearly targeting the player).
+    return plain(UnitIsUnit, u .. "target", "player") == true and plain(UnitAffectingCombat, u) == true
+end
+
 local function unitColor(u)
     if plain(UnitIsConnected, u) == false then return GREY end
     if plain(UnitIsDeadOrGhost, u) == true then return GREY end   -- dead reads as dead even on name-only frames
@@ -99,7 +113,11 @@ local function unitColor(u)
     if plain(UnitIsTapDenied, u) == true then return GREY end
     local reaction = plain(UnitReaction, u, "player")
     if type(reaction) == "number" then
-        if reaction <= 3 then return HOSTILE elseif reaction == 4 then return NEUTRAL end
+        if reaction <= 3 then return HOSTILE end
+        if reaction == 4 then
+            if Frames.aggroRed and neutralFighting(u) then return HOSTILE end
+            return NEUTRAL
+        end
         return FRIENDLY
     end
     return DEFAULT
@@ -230,6 +248,10 @@ local function paintColor(f, u)
     f.health:SetStatusBarColor(c[1], c[2], c[3])
 end
 
+Engine.SetPainter("color", function(f)
+    if UnitExists(f.unit) then paintColor(f, f.unit) end
+end)
+
 Engine.SetPainter("name", function(f)
     local u = f.unit
     if not UnitExists(u) then return end
@@ -355,6 +377,11 @@ local function anchorName(b, marked)
     else
         fs:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
     end
+end
+
+function Frames.SetAggroRed(on)
+    Frames.aggroRed = on and true or false
+    Engine.RepaintChannel("color")
 end
 
 -- Switch the placement live (out of combat or in: nothing here is secure).
@@ -796,7 +823,8 @@ local function build(unit)
     local b = CreateFrame("Button", "GlassUF_" .. unit, UIParent, "SecureUnitButtonTemplate")
     b.unit, b.layout = unit, L
     local hasPower = L.power and not L.nameOnly   -- nameOnly: just the name over a health bar
-    b.channels = { name = true, health = true, power = hasPower or nil, indicators = L.indicators and true or nil,
+    b.channels = { name = true, color = true, health = true, power = hasPower or nil,
+                   indicators = L.indicators and true or nil,
                    heal = L.healPrediction or nil,
                    portrait = L.portrait and true or nil, cast = L.cast or nil }
     b:SetSize(L.w + tileW, L.h)
@@ -919,5 +947,6 @@ end
 function Frames.Build(db)
     Frames.db = db
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
+    if db.aggroRed == false then Frames.aggroRed = false end
     for _, unit in ipairs(Frames.ORDER) do build(unit) end
 end

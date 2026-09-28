@@ -74,6 +74,9 @@ local SECRET_PROBES = {
     { "dead",   function(u) return UnitIsDeadOrGhost(u) end },
     { "cast",   function(u) return (API.CastDuration(u)) end },
     { "mark",   function(u) return GetRaidTargetIndex(u) end },
+    { "threat", function(u) return UnitThreatSituation("player", u) end, value = true },   -- #28: your threat on it
+    { "combat", function(u) return UnitAffectingCombat(u) end },
+    { "tgtMe",  function(u) return UnitIsUnit(u .. "target", "player") end },   -- #28: is it targeting you?
     { "pwAlpha", function(u) return API.PowerAlpha(u) end, value = true },   -- #27: the curve's opacity
 }
 
@@ -88,6 +91,10 @@ end
 local function secretsReport()
     say(string.format("secrets report, build %s, %s. S = secret, ok = plain, ERR = threw",
         API.ClientBuild(), InCombatLockdown() and "|cffff6060IN COMBAT|r" or "out of combat"))
+    -- The player's own threat state (as Blizzard's raid frames read it): once, not per frame.
+    local okT, myThreat = pcall(UnitThreatSituation, "player")
+    say("  myThreat=" .. ((not okT and "ERR") or (API.IsSecret(myThreat) and "S")
+        or (myThreat == nil and "nil") or tostring(myThreat)))
     for _, u in ipairs(Frames.ORDER) do
         if UnitExists(u) then
             local parts = {}
@@ -233,6 +240,13 @@ end
 
 function Settings_.ResetPositions()
     whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+end
+
+function Settings_.SetAggroRed(on)
+    Frames.SetAggroRed(on)
+    -- Saved only when turned off (the default is on). Not `(not on) and false
+    -- or nil`: `false or nil` is nil, so "off" would never be saved.
+    if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
 end
 
 -- "show" brings back everything GlassUF hides from Blizzard, the cast bar too.

@@ -25,6 +25,9 @@ Engine.CHANNEL_EVENTS = {
     -- The name painter also paints the target's level/classification text.
     name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CLASSIFICATION_CHANGED",
                  "UNIT_CONNECTION" },
+    -- Only the health colour: a neutral NPC that starts or stops fighting you
+    -- or your group changes colour (#28) without repainting the name line.
+    color    = { "UNIT_FLAGS", "UNIT_THREAT_LIST_UPDATE", "UNIT_TARGET" },
     portrait = { "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" },
     -- Raid target / leader / loot / PvP icons. Most of their triggers are
     -- group-wide events, handled by the world frame below; only the PvP flag
@@ -35,7 +38,7 @@ Engine.CHANNEL_EVENTS = {
                  "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
                  "UNIT_SPELLCAST_CHANNEL_STOP" },
 }
-Engine.ORDER = { "name", "health", "heal", "power", "portrait", "indicators", "cast" }
+Engine.ORDER = { "name", "color", "health", "heal", "power", "portrait", "indicators", "cast" }
 
 local painters = {}
 local framesByUnit = {}      -- unit -> { frame, ... }
