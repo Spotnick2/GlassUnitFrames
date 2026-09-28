@@ -77,6 +77,8 @@ local SECRET_PROBES = {
     { "selType", function(u) return UnitSelectionType(u) end, value = true },   -- #28: 0/1 = hostile
     { "threat", function(u) return UnitThreatSituation("player", u) end, value = true },
     { "combat", function(u) return UnitAffectingCombat(u) end },
+    { "tgtMe",  function(u) return UnitIsUnit(u .. "target", "player") end },   -- #28: is it targeting you?
+    { "myThreat", function() return UnitThreatSituation("player") end, value = true },   -- as Cell reads it
     { "pwAlpha", function(u) return API.PowerAlpha(u) end, value = true },   -- #27: the curve's opacity
 }
 

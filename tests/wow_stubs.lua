@@ -520,6 +520,10 @@ function UnitThreatSituation(u, mob)
     return unitField(mob, "threat")
 end
 function UnitAffectingCombat(u) return unitField(u, "combat") end
+function UnitIsUnit(a, b)
+    local ua, ub = WoW.units[a], WoW.units[b]
+    return ua ~= nil and ua == ub
+end
 -- Retail's Settings framework (names from the dump's _G walk; signatures as
 -- Priestly uses them on Forever). WoW.settings records what the addon did.
 Settings = {
