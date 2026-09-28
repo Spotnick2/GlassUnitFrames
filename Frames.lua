@@ -88,14 +88,18 @@ end
 
 -- A neutral NPC fighting you reads red, as Blizzard's nameplate does (#28).
 -- Its reaction stays neutral, so ask what the nameplate asks: the selection
--- type (0 hostile, 1 unfriendly on Retail), then, failing that, whether you
--- are on its threat list. Both through plain(): a secret answer means "don't
--- know", and the NPC stays yellow rather than guessing. An option (on by default).
+-- type (0 hostile, 1 unfriendly on Retail), then whether you are on its
+-- threat list, then whether it is in combat and targeting you. All through
+-- plain(): a secret answer means "don't know", and the NPC stays yellow rather
+-- than guessing. An option (on by default).
 Frames.aggroRed = true
 local function neutralFighting(u)
     local st = plain(UnitSelectionType, u)
     if type(st) == "number" and st <= 1 then return true end
-    return plain(UnitThreatSituation, "player", u) ~= nil
+    if plain(UnitThreatSituation, "player", u) ~= nil then return true end
+    -- Targeting you and in combat: attacking you (the first in-game try on a
+    -- neutral bat stayed yellow while it was clearly targeting the player).
+    return plain(UnitIsUnit, u .. "target", "player") == true and plain(UnitAffectingCombat, u) == true
 end
 
 local function unitColor(u)

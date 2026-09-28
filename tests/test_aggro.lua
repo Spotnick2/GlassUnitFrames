@@ -30,6 +30,16 @@ WoW.units.target.threat = nil
 WoW.fire("UNIT_FLAGS", "target"); WoW.tick()
 check(same(colourOf(t), NEUTRAL), "fight over: yellow again")
 
+-- Third signal: in combat and targeting you (selection and threat unchanged).
+WoW.SetUnit("targettarget", { name = "Morphisto", class = "WARLOCK", player = true })
+WoW.units.targettarget = WoW.units.player          -- the mob's target IS the player
+WoW.units.target.combat = true
+WoW.fire("UNIT_TARGET", "target"); WoW.tick()
+check(same(colourOf(t), HOSTILE), "in combat and targeting you: red")
+WoW.units.target.combat = false
+WoW.fire("UNIT_FLAGS", "target"); WoW.tick()
+check(same(colourOf(t), NEUTRAL), "targeting you but out of combat: yellow")
+
 -- Secret answers mean "don't know": stays yellow, and nothing fails.
 WoW.secretFields.selType, WoW.secretFields.threat = true, true
 WoW.units.target.selType, WoW.units.target.threat = 0, 3
