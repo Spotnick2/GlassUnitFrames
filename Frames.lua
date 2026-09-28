@@ -256,15 +256,20 @@ Engine.SetPainter("health", function(f)
     paintText(f.valueText, f.layout.text and f.layout.text.healthRight, u, hp, maxHp)
 end)
 
--- A unit with no power left (an NPC without mana: max 0) shows no power bar
--- or power numbers, instead of "0%" and "0/0" over an empty bar (#27). The
--- level text stays. For the player and pet max power is plain, so only a max
--- of 0 hides it (running out of mana must not hide your own bar); for other
--- units max is secret, so the client's colour curve decides, which also
--- hides a drained unit's bar until it has power again.
+-- An NPC with no power left (no mana at all: max 0, or drained) shows no
+-- power bar or power numbers, instead of "0%" and "0/0" over an empty bar
+-- (#27). The level text stays. Other players always show theirs (SUF never
+-- hid a target's power bar). For the player and pet, max power is plain, so
+-- only a max of 0 hides it (running out of mana must not hide your own bar);
+-- for NPCs max is secret, so the client's colour curve decides.
 local function paintPowerAlpha(f, u, maxPow)
     local a = 1   -- unknown: show, as before
-    if API.IsSecret(maxPow) then
+    if plain(UnitIsPlayer, u) == true and u ~= "player" then
+        -- Other players always show their power bar, as SUF does: a warrior
+        -- at 0 rage keeps an empty rage bar (it says what they use). Only
+        -- NPCs hide an empty one.
+        a = 1
+    elseif API.IsSecret(maxPow) then
         -- The alpha may be secret too: never truth-test or compare it (that
         -- throws on this client, and the stub cannot catch it). Only its
         -- type decides what to do with it.

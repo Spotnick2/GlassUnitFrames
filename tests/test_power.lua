@@ -52,4 +52,19 @@ WoW.fire("UNIT_POWER_UPDATE", "target"); WoW.tick()
 eq(t.power._alpha, 1, "refused secret alpha: bar shown")
 check(GlassUF.paintFailures["power alpha"] ~= nil, "the refusal is recorded for /glass secrets")
 
+-- Other players always keep their power bar (SUF's behaviour): a warrior at
+-- 0 rage shows an empty rage bar. Only NPCs hide.
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon()
+t = button("target")
+WoW.secretFields.power, WoW.secretFields.maxPower = true, true
+WoW.SetUnit("target", { name = "Themeek Tank", player = true, class = "WARRIOR", level = 12,
+                        power = 0, maxPower = 100, powerToken = "RAGE" })
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+eq(t.power._alpha, 1, "a player target at 0 rage keeps the rage bar")
+WoW.SetUnit("target", { name = "Undercity Guardian", player = false, level = 55,
+                        power = 0, maxPower = 0, powerToken = "RAGE" })
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+check(WoW.IsSecret(t.power._alpha), "an NPC target still takes the curve's alpha")
+
 done("test_power")
