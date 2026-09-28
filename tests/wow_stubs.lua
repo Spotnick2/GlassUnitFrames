@@ -420,7 +420,9 @@ local function curveColor(col, secret)
         return col.r, col.g, col.b, col.a
     end }
 end
--- Step evaluation: the last point at or below x.
+-- Step evaluation: the last point at or below x. NOTE: a 0/0 unit is modelled
+-- as fraction 0 here; what the real client returns for max 0 is UNMEASURED
+-- (#27's in-game check), so tests built on it only prove our side.
 local function evalColor(curve, x)
     local col = curve.points[1][2]
     for _, pt in ipairs(curve.points) do if x >= pt[1] then col = pt[2] end end

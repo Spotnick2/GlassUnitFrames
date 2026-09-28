@@ -28,6 +28,17 @@ eq(t.power._alpha, 0, "plain 0/0: faded")
 WoW.units.target.maxPower, WoW.units.target.power = 100, 40
 WoW.fire("UNIT_MAXPOWER", "target"); WoW.tick()
 eq(t.power._alpha, 1, "a unit with power: shown")
+SlashCmdList.GLASSUNITFRAMES("secrets")
+local plainLine
+for _, l in ipairs(WoW.chat) do if l:find("  target: ", 1, true) then plainLine = l end end
+check(plainLine and plainLine:find("pwAlpha=1.00", 1, true) and plainLine:find("pwBar=1.0", 1, true),
+      "plain values are printed, not just 'ok': " .. tostring(plainLine))
+
+-- The level text follows the name channel's events, not every power tick.
+WoW.units.target.classification = "rareelite"
+WoW.fire("UNIT_CLASSIFICATION_CHANGED", "target"); WoW.tick()
+check(t.levelText._text ~= nil and tostring(t.levelText._text):find("Rare", 1, true) ~= nil,
+      "classification change repaints the level text: " .. tostring(t.levelText._text))
 
 -- A client that refuses a secret alpha: shown as before, never stuck hidden.
 WoW.secretFields.power, WoW.secretFields.maxPower = true, true

@@ -77,7 +77,7 @@ local SECRET_PROBES = {
     { "dead",   function(u) return UnitIsDeadOrGhost(u) end },
     { "cast",   function(u) return (API.CastDuration(u)) end },
     { "mark",   function(u) return GetRaidTargetIndex(u) end },
-    { "pwAlpha", function(u) return API.PowerAlpha(u) end },   -- #27: the curve's opacity (S = secret)
+    { "pwAlpha", function(u) return API.PowerAlpha(u) end, value = true },   -- #27: the curve's opacity
 }
 
 local function classify(fn, u)
@@ -94,7 +94,15 @@ local function secretsReport()
     for _, u in ipairs(Frames.ORDER) do
         if UnitExists(u) then
             local parts = {}
-            for _, p in ipairs(SECRET_PROBES) do parts[#parts + 1] = p[1] .. "=" .. classify(p[2], u) end
+            for _, p in ipairs(SECRET_PROBES) do
+                local c = classify(p[2], u)
+                -- A few probes are worth their plain value (0 or 1), not just "ok".
+                if p.value and c == "ok" then
+                    local ok, v = pcall(p[2], u)
+                    if ok and type(v) == "number" then c = string.format("%.2f", v) end
+                end
+                parts[#parts + 1] = p[1] .. "=" .. c
+            end
             -- What the raid-mark icon on this frame is actually doing.
             local f = Frames.byUnit[u]
             local icon = f and f.indicators and f.indicators.raidTarget

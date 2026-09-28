@@ -98,8 +98,7 @@ end
 -- secret: hand it straight to SetAlpha. nil if the API is missing.
 local visibleCurve
 function API.PowerAlpha(unit)
-    if visibleCurve == nil then
-        visibleCurve = false
+    if not visibleCurve then
         if C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor then
             local curve = C_CurveUtil.CreateColorCurve()
             local types = Enum and Enum.LuaCurveType

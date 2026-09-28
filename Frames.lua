@@ -234,6 +234,7 @@ Engine.SetPainter("name", function(f)
     local u = f.unit
     if not UnitExists(u) then return end
     if not attempt("name text", paintName, f, u) then f.nameText:SetText("") end
+    if f.levelText then f.levelText:SetText(levelClass(u)) end
     paintColor(f, u)
 end)
 
@@ -261,18 +262,19 @@ end)
 -- of 0 hides it (running out of mana must not hide your own bar); for other
 -- units max is secret, so the client's colour curve decides, which also
 -- hides a drained unit's bar until it has power again.
-local function paintPowerAlpha(f, u)
-    local a
-    local max = plain(UnitPowerMax, u)
-    if type(max) == "number" then
-        a = (max > 0) and 1 or 0
-    else
+local function paintPowerAlpha(f, u, maxPow)
+    local a = 1   -- unknown: show, as before
+    if API.IsSecret(maxPow) then
+        -- The alpha may be secret too: never truth-test or compare it (that
+        -- throws on this client, and the stub cannot catch it). Only its
+        -- type decides what to do with it.
         local ok, v = pcall(API.PowerAlpha, u)
-        a = ok and v or nil
+        if ok and (API.IsSecret(v) or type(v) == "number") then a = v end
+    elseif type(maxPow) == "number" then
+        a = (maxPow > 0) and 1 or 0
     end
-    if a == nil then a = 1 end   -- unknown: show, as before
-    for _, region in ipairs({ f.power, f.powerText, f.powerLeftText }) do
-        if region and not attempt("power alpha", region.SetAlpha, region, a) then region:SetAlpha(1) end
+    for _, region in ipairs(f.powerRegions) do
+        if not attempt("power alpha", region.SetAlpha, region, a) then region:SetAlpha(1) end
     end
 end
 
@@ -286,10 +288,9 @@ Engine.SetPainter("power", function(f)
     local c = (token and POWER_COLORS[token]) or POWER_COLORS.MANA
     f.power:SetStatusBarColor(c[1], c[2], c[3])
     local t = f.layout.text or {}
-    if f.levelText then f.levelText:SetText(levelClass(u)) end
     paintText(f.powerLeftText, t.powerLeft, u, pow, maxPow)
     paintText(f.powerText, t.powerRight, u, pow, maxPow)
-    paintPowerAlpha(f, u)
+    paintPowerAlpha(f, u, maxPow)
 end)
 
 -- SUF's sequence (modules/portrait.lua): clear, set unit, zoom, reset position.
@@ -795,7 +796,6 @@ local function build(unit)
         b.powerText:SetPoint("RIGHT", b.power, "RIGHT", -7, 0)
         -- Level (and classification) in its own string, so it stays when the
         -- power numbers beside it fade out on a unit with no power.
-        local left = b.power
         if L.text and L.text.powerLevel then
             b.levelText = Glass.Font(g.top, 11, "LEFT")
             b.levelText:SetPoint("LEFT", b.power, "LEFT", 7, 0)
@@ -805,11 +805,13 @@ local function build(unit)
             if b.levelText then
                 b.powerLeftText:SetPoint("LEFT", b.levelText, "RIGHT", 6, 0)
             else
-                b.powerLeftText:SetPoint("LEFT", left, "LEFT", 7, 0)
+                b.powerLeftText:SetPoint("LEFT", b.power, "LEFT", 7, 0)
             end
             b.powerLeftText:SetPoint("RIGHT", b.powerText, "LEFT", -6, 0)
         end
     end
+    -- What fades on a unit with no power (#27); the level text never does.
+    if hasPower then b.powerRegions = { b.power, b.powerText, b.powerLeftText } end
 
     local tileGlass
     if L.portrait then
