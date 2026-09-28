@@ -1,13 +1,14 @@
 -- GlassUnitFrames options panel (#39): Game Menu > Options > AddOns >
 -- GlassUnitFrames. A canvas panel registered with Retail's Settings framework
 -- (Settings.RegisterCanvasLayoutCategory + RegisterAddOnCategory, as Priestly
--- does on Forever). Classic option templates (OptionsSliderTemplate,
--- InterfaceOptionsCheckButtonTemplate) are not part of this client and
--- UIDropDownMenu is a Retail-migration trap, so the controls are our own:
--- template-free sliders, check buttons with their own art when the template
--- is missing, and rows of buttons for choices.
+-- does on Forever). Check and radio buttons use UICheckButtonTemplate /
+-- UIRadioButtonTemplate (both exist here, per the porting guide and Priestly),
+-- with our own art only if one ever goes missing. The slider is hand-built on
+-- purpose, for a compact label + value line (OptionsSliderTemplate exists too).
+-- No UIDropDownMenu (a Retail-migration trap): choices are radio groups.
 --
--- Everything the panel changes goes through the same setters as /glass, and
+-- Everything the panel changes goes through GlassUF.Settings, the same
+-- apply-and-save helpers as /glass, and
 -- the panel re-reads the current state every time it opens, so a change made
 -- with a slash command never leaves it showing stale values.
 
@@ -148,8 +149,8 @@ local function checkbox(col, text, get, set)
     return cb
 end
 
--- Template-free slider (OptionsSliderTemplate isn't on this client): label
--- and value on one line, the track under it. Steps of 0.05.
+-- Hand-built slider: label and value on one line, the track under it.
+-- Steps of 0.05.
 local SLIDER_W = 240
 local function slider(col, t)
     local fs = label(panel, t.label)
@@ -173,7 +174,7 @@ local function slider(col, t)
         v = math.floor(v * 20 + 0.5) / 20
         value:SetText(string.format("%.2f", v))
         if refreshing then return end
-        if t.set(v) then db()[t.key] = v end
+        GlassUF.Settings.SetTunable(t, v)
     end)
     controls[#controls + 1] = function()
         local v = Glass.STYLE[t.style]
@@ -188,14 +189,8 @@ end
 -- Settings
 --------------------------------------------------------------------------------
 
--- Put every tunable back to its shipped default and forget the saved value,
--- so future default changes reach this player again.
-function Options.ResetLook()
-    for _, t in ipairs(Glass.TUNABLES) do
-        t.set(t.default)
-        db()[t.key] = nil
-    end
-end
+-- Shipped look back (knobs and font), saved values forgotten.
+function Options.ResetLook() GlassUF.Settings.ResetLook() end
 
 local function build()
     local title = label(panel, "GlassUnitFrames", "GameFontNormalHuge")
@@ -209,11 +204,7 @@ local function build()
     header(left, "Look")
     radios(left, "Font", { { "arial", "Arial Narrow" }, { "friz", "Friz Quadrata" } },
         function() return Glass.fontKey end,
-        function(v)
-            if not Glass.SetFont(v) then return false end
-            db().font = v
-            return true
-        end)
+        GlassUF.Settings.SetFont)
     left.y = left.y - 6
     for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key] = slider(left, t) end
     place(left, button(panel, "Reset look to defaults", 190, function()
@@ -224,31 +215,27 @@ local function build()
     header(right, "Raid mark")
     radios(right, "Placement", { { "name", "Before the name" }, { "top", "On the top edge" }, { "right", "Right of the frame" } },
         function() return Frames.markPos end,
-        function(v)
-            if not Frames.SetMarkPosition(v) then return false end
-            db().mark = v
-            return true
-        end)
+        GlassUF.Settings.SetMark)
 
     header(right, "Blizzard frames")
     controls.hideBlizzard = checkbox(right, "Hide Blizzard's frames for the units GlassUF draws",
         function() return db().hideBlizzard end,
         function(v) db().hideBlizzard = v end)
-    controls.hideBlizzardCast = checkbox(right, "Also hide Blizzard's player cast bar",
+    controls.hideBlizzardCast = checkbox(right, "Hide Blizzard's player cast bar",
         function() return db().hideBlizzardCast end,
         function(v) db().hideBlizzardCast = v or nil end)
     note(right, "Both take effect after a /reload.")
 
     header(right, "Positions")
-    place(right, button(panel, "Reset frame positions", 190, function()
-        GlassUF.WhenOutOfCombat("reset", function() Frames.ResetPositions() end,
-            "positions reset when combat ends")
-    end), 30, 4)
+    place(right, button(panel, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
 end
 
 function controls.refreshAll()
     refreshing = true
-    for _, fn in ipairs(controls) do pcall(fn) end
+    for i, fn in ipairs(controls) do
+        local ok, err = pcall(fn)
+        if not ok then GlassUF.API.Fail("options control " .. i, err) end   -- shows in /glass secrets
+    end
     refreshing = false
 end
 

@@ -121,22 +121,24 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - `Blizzard.active` records whether anything was hidden this session. Hiding is one-way per
     session.
 - **`GlassUnitFrames.lua`**:
-  - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`);
+  - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, and the
+    material knobs `fill|rim|track|fade`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass font|mark|reset|blizzard show|hide|secrets|totem|frame <Name>`, plus the live
+  - `/glass options|font|mark|reset|blizzard show|hide|secrets|totem|frame <Name>`, plus the live
     material tweaks `fill|rim|track|fade` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > GlassUnitFrames
   (`/glass options`). A canvas panel (`Settings.RegisterCanvasLayoutCategory` +
-  `RegisterAddOnCategory`, registered at `PLAYER_LOGIN`, as Priestly does). Controls are our own
-  (template-free sliders, check buttons with their own art when `UICheckButtonTemplate` is
-  missing, rows of buttons for choices): the Classic option templates aren't on this client and
-  `UIDropDownMenu` is a trap. It is built on first show and **re-synced from the current state on
-  every show**. Every control goes through the same setters as `/glass` (`Glass.TUNABLES`,
-  `Glass.SetFont`, `Frames.SetMarkPosition`); `db.hideBlizzard` / `db.hideBlizzardCast` apply
-  after a /reload.
+  `RegisterAddOnCategory`, registered at `PLAYER_LOGIN`, as Priestly does), two columns so it fits
+  the canvas. Check and radio buttons use `UICheckButtonTemplate` / `UIRadioButtonTemplate` (the
+  porting guide lists the option templates as present), with our own art only as a fallback. The
+  slider is hand-built on purpose (compact label + value line). No `UIDropDownMenu`: choices are
+  radio groups. Built on first show, **re-synced from the current state on every show** (a
+  `refreshing` guard keeps that from saving). Every control goes through **`GlassUF.Settings`**,
+  the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
+  `ResetPositions`, `SetHideBlizzard`).
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe.
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla

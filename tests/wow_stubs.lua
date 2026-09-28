@@ -309,7 +309,11 @@ function Methods.GetFont(fs) if fs._font then return fs._font[1], fs._font[2], f
 -- StatusBar: takes values (secret or not) without inspecting them.
 function Methods.SetMinMaxValues(b, lo, hi, interp) b._min, b._max, b._minMaxInterp = lo, hi, interp end
 function Methods.GetMinMaxValues(b) return b._min, b._max end
-function Methods.SetValue(b, v, interp) b._value = v; b._interp = interp end
+function Methods.SetValue(b, v, interp)
+    b._value = v; b._interp = interp
+    -- The client fires OnValueChanged for programmatic changes too (userInput false).
+    if b._scripts and b._scripts.OnValueChanged then b._scripts.OnValueChanged(b, v, false) end
+end
 function Methods.GetValue(b) return b._value end
 function Methods.SetStatusBarTexture(b, file)
     b._fill = b._fill or newWidget("Texture", b)

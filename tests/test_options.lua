@@ -37,13 +37,17 @@ SlashCmdList.GLASSUNITFRAMES("rim 0.4")
 panel._scripts.OnShow(panel)
 eq(controls.slider_rim._value, 0.4, "a /glass change shows up the next time the panel opens")
 eq(GlassUnitFramesDB.fill, 0.45, "re-syncing does not save anything by itself")
+eq(GlassUnitFramesDB.track, nil, "re-syncing (SetValue fires OnValueChanged) saves no untouched knob")
+eq(GlassUnitFramesDB.fade, nil, "nor this one")
 
--- Reset look: shipped defaults back, saved values forgotten.
+-- Reset look: shipped defaults back (font included), saved values forgotten.
+GlassUF.Settings.SetFont("friz")
 O.ResetLook()
 eq(Glass.STYLE.fillAlpha, 0.6, "reset: fill back to its default")
 eq(Glass.STYLE.rimAlpha, 0.7, "reset: rim back to its default")
 eq(GlassUnitFramesDB.fill, nil, "reset: saved fill forgotten")
 eq(GlassUnitFramesDB.rim, nil, "reset: saved rim forgotten")
+eq(Glass.fontKey, "arial", "reset: font back to Arial Narrow")
 
 -- Checkboxes write the settings the next /reload reads.
 local cast = controls.hideBlizzardCast
@@ -86,5 +90,16 @@ WoW.reset(); standardUnits(); GlassUF = nil
 GlassUnitFramesDB = nil                      -- fresh settings: the default
 loadAddon()
 check(PlayerCastingBarFrame._shown ~= false, "by default Blizzard's cast bar is left alone")
+
+-- The cast bar alone doesn't make /glass blizzard claim the frames are hidden,
+-- and "/glass blizzard show" brings the cast bar back too.
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon({ db = { font = "arial", hideBlizzard = false, hideBlizzardCast = true, pos = {} } })
+check(not PlayerCastingBarFrame._shown, "cast bar hidden on its own")
+check(not GlassUF.Blizzard.active, "unit frames not counted as hidden")
+SlashCmdList.GLASSUNITFRAMES("blizzard")
+check(WoW.chat[#WoW.chat]:find("frames are shown", 1, true), "status: shown: " .. WoW.chat[#WoW.chat])
+SlashCmdList.GLASSUNITFRAMES("blizzard show")
+eq(GlassUnitFramesDB.hideBlizzardCast, nil, "'show' clears the cast bar setting too")
 
 done("test_options")

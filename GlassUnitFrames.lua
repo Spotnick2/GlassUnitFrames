@@ -197,6 +197,50 @@ local HELP = {
     "Shift-drag a frame to move it (out of combat).",
 }
 
+-- Apply-and-save, one helper per setting: the slash commands and the options
+-- panel both go through these, so saving can't drift between them.
+local Settings_ = {}
+GlassUF.Settings = Settings_
+
+function Settings_.SetFont(key)
+    if not Glass.SetFont(key) then return false end
+    GlassUnitFramesDB.font = key
+    return true
+end
+
+function Settings_.SetMark(pos)
+    if not Frames.SetMarkPosition(pos) then return false end
+    GlassUnitFramesDB.mark = pos
+    return true
+end
+
+-- A material knob (a Glass.TUNABLES entry), saved only once set.
+function Settings_.SetTunable(t, v)
+    if not t.set(v) then return false end
+    GlassUnitFramesDB[t.key] = v
+    return true
+end
+
+-- Every knob and the font back to the shipped defaults, saved values
+-- forgotten so future default changes reach this player again.
+function Settings_.ResetLook()
+    for _, t in ipairs(Glass.TUNABLES) do
+        t.set(t.default)
+        GlassUnitFramesDB[t.key] = nil
+    end
+    Settings_.SetFont(DEFAULTS.font)
+end
+
+function Settings_.ResetPositions()
+    whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+end
+
+-- "show" brings back everything GlassUF hides from Blizzard, the cast bar too.
+function Settings_.SetHideBlizzard(hide)
+    GlassUnitFramesDB.hideBlizzard = hide and true or false
+    if not hide then GlassUnitFramesDB.hideBlizzardCast = nil end
+end
+
 local tweakByKey = {}
 for _, t in ipairs(TWEAKS) do tweakByKey[t.key] = t end
 
@@ -205,8 +249,7 @@ local function slash(msg)
     local rawArg = arg
     cmd, arg = cmd:lower(), arg:lower()
     if cmd == "font" then
-        if Glass.SetFont(arg) then
-            GlassUnitFramesDB.font = arg
+        if Settings_.SetFont(arg) then
             say("font " .. arg)
         else
             say("font arial|friz")
@@ -216,8 +259,7 @@ local function slash(msg)
             say("options are in Game Menu > Options > AddOns > GlassUnitFrames")
         end
     elseif cmd == "mark" then
-        if Frames.SetMarkPosition(arg) then
-            GlassUnitFramesDB.mark = arg
+        if Settings_.SetMark(arg) then
             say("raid mark " .. arg)
         else
             say("mark name|top|right (now " .. Frames.markPos .. ")")
@@ -225,18 +267,17 @@ local function slash(msg)
     elseif tweakByKey[cmd] then
         local t = tweakByKey[cmd]
         local a = tonumber(arg)
-        if t.set(a) then
-            GlassUnitFramesDB[t.key] = a
+        if Settings_.SetTunable(t, a) then
             say(t.key .. " " .. arg)
         else
             say(string.format("%s %s (now %s)", t.key, rangeText(t), tostring(Glass.STYLE[t.style])))
         end
     elseif cmd == "reset" then
-        whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
+        Settings_.ResetPositions()
     elseif cmd == "blizzard" then
         -- Named for what happens to BLIZZARD's frames: "show" brings them back.
         if arg == "show" or arg == "hide" then
-            GlassUnitFramesDB.hideBlizzard = (arg == "hide")
+            Settings_.SetHideBlizzard(arg == "hide")
             say("Blizzard's frames will be " .. (arg == "hide" and "hidden" or "shown") .. " after /reload")
         else
             -- What is on screen now vs what the next /reload will do.

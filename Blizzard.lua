@@ -66,7 +66,6 @@ function Blizzard.HideFrame(name)
     local frame = rawget(_G, name)   -- a Blizzard global may not exist on this client
     if not frame or hooked[frame] then return false end
     hooked[frame] = true
-    Blizzard.active = true
     UnregisterUnitWatch(frame)
     frame:UnregisterAllEvents()
     frame:Hide()
@@ -88,7 +87,9 @@ end
 -- Hide the Blizzard counterparts of every unit in `units` (GlassUF's built frames).
 function Blizzard.HideFor(units)
     for unit in pairs(units) do
-        for _, name in ipairs(Blizzard.FRAMES[unit] or {}) do Blizzard.HideFrame(name) end
+        for _, name in ipairs(Blizzard.FRAMES[unit] or {}) do
+            if Blizzard.HideFrame(name) ~= false then Blizzard.active = true end
+        end
     end
 end
 
