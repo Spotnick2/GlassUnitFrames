@@ -125,8 +125,9 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass font|reset|blizzard show|hide|secrets|totem` (`totem` measures Blizzard's
-    `TotemFrame` for #18).
+  - `/glass font|mark|reset|blizzard show|hide|secrets|totem|frame <Name>`, plus the live
+    material tweaks `fill|rim|track|fade` (one `TWEAKS` table; saved only once set, so a new
+    default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe.
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla

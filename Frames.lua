@@ -319,6 +319,56 @@ local function playerIsMasterLooter()
     return plain(IsMasterLooter) == true
 end
 
+-- Raid mark placement (#30): "name" (default, the owner's pick: a slot in
+-- front of the name, inside the health bar), "top" (centred on the frame's
+-- top edge) or "right" (outside the frame, past the portrait). Whether a mark
+-- shows is plain (see the painter), so the name can move for it.
+Frames.MARK_POSITIONS = { name = true, top = true, right = true }
+Frames.markPos = "name"
+
+local function placeMark(b)
+    local icon = b.indicators and b.indicators.raidTarget
+    if not icon then return end
+    icon:ClearAllPoints()
+    local pos = Frames.markPos
+    if pos == "top" then
+        icon:SetPoint("CENTER", b.body, "TOP", 0, 0)
+    elseif pos == "right" then
+        icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+    else
+        icon:SetPoint("LEFT", b.health, "LEFT", b.namePad or 5, 0)
+    end
+end
+
+-- The name's left edge: the bar's padding, or just past a shown mark.
+local function anchorName(b, marked)
+    local fs, pad = b.nameText, b.namePad or 5
+    local icon = b.indicators and b.indicators.raidTarget
+    fs:ClearAllPoints()
+    if marked and icon and Frames.markPos == "name" then
+        fs:SetPoint("LEFT", icon, "RIGHT", 3, 0)
+    else
+        fs:SetPoint("LEFT", b.health, "LEFT", pad, 0)
+    end
+    if b.valueText then
+        fs:SetPoint("RIGHT", b.valueText, "LEFT", -6, 0)
+    else
+        fs:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
+    end
+end
+
+-- Switch the placement live (out of combat or in: nothing here is secure).
+function Frames.SetMarkPosition(pos)
+    if not Frames.MARK_POSITIONS[pos] then return false end
+    Frames.markPos = pos
+    for _, b in pairs(Frames.byUnit) do
+        placeMark(b)
+        local icon = b.indicators and b.indicators.raidTarget
+        if b.nameText then anchorName(b, icon and icon:IsShown() or false) end
+    end
+    return true
+end
+
 Engine.SetPainter("indicators", function(f)
     local ind, u = f.indicators, f.unit
     if not (ind and UnitExists(u)) then return end
@@ -335,6 +385,8 @@ Engine.SetPainter("indicators", function(f)
         else
             icon:Hide()   -- plain nil: no mark
         end
+        -- The name makes room for the mark only while one shows ("name" mode).
+        if f.nameText then anchorName(f, icon:IsShown()) end
     end
     if ind.leader then
         if plain(UnitIsGroupLeader, u) == true then
@@ -656,7 +708,8 @@ local function buildIndicators(b, body, g, L, tileGlass)
     if want.raidTarget then
         ind.raidTarget = icon(large and 20 or 14)
         ind.raidTarget:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
-        ind.raidTarget:SetPoint("CENTER", body, "TOP", 0, 0)
+        b.indicators = ind   -- placeMark reads it
+        placeMark(b)
     end
     local cornerX = large and 14 or 9   -- the top-left corner slot
     b.indCorner = { anchor = body, x = cornerX }
@@ -788,14 +841,12 @@ local function build(unit)
     local textSize = large and 15 or 11
     local pad = large and 9 or 5
     b.nameText = Glass.Font(g.top, textSize, "LEFT")
-    b.nameText:SetPoint("LEFT", b.health, "LEFT", pad, 0)
-    if L.nameOnly then
-        b.nameText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
-    else
+    b.namePad = pad
+    if not L.nameOnly then
         b.valueText = Glass.Font(g.top, textSize, "RIGHT")
         b.valueText:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
-        b.nameText:SetPoint("RIGHT", b.valueText, "LEFT", -6, 0)
     end
+    anchorName(b, false)
     if hasPower and large then
         b.powerText = Glass.Font(g.top, 11, "RIGHT")
         b.powerText:SetPoint("RIGHT", b.power, "RIGHT", -7, 0)
@@ -867,5 +918,6 @@ end
 -- Called once at ADDON_LOADED, before any lockdown can apply.
 function Frames.Build(db)
     Frames.db = db
+    if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
     for _, unit in ipairs(Frames.ORDER) do build(unit) end
 end

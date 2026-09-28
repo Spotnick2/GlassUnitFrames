@@ -190,6 +190,7 @@ end
 
 local HELP = {
     "font arial|friz  - text font (saved)",
+    "mark name|top|right  - raid mark before the name, on the top edge, or right of the frame (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
@@ -211,6 +212,13 @@ local function slash(msg)
             say("font " .. arg)
         else
             say("font arial|friz")
+        end
+    elseif cmd == "mark" then
+        if Frames.SetMarkPosition(arg) then
+            GlassUnitFramesDB.mark = arg
+            say("raid mark " .. arg)
+        else
+            say("mark name|top|right (now " .. Frames.markPos .. ")")
         end
     elseif tweakByKey[cmd] then
         local t = tweakByKey[cmd]
