@@ -91,6 +91,30 @@ function API.PowerPercent(unit)
     return UnitPowerPercent(unit, nil, false, curve)
 end
 
+-- Opacity for a unit's power display: 0 when the unit has no power left, 1
+-- otherwise, computed by the CLIENT from a colour curve over the power
+-- fraction, so a secret power or max never meets Lua (DinoUF drives combo
+-- points the same way, modules/basecombopoints.lua). The result may itself be
+-- secret: hand it straight to SetAlpha. nil if the API is missing.
+local visibleCurve
+function API.PowerAlpha(unit)
+    if not visibleCurve then
+        if C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor then
+            local curve = C_CurveUtil.CreateColorCurve()
+            local types = Enum and Enum.LuaCurveType
+            if types and types.Step then curve:SetType(types.Step) end
+            curve:AddPoint(0, CreateColor(1, 1, 1, 0))
+            curve:AddPoint(0.001, CreateColor(1, 1, 1, 1))
+            visibleCurve = curve
+        end
+    end
+    if not (visibleCurve and UnitPowerPercent) then return nil end
+    local color = UnitPowerPercent(unit, nil, false, visibleCurve)
+    if not color then return nil end
+    local _, _, _, a = color:GetRGBA()
+    return a
+end
+
 -- The one place failures are recorded (first error per key), read by
 -- /glass secrets and the tests. Engine, Frames and Auras all report here.
 GlassUF.paintFailures = GlassUF.paintFailures or {}

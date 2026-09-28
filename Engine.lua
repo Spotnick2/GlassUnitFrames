@@ -21,11 +21,10 @@ Engine.CHANNEL_EVENTS = {
     -- Incoming heals (#13), only on frames that predict them. Never refresh
     -- from spellcast events: DinoUF saw damage casts show up as heals there.
     heal     = { "UNIT_HEAL_PREDICTION", "UNIT_MAXHEALTH", "UNIT_HEALTH", "UNIT_CONNECTION" },
-    -- The power line can carry level/classification text (target), so it
-    -- follows those events too.
-    power    = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_LEVEL",
-                 "UNIT_CLASSIFICATION_CHANGED" },
-    name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CONNECTION" },
+    power    = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" },
+    -- The name painter also paints the target's level/classification text.
+    name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CLASSIFICATION_CHANGED",
+                 "UNIT_CONNECTION" },
     portrait = { "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" },
     -- Raid target / leader / loot / PvP icons. Most of their triggers are
     -- group-wide events, handled by the world frame below; only the PvP flag
