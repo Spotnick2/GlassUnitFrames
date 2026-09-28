@@ -1,7 +1,8 @@
 -- Blizzard.lua: hide Blizzard's own unit frames for every unit GlassUF draws.
 --
 -- The recipe both references use: unregister the frame's unit watch and
--- events, hide it, and reparent it to a hidden frame. On this Retail-codebase
+-- events, hide it, and reparent it to a hidden frame (except KEEP_PARENT
+-- frames, which stay under a Blizzard parent we hide). On this Retail-codebase
 -- client, add EllesmereUI's lesson: Edit Mode calls SetParent on these frames
 -- whenever it opens or closes, and reparenting back INSIDE that call runs in
 -- Blizzard's secure execution and taints secret-value reads for the session.
@@ -29,6 +30,15 @@ Blizzard.FRAMES = {
     focustarget  = { "FocusFrameToT" },
 }
 Blizzard.active = false   -- true once anything was hidden this session
+
+-- Frames that stay under their Blizzard parent (#58), which we hide anyway:
+-- reparenting them breaks Blizzard code that expects that parent.
+-- PetFrame is a managed frame: every show puts it back in PlayerFrame's
+-- container (ManagedFrameSystem UpdateFrame), inside Edit Mode's secure pass,
+-- so a reparent hook fights Blizzard there. The ToT frames call
+-- GetParent():ConfigureAuraContainer() on show and hide. Caveat: a PetFrame
+-- moved in Edit Mode lives under UIParent, so keep it at its default position.
+Blizzard.KEEP_PARENT = { PetFrame = true, TargetFrameToT = true, FocusFrameToT = true }
 
 local hiddenParent = CreateFrame("Frame", nil, UIParent)
 hiddenParent:Hide()
@@ -77,10 +87,11 @@ function Blizzard.HideFrame(name)
     UnregisterUnitWatch(frame)
     frame:UnregisterAllEvents()
     frame:Hide()
-    frame:SetParent(hiddenParent)
     silence(frame.healthbar or frame.healthBar)
     silence(frame.manabar or frame.manaBar)
     silence(frame.spellbar)
+    if Blizzard.KEEP_PARENT[name] then return true end
+    frame:SetParent(hiddenParent)
     -- Edit Mode (or anything else) reparenting it: undo that on a timer, never
     -- synchronously inside the caller's SetParent.
     hooksecurefunc(frame, "SetParent", function(self, parent)
@@ -101,82 +112,4 @@ function Blizzard.HideFor(units)
     end
 end
 
--- Totems (#18). GlassUF can't draw totems (GetTotemInfo is secret), and
--- hiding PlayerFrame hides its child TotemFrame too. So host Blizzard's OWN
--- TotemFrame in a holder under our player frame: Blizzard keeps drawing the
--- timers, swipes and right-click-to-destroy (EllesmereUI's approach). Any
--- class: TotemFrame only shows while a totem slot is active.
---
--- The glass is the holder's child, BELOW TotemFrame (Glass.Apply puts its rim
--- on a layer 10 levels up, so TotemFrame is raised above that), and follows
--- TotemFrame's own shown state: no totems, no glass.
---
--- Anything may SetParent / SetPoint TotemFrame back (its layout parent, Edit
--- Mode). Those hooks schedule ONE deferred repair, never inside Blizzard's own
--- call (the Edit Mode taint rule), through whenSafe. A repair that finds it
--- already in place does nothing.
-local totem = { holder = nil, ready = false, applying = false, scheduled = false }
-
--- Placed = in the holder with EXACTLY our one anchor. Checking only anchor 1
--- missed a Blizzard SetPoint that ADDS an anchor (to PlayerFrame, say) without
--- clearing ours: the repair saw anchor 1 on the holder and left both.
-local function totemsPlaced(tf)
-    if tf:GetParent() ~= totem.holder then return false end
-    local okN, n = pcall(tf.GetNumPoints, tf)
-    if not okN or n ~= 1 then return false end
-    local ok, point, rel, relPoint, x, y = pcall(tf.GetPoint, tf, 1)
-    return ok and point == "TOP" and rel == totem.holder and relPoint == "TOP" and x == 0 and y == 0
-end
-
-local function placeTotems()
-    local tf, holder = rawget(_G, "TotemFrame"), totem.holder
-    if not (tf and holder) or totemsPlaced(tf) then return end
-    totem.applying = true
-    if tf:GetParent() ~= holder then tf:SetParent(holder) end
-    tf:SetFrameLevel(holder:GetFrameLevel() + 12)   -- above the glass's rim layer
-    tf:ClearAllPoints()
-    tf:SetPoint("TOP", holder, "TOP", 0, 0)
-    totem.applying = false
-end
-
-local function repairTotems()
-    totem.scheduled = false
-    local tf = rawget(_G, "TotemFrame")
-    if tf and totem.ready then whenSafe("totems", tf, placeTotems) end
-end
-
-local function scheduleTotems()
-    if totem.applying or totem.scheduled or not totem.ready then return end
-    totem.scheduled = true
-    C_Timer.After(0, repairTotems)
-end
-
--- Host TotemFrame under `anchor` (the player frame's body). Only while
--- PlayerFrame is hidden (the caller decides); a second call does nothing.
-function Blizzard.HostTotems(anchor)
-    local tf = rawget(_G, "TotemFrame")
-    if not (tf and anchor) or totem.ready then return false end
-    local holder = totem.holder or CreateFrame("Frame", "GlassUF_TotemHolder", UIParent)
-    holder:SetSize(1, 1)
-    holder:ClearAllPoints()
-    holder:SetPoint("TOP", anchor, "BOTTOM", 0, -6)
-    totem.holder = holder
-    if not totem.glass then
-        local glass = CreateFrame("Frame", nil, holder)
-        glass:SetFrameLevel(holder:GetFrameLevel())
-        glass:SetPoint("TOPLEFT", tf, "TOPLEFT", -4, 4)
-        glass:SetPoint("BOTTOMRIGHT", tf, "BOTTOMRIGHT", 4, -4)
-        GlassUF.Glass.Apply(glass, "small")
-        glass:SetShown(tf:IsShown())
-        tf:HookScript("OnShow", function() glass:Show() end)
-        tf:HookScript("OnHide", function() glass:Hide() end)
-        totem.glass = glass
-        hooksecurefunc(tf, "SetParent", function(_, parent) if parent ~= totem.holder then scheduleTotems() end end)
-        hooksecurefunc(tf, "SetPoint", scheduleTotems)
-    end
-    totem.ready = true   -- only once everything above succeeded
-    repairTotems()
-    return true
-end
-
-Blizzard._test = { hooked = hooked, pending = pending, totem = totem, repair = repairTotems }
+Blizzard._test = { hooked = hooked, pending = pending }

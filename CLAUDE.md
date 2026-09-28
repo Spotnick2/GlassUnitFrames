@@ -28,12 +28,11 @@ targettargettarget, focus, focustarget. Every "Owner's picks" item in `docs/SUF-
 done, plus: an options panel (Options > AddOns > Glass Unit Frames), unlock mode (movers, group
 moves, nudging, grid snap, alignment guides, player/target mirroring), the red health-loss
 segment, the hidden-power fade, neutral NPCs red in a fight, raid mark / target level / pet
-happiness placement, per-frame health text, combo points, the druid mana strip and hosted shaman
-totems.
+happiness placement, per-frame health text, combo points and the druid mana strip. (Hosted shaman
+totems were removed in #58: `TotemFrame` is a managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
-  druid mana strip (bear/cat), shaman totems (in-combat drops, Edit Mode, `/glass totem`
-  protection with totems down).
+  druid mana strip (bear/cat), and #58 (no Edit Mode exit errors with Blizzard's frames hidden).
 - **Parked:** #35, healer/DPS layouts by spec. It waits for GlassRaidFrames; the two addons
   will need one role source and a way to talk (sketch on #35: a shared embedded role helper, and
   Retail's `EventRegistry`).
@@ -164,16 +163,21 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     `ComboFrame` is hidden only once our combo pips exist (rogues and druids). Party is never touched, since the owner uses
     Cell.
   - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.
+  - **`KEEP_PARENT`** (#58): PetFrame, TargetFrameToT and FocusFrameToT are never reparented or
+    hooked. They stay under their Blizzard parents, which we hide anyway. PetFrame is a
+    **managed frame**: every show puts it back in `PlayerBottomManagedFrameContainer`
+    (`ManagedFrameSystem` `UpdateFrame`) inside Edit Mode's secure pass, and a hook fighting that
+    threw "attempt to call a nil value" on Edit Mode exit. The ToT frames call
+    `GetParent():ConfigureAuraContainer()`. **Never reparent a managed frame, or a frame whose code
+    calls into its parent** (GlassPanel #39 is the same trap). Blizzard's PetFrame must stay at its
+    default Edit Mode position: a moved one lives under UIParent and Edit Mode's exit shows it.
   - A `SetParent` post-hook undoes Edit Mode's reparenting **on a timer, never
     synchronously**: doing it inside the caller taints secret reads for the session
     (EllesmereUI's finding). It waits while Edit Mode is open, and a protected frame waits for
     combat to end through `GlassUF.WhenOutOfCombat`.
-  - **Totems** (#18): `Blizzard.HostTotems` reparents Blizzard's own `TotemFrame` into a holder
-    under our player frame (GlassUF can't draw totems: `GetTotemInfo` is secret). The glass is the
-    holder's child below `TotemFrame` (raised above the glass's +10 rim layer) and follows its
-    shown state. `SetParent` / `SetPoint` hooks schedule one **deferred** repair through
-    `whenSafe`, the one deferral rule `Reparent` also uses: wait for Edit Mode, queue if protected
-    in combat, re-check both when the queued call runs.
+  - **Totems:** not shown while Blizzard's frames are hidden. GlassUF can't draw them
+    (`GetTotemInfo` is secret), and hosting Blizzard's `TotemFrame` (#18/#54) was removed in #58:
+    it's a managed frame like PetFrame. `/glass totem` still reports where it lives.
   - `Blizzard.active` records whether anything was hidden this session. Hiding is one-way per
     session.
 - **`GlassUnitFrames.lua`**:
