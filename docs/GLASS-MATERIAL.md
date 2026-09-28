@@ -202,4 +202,4 @@ Glass.SetFont("friz")                            -- restyles every Glass.Font st
 | Style 2 | Hairline rim, crisp top highlight, inner glow | Too thin to register at 0.64 UI scale |
 | Style 3 | ~7px mostly clear slab, light only on its lips | First version that read as glass |
 | Style 4 | Style 3 with a brighter top lip, corner glints, inner catch-light, cooler lighter tint, Arial | The chosen look; approved in game |
-| Style 5 (current) | Style 4's rim at 0.72x width and 0.8x light, content inset 8→6, portrait gap 6→3, width 360→300 | From an outside review: style 4 "looks a little like a clear plastic case". Not yet judged in game. |
+| Style 5 (current) | Style 4's rim at 0.72x width and 0.8x light, content inset 8→6, portrait gap 6→3, width 360→300 | From an outside review: style 4 "looks a little like a clear plastic case". **Approved in game**, then tuned live with `/glass fill|rim|track|fade`: fill 0.60, rim 0.70, a colour-tinted track that fades to clear, fill fade off (2026-09-27/28). |

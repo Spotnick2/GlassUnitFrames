@@ -46,7 +46,7 @@ incrementally: one small PR per item, in this order. *have* = already in GlassUn
 
 **Already done:** player / target / pet / targettarget frames; class/reaction/tapped/offline
 health colours and power-type colours; 3D portraits; cast bars with name, time and interrupt
-flash; drag positioning.
+flash; positioning (now unlock mode, see below).
 
 **Next, in order**
 1. [x] Hide Blizzard player / pet / target / focus frames (SUF's default set; party stays for
@@ -64,18 +64,27 @@ flash; drag positioning.
 **Dropped on evidence:** cast bar spell icon (`icon = HIDE` everywhere), combat/rest status icon
 (off), player auras, fader, range fading, XP bar, ready check on player.
 
-**Open:** combo points and druid mana bar. They depend on which classes you play on Forever.
+**Done since, beyond the picks** (2026-09-28): combo points and the druid mana strip (#29, awaiting
+an in-game check); an options panel (#39); unlock mode with movers, group moves via anchors,
+nudging, grid snap, alignment guides and player/target mirroring (#34); per-frame health text and
+target level placement (#46); raid mark placement (#30); the hidden-power fade (#27); neutral NPCs
+red in a fight (#28); pet happiness; the red health-loss segment; shaman totems hosted from
+Blizzard's TotemFrame (#18, awaiting an in-game check).
 
-**Out of scope by choice: party and raid frames** (decided 2026-09-27). The owner uses
-**Cell** for group frames. If group frames ever happen, the plan is a glass-styled port of Cell
-(no Forever port exists yet), not SUF's headers. That also drops everything that only serves
+**Out of scope here: party and raid frames** (decided 2026-09-27). They became a separate
+addon, **GlassRaidFrames** (`..\GlassRaidFrames`, 2026-09-28), a glass-styled, streamlined take
+on Cell, not SUF's headers. That also drops everything that only serves
 group frames: party/raid headers, partypet/partytarget, maintank/mainassist, party range fading,
 target/focus highlights on party frames, sorting and group filters, and Clique registration.
 
 **Not feasible under secrecy** (listed so nobody tries): aura filtering and white/black lists,
 aura indicators, dispel-coloured health or borders, combat fader on health/power, cast pushback
-display, totem timers, hiding the power bar when max power is 0, and the health gradient without a
-colour curve.
+display, **drawing** totem timers ourselves, and the health gradient without a colour curve.
+
+**Turned out feasible after all** (measured): hiding the power bar at 0 / 0-of-max through a
+client colour curve and `SetAlpha` (#27, #42); totem timers by **hosting Blizzard's own
+TotemFrame** (#18); health red on aggro for a neutral NPC through a plain
+`UnitThreatSituation("player", "target")` (#28).
 
 ---
 
@@ -123,7 +132,7 @@ Legend.
 | health colour by reaction | SUF `health.lua:101-117` | **works** | none | S | yes |
 | health colour: tapped, offline, unattackable, static | SUF `health.lua:88-100, 138-139` | **works** | none | S | partial |
 | health gradient by percent | SUF `health.lua:5-27` | **degraded**: DUF returns plain green when the percent is secret (`health.lua:7-20`) | client path: `C_CurveUtil.CreateColorCurve` + `UnitHealthPercent` (DUF uses this trick for combo points, `basecombopoints.lua:184-212`); untested for the bar | M | no |
-| health colour on aggro | SUF `health.lua:94-96` | **unknown**: threat may be secret | possibly impossible | S | no |
+| health colour on aggro | SUF `health.lua:94-96` | **works** (measured, #28): `UnitThreatSituation("player", "target")` is plain; secret through `targettargettarget` | none on target | S | yes (neutral NPCs) |
 | health colour on curable debuff | SUF `health.lua:58-78`; DUF `75-104` | **broken in combat** (aura reads) | impossible | – | no |
 | bar texture / background / invert | SUF `layout.lua:366-402` | **works** | none | S | partial (Glass material) |
 | vertical orientation, reverse fill | SUF `layout.lua:381-382` | **works** | none | S | no |
@@ -131,7 +140,7 @@ Legend.
 | smooth bar animation | – | **not a SUF feature** | – | – | no (candidate: StatusBar interpolation) |
 | power bar, coloured by type / class | SUF `modules/power.lua:34-73, 95-102` | **works** | client path | S | yes |
 | power: only show when mana | SUF `power.lua:44-47` | **works** | none | S | no |
-| power: hide when max is 0 | SUF `power.lua:75-93` | **impossible**: max power is secret for others | impossible | – | no |
+| power: hide when max is 0 | SUF `power.lua:75-93` | **works via a colour curve** (measured, #42): Lua can't test the secret max, but the client's curve alpha fades the bar | client path | S | yes (NPCs) |
 | empty spacer bar | SUF `modules/empty.lua` | **works** | none | S | no |
 | 3D portrait | SUF `modules/portrait.lua:62-96` | **works** (measured) | none | S | yes |
 | 2D portrait / class icon | SUF `portrait.lua:65-80` | **works** (measured; circular unless `disableMasking`) | none | S | no |
@@ -254,7 +263,7 @@ Legend.
 | backdrop / border (LibSharedMedia) | SUF `layout.lua:33-45` | **works** | none | S | no (Glass material) |
 | anchor to another frame | SUF `layout.lua:267-318` | **works** | none | M | no |
 | clamp to screen | SUF `layout.lua:335-337` | **works** | none | S | yes |
-| unlock / config mode with fake data | SUF `modules/movers.lua` | **patched heavily**: no attribute writes, synthetic previews | none | L | no (shift-drag instead) |
+| unlock / config mode with fake data | SUF `modules/movers.lua` | **patched heavily**: no attribute writes, synthetic previews | none | L | yes (own unlock mode: insecure movers, no client drag on protected frames, #34) |
 | drag, save position | SUF `movers.lua:389-462` | **patched** | none | S | yes |
 | auto-lock in combat | SUF `movers.lua:483-491` | **works** | none | S | yes |
 

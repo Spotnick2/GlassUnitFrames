@@ -17,15 +17,28 @@ technique, the reference is DinoUnitFrames (see "Reference addons" below).
    an animated sheen. `docs/POC-PLAN.md` is the plan, already reviewed by Codex.
 2. A **streamlined Shadowed Unit Frames**. The owner uses a small fraction of SUF, so keep only
    what earns its place. Don't port SUF's module zoo, tag DSL or options tree by default.
-   **Party and raid frames are out of scope**: the owner uses Cell for group frames. If group
-   frames ever happen, they would be a glass-styled port of Cell, not SUF's headers. The feature
-   choices live in `docs/SUF-INVENTORY.md` ("Owner's picks").
+   **Party and raid frames are out of scope here**: they are a separate addon,
+   **GlassRaidFrames** (`..\GlassRaidFrames`, its own sessions; #37 closed), a glass-styled,
+   streamlined take on Cell. The feature choices live in `docs/SUF-INVENTORY.md` ("Owner's
+   picks").
 
-**Status: proof of concept.** The look is settled (`docs/FOREVER-PROBE.md`). The addon skeleton
-runs on live unit data for player, target, pet, targettarget, targettargettarget, focus and
-focustarget. The roadmap is
-`docs/SUF-INVENTORY.md` ("Owner's picks"), one issue each. Work goes through
-GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
+**Status (2026-09-28): a working addon, in daily use by the owner.** The glass look is settled and
+tuned in game (`docs/GLASS-MATERIAL.md`). Frames: player, target, pet, targettarget,
+targettargettarget, focus, focustarget. Every "Owner's picks" item in `docs/SUF-INVENTORY.md` is
+done, plus: an options panel (Options > AddOns > Glass Unit Frames), unlock mode (movers, group
+moves, nudging, grid snap, alignment guides, player/target mirroring), the red health-loss
+segment, the hidden-power fade, neutral NPCs red in a fight, raid mark / target level / pet
+happiness placement, per-frame health text, combo points, the druid mana strip and hosted shaman
+totems.
+
+- **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
+  druid mana strip (bear/cat), shaman totems (in-combat drops, Edit Mode, `/glass totem`
+  protection with totems down).
+- **Parked:** #35, healer/DPS layouts by spec. It waits for GlassRaidFrames; the two addons
+  will need one role source and a way to talk (sketch on #35: a shared embedded role helper, and
+  Retail's `EventRegistry`).
+
+Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
 ## Layout
 
@@ -35,7 +48,7 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
   - `IsSecret`;
   - event registration that reports failures;
-  - `ClickEdges`;
+  - `UnitButtonClicks` (`"AnyUp"`);
   - `HealthPercent` / `PowerPercent` via a 0..100 curve;
   - `CastDuration` (a `LuaDurationObject`);
   - `ClassColor`;
@@ -46,11 +59,22 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     and `UnitGetDetailedHealPrediction` (the first return of `GetIncomingHeals`, clamped to max
     health). Optional APIs are presence-checked with `rawget`.
 
+  - `PowerAlpha` / `ComboAlpha`: an opacity the **client** computes from a step colour curve over
+    a power fraction (`UnitPowerPercent(unit, type, unmodified, curve)` → `GetRGBA` alpha), handed
+    straight to `SetAlpha` even when secret. Measured working (#42): the hidden-power fade and the
+    combo pips use it. Nothing may depend on `Enum.LuaCurveType.Step` existing;
+  - `SafeFrame(type, parent, template, proof)`: a template that may be missing returns a bare
+    frame rather than throwing, so `proof` names a field the template would make.
+
   It also holds `MEASURED_ON_BUILD`.
 - **`Glass.lua`**: the material (see below). Self-contained.
 - **`Engine.lua`**: who gets painted and when:
   - one tracker per unit (`RegisterUnitEvent`);
-  - events grouped into channels (name, health, power, portrait, indicators, cast);
+  - events grouped into channels (name, color, health, heal, power, portrait, indicators,
+    happiness, combo, druidmana, cast), each registered only on frames that have it. `color`
+    repaints just the health colour (a neutral NPC's fight state). `resourceWatcher` routes the
+    PLAYER's power/form events to channels drawn on other frames (combo pips on the target),
+    filtered by power type (`Engine.PLAYER_DRIVEN`);
     `UNIT_FACTION` feeds both name and indicators. Each painter runs under `pcall`, so one that
     throws is recorded in `GlassUF.paintFailures` and the rest of the flush still paints;
   - dirty channels flushed once per rendered frame;
@@ -360,7 +384,8 @@ not port cleanly.
 - **`RegisterEvent` throws on unknown names and returns `false` for refusals.** Wrap it, treat
   both as failures, and report them. Registering `COMBAT_LOG_EVENT_UNFILTERED` is forbidden, so
   use `UNIT_DIED` for deaths.
-- No talent spec API. `MAX_PLAYER_LEVEL` is nil, so use `GetMaxPlayerLevel()` (60). The live
+- Talent specs: `C_SpecializationInfo` is in the dump, but what it returns on Forever's Vanilla
+  talent trees is **unmeasured** (#35 needs it). `MAX_PLAYER_LEVEL` is nil, so use `GetMaxPlayerLevel()` (60). The live
   beta cap is lower, so never hardcode it. `MouseIsOver` is absent (use `frame:IsMouseOver()`).
   `ReloadUI()` is protected. `SetRaidTarget` is protected.
 - `GetInstanceInfo()` returns the continent outdoors, so gate on `instanceType ~= "none"`.
