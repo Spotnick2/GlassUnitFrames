@@ -193,8 +193,10 @@ local function frameReport(name, label)
 end
 
 local HELP = {
-    "options  - open the options panel (Options > AddOns > GlassUnitFrames)",
+    "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
+    "level power|name|portrait  - where the target's level goes (saved)",
+    "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
     "mark name|top|right  - raid mark before the name, on the top edge, or right of the frame (saved)",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
@@ -242,6 +244,19 @@ function Settings_.ResetPositions()
     whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
 end
 
+function Settings_.SetHealthFormat(unit, kind)
+    if not Frames.SetHealthFormat(unit, kind) then return false end
+    GlassUnitFramesDB.healthText = GlassUnitFramesDB.healthText or {}
+    GlassUnitFramesDB.healthText[unit] = kind
+    return true
+end
+
+function Settings_.SetLevelPosition(pos)
+    if not Frames.SetLevelPosition(pos) then return false end
+    GlassUnitFramesDB.level = pos
+    return true
+end
+
 function Settings_.SetAggroRed(on)
     Frames.SetAggroRed(on)
     -- Saved only when turned off (the default is on). Not `(not on) and false
@@ -270,7 +285,20 @@ local function slash(msg)
         end
     elseif cmd == "options" or cmd == "config" then
         if not (GlassUF.Options and GlassUF.Options.Open()) then
-            say("options are in Game Menu > Options > AddOns > GlassUnitFrames")
+            say("options are in Game Menu > Options > AddOns > Glass Unit Frames")
+        end
+    elseif cmd == "level" then
+        if Settings_.SetLevelPosition(arg) then
+            say("level " .. arg)
+        else
+            say("level power|name|portrait (now " .. Frames.levelPos .. ")")
+        end
+    elseif cmd == "text" then
+        local unit, kind = arg:match("^(%S+)%s+(%S+)$")
+        if unit and Settings_.SetHealthFormat(unit, kind) then
+            say(unit .. " health text " .. kind)
+        else
+            say("text <unit> " .. table.concat(Frames.HEALTH_FORMATS, "|") .. "  (e.g. /glass text target curmaxhp)")
         end
     elseif cmd == "mark" then
         if Settings_.SetMark(arg) then

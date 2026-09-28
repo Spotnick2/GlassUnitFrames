@@ -13,7 +13,7 @@ local Glass = GlassUF.Glass
 -- Registered with Retail's Settings framework at PLAYER_LOGIN.
 eq(WoW.settings.canvas and WoW.settings.canvas.frame, panel, "canvas category registered for the panel")
 eq(WoW.settings.addon, WoW.settings.canvas, "and added to Options > AddOns")
-eq(WoW.settings.canvas.name, "GlassUnitFrames", "under the addon's name")
+eq(WoW.settings.canvas.name, "Glass Unit Frames", "under the addon's display name")
 
 -- /glass options opens it.
 SlashCmdList.GLASSUNITFRAMES("options")
@@ -23,6 +23,19 @@ eq(WoW.settings.opened, 4242, "/glass options opens the category")
 check(controls.slider_fill == nil, "nothing built before the panel is shown")
 panel._scripts.OnShow(panel)
 check(controls.slider_fill ~= nil and controls.hideBlizzard ~= nil, "built on first show")
+-- Everything lives in a scroll child, sized to the taller column.
+local sc, content = O._test.scroll, O._test.content
+eq(sc._scrollChild, content, "controls sit in the scroll frame's child")
+eq(controls.slider_fill:GetParent(), content, "widgets are parented to the scroll child")
+check(content._height > 400, "content height covers both columns: " .. tostring(content._height))
+-- The scroll bar only shows when there is something to scroll.
+local bar = CreateFrame("Slider", nil, sc)
+sc.ScrollBar = bar
+check(sc._scripts.OnScrollRangeChanged ~= nil, "scroll range watched")
+sc._scripts.OnScrollRangeChanged(sc, 0, 0)
+check(bar._shown == false, "nothing to scroll: bar hidden")
+sc._scripts.OnScrollRangeChanged(sc, 0, 120)
+check(bar._shown == true, "taller than the canvas: bar shown")
 
 -- A slider drives the material and saves only what the player set.
 local s = controls.slider_fill
@@ -75,6 +88,17 @@ right._scripts.OnClick(right)
 eq(GlassUF.Frames.markPos, "right", "placement switched live")
 eq(GlassUnitFramesDB.mark, "right", "and saved")
 check(right._checked and not before._checked, "only the chosen radio stays checked")
+-- Health text grid and level placement.
+local row = controls.healthRows.player
+check(row and #row == 4, "a health-text row per frame, four formats")
+check(controls.healthRows.targettargettarget == nil, "no row for the name-only frame")
+row[3]._scripts.OnClick(row[3])                       -- "%"
+eq(GlassUF.Frames.HealthFormatOf("player"), "perhp", "health text set from the panel")
+check(row[3]._checked and not row[2]._checked, "the chosen format is checked")
+local lvl = controls.levelRow
+lvl[3]._scripts.OnClick(lvl[3])                       -- "Portrait"
+eq(GlassUF.Frames.levelPos, "portrait", "level placement set from the panel")
+eq(GlassUnitFramesDB.level, "portrait", "and saved")
 local friz = findRadio("Friz Quadrata")
 friz._scripts.OnClick(friz)
 eq(GlassUnitFramesDB.font, "friz", "font choice saved")

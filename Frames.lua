@@ -195,7 +195,12 @@ local function paintName(f, u)
             end
         end
     end
-    f.nameText:SetFormattedText("%s%s%s", afk, GetUnitName(u, false), grp)
+    local lvl = ""
+    if f.levelText and Frames.levelPos == "name" then
+        lvl = levelClass(u)
+        if lvl ~= "" then lvl = lvl .. " " end
+    end
+    f.nameText:SetFormattedText("%s%s%s%s", afk, lvl, GetUnitName(u, false), grp)
 end
 
 --------------------------------------------------------------------------------
@@ -256,7 +261,11 @@ Engine.SetPainter("name", function(f)
     local u = f.unit
     if not UnitExists(u) then return end
     if not attempt("name text", paintName, f, u) then f.nameText:SetText("") end
-    if f.levelText then f.levelText:SetText(levelClass(u)) end
+    if f.levelText then
+        local lc = levelClass(u)
+        f.levelText:SetText(Frames.levelPos == "power" and lc or "")
+        if f.levelOnTile then f.levelOnTile:SetText(Frames.levelPos == "portrait" and lc or "") end
+    end
     paintColor(f, u)
 end)
 
@@ -275,7 +284,7 @@ Engine.SetPainter("health", function(f)
     if plain(UnitIsConnected, u) == false then f.valueText:SetText("Offline") return end
     if plain(UnitIsDeadOrGhost, u) == true then f.valueText:SetText("Dead") return end
 
-    paintText(f.valueText, f.layout.text and f.layout.text.healthRight, u, hp, maxHp)
+    paintText(f.valueText, Frames.healthFormat[f.unit] or (f.layout.text and f.layout.text.healthRight), u, hp, maxHp)
 end)
 
 -- An NPC with no power left (no mana at all: max 0, or drained) shows no
@@ -377,6 +386,50 @@ local function anchorName(b, marked)
     else
         fs:SetPoint("RIGHT", b.health, "RIGHT", -pad, 0)
     end
+end
+
+-- Health text per frame (#46): one of the fixed formats, overriding the
+-- layout's default. Frames without a value text (name-only) have none.
+Frames.HEALTH_FORMATS = { "curhp", "curmaxhp", "perhp", "curmaxhp_perhp" }
+local HEALTH_FORMAT_OK = {}
+for _, k in ipairs(Frames.HEALTH_FORMATS) do HEALTH_FORMAT_OK[k] = true end
+Frames.healthFormat = {}
+
+function Frames.HealthFormatOf(unit)
+    local L = Frames.LAYOUT[unit]
+    return Frames.healthFormat[unit] or (L and L.text and L.text.healthRight)
+end
+
+function Frames.SetHealthFormat(unit, kind)
+    local b = Frames.byUnit[unit]
+    if not (HEALTH_FORMAT_OK[kind] and b and b.valueText) then return false end
+    Frames.healthFormat[unit] = kind
+    Engine.RepaintChannel("health", function(f) return f.unit == unit end)
+    return true
+end
+
+-- Where the level goes (#46), on frames that show one (the target): "power"
+-- (the power line, default), "name" (before the name) or "portrait".
+Frames.LEVEL_POSITIONS = { power = true, name = true, portrait = true }
+Frames.levelPos = "power"
+
+local function placeLevel(b)
+    if not b.levelText then return end
+    b.powerLeftText:ClearAllPoints()
+    if Frames.levelPos == "power" then
+        b.powerLeftText:SetPoint("LEFT", b.levelText, "RIGHT", 6, 0)
+    else
+        b.powerLeftText:SetPoint("LEFT", b.power, "LEFT", 7, 0)
+    end
+    b.powerLeftText:SetPoint("RIGHT", b.powerText, "LEFT", -6, 0)
+end
+
+function Frames.SetLevelPosition(pos)
+    if not Frames.LEVEL_POSITIONS[pos] then return false end
+    Frames.levelPos = pos
+    for _, b in pairs(Frames.byUnit) do placeLevel(b) end
+    Engine.RepaintChannel("name")
+    return true
 end
 
 function Frames.SetAggroRed(on)
@@ -910,6 +963,13 @@ local function build(unit)
         m:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", -mi, mi)
         m:SetFrameLevel(Glass.ContentLevel(tile))
         m:SetKeepModelOnHide(true)
+        b.tile = tile
+        if b.levelText then
+            -- The level can sit on the portrait: on the tile's own top layer,
+            -- so its rim never covers it.
+            b.levelOnTile = Glass.Font(tileGlass.top, 11, "CENTER")
+            b.levelOnTile:SetPoint("BOTTOM", tile, "BOTTOM", 0, Glass.Inset(size) + 1)
+        end
         b.model = m
     end
 
@@ -924,6 +984,7 @@ local function build(unit)
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
+    placeLevel(b)
     RegisterUnitWatch(b)
     Engine.Register(b, { ticker = L.ticker })
     Frames.byUnit[unit] = b
@@ -948,5 +1009,11 @@ function Frames.Build(db)
     Frames.db = db
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
     if db.aggroRed == false then Frames.aggroRed = false end
+    if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
+    if type(db.healthText) == "table" then
+        for unit, kind in pairs(db.healthText) do
+            if HEALTH_FORMAT_OK[kind] then Frames.healthFormat[unit] = kind end
+        end
+    end
     for _, unit in ipairs(Frames.ORDER) do build(unit) end
 end
