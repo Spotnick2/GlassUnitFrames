@@ -121,7 +121,7 @@ end
 
 -- Mutually exclusive choices as radio buttons: { {value, text}, ... }.
 local function radios(col, title, options, get, set)
-    place(col, label(panel, title), 22, 4)
+    if title then place(col, label(panel, title), 22, 4) end
     local group = {}
     for _, o in ipairs(options) do
         local rb = checkButton(o[2], true)
@@ -142,8 +142,9 @@ local function radios(col, title, options, get, set)
 end
 
 -- The same, laid out side by side on one line after a row label (compact
--- grids: one row per frame). `step` is the spacing between radios.
-local function radioRow(col, rowLabel, options, get, set, labelWidth, step)
+-- grids: one row per frame). `offsets[i]` is radio i's x after the label, so a
+-- long option ("cur/max") gets the room it needs.
+local function radioRow(col, rowLabel, options, get, set, labelWidth, offsets)
     local fs = label(panel, rowLabel)
     fs:SetWidth(labelWidth)
     place(col, fs, 0, 4)
@@ -155,7 +156,7 @@ local function radioRow(col, rowLabel, options, get, set, labelWidth, step)
             set(o[1])
             controls.refreshAll()
         end)
-        rb:SetPoint("LEFT", fs, "LEFT", labelWidth + (i - 1) * step, 0)
+        rb:SetPoint("LEFT", fs, "LEFT", labelWidth + offsets[i], 0)
         group[#group + 1] = rb
     end
     col.y = col.y - 24
@@ -249,7 +250,7 @@ local function build()
             controls.healthRows[unit] = radioRow(left, r[2], FORMATS,
                 function() return Frames.HealthFormatOf(unit) end,
                 function(kind) return GlassUF.Settings.SetHealthFormat(unit, kind) end,
-                110, 72)
+                100, { 0, 56, 140, 186 })
         end
     end
 
@@ -258,24 +259,27 @@ local function build()
         function() return Frames.markPos end,
         GlassUF.Settings.SetMark)
 
+    -- The Settings canvas is only ~680 units wide: the right column keeps
+    -- its labels short and its choices stacked.
     header(right, "Target level")
-    controls.levelRow = radioRow(right, "", { { "power", "Power line" }, { "name", "Before name" }, { "portrait", "Portrait" } },
+    controls.levelRow = radios(right, nil, { { "power", "On the power line" }, { "name", "Before the name" }, { "portrait", "On the portrait" } },
         function() return Frames.levelPos end,
-        GlassUF.Settings.SetLevelPosition, 0, 118)
+        GlassUF.Settings.SetLevelPosition)
 
     header(right, "Blizzard frames")
-    controls.hideBlizzard = checkbox(right, "Hide Blizzard's frames for the units GlassUF draws",
+    controls.hideBlizzard = checkbox(right, "Hide Blizzard's unit frames",
         function() return db().hideBlizzard end,
         function(v) db().hideBlizzard = v end)
     controls.hideBlizzardCast = checkbox(right, "Hide Blizzard's player cast bar",
         function() return db().hideBlizzardCast end,
         function(v) db().hideBlizzardCast = v or nil end)
-    note(right, "Both take effect after a /reload.")
+    note(right, "Both take effect after a /reload.", 270)
 
     header(right, "Colours")
-    controls.aggroRed = checkbox(right, "Neutral NPCs turn red while they fight you or your group",
+    controls.aggroRed = checkbox(right, "Neutral NPCs turn red in a fight",
         function() return Frames.aggroRed end,
         GlassUF.Settings.SetAggroRed)
+    note(right, "While they fight you or your group.", 270)
 
     header(right, "Positions")
     place(right, button(panel, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
