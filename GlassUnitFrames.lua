@@ -91,6 +91,11 @@ end
 local function secretsReport()
     say(string.format("secrets report, build %s, %s. S = secret, ok = plain, ERR = threw",
         API.ClientBuild(), InCombatLockdown() and "|cffff6060IN COMBAT|r" or "out of combat"))
+    -- The hunter pet's happiness (1-3), once: C_PetInfo takes no unit.
+    local ci = rawget(_G, "C_PetInfo")
+    local okH, happy = pcall(function() return ci and ci.GetPetHappiness() end)
+    say("  petHappiness=" .. ((not okH and "ERR") or (API.IsSecret(happy) and "S")
+        or (happy == nil and "nil") or tostring(happy)))
     -- The player's own threat state (as Blizzard's raid frames read it): once, not per frame.
     local okT, myThreat = pcall(UnitThreatSituation, "player")
     say("  myThreat=" .. ((not okT and "ERR") or (API.IsSecret(myThreat) and "S")

@@ -38,7 +38,7 @@ Frames.LAYOUT = {
     -- owner's SUF had it.
     pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -162 },
                      portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
-                     indicators = { raidTarget = true } },
+                     indicators = { raidTarget = true, happiness = true } },
     -- The target cluster, SUF-style: targettarget and targettargettarget side by
     -- side ABOVE the target body (x 117.5..417.5, top at -79), 12 px up so the
     -- target's raid mark and leader crown (centred on its top edge, up to
@@ -449,6 +449,24 @@ function Frames.SetMarkPosition(pos)
     return true
 end
 
+-- Hunter pet happiness: 1 unhappy, 2 content, 3 happy (the cells of
+-- UI-PetHappiness, as Blizzard's PetFrame and SUF use them). The legacy
+-- GetPetHappiness global is gone on Forever (DinoUF), but C_PetInfo has it.
+-- Only for a hunter's pet (HasPetUI's second return), never a warlock's
+-- demon. Plain values only; anything else hides the icon.
+local HAPPINESS_CELLS = { { 0.375, 0.5625 }, { 0.1875, 0.375 }, { 0, 0.1875 } }
+local function petHappiness()
+    local hasUI = rawget(_G, "HasPetUI")
+    if hasUI then
+        local ok, _, isHunterPet = pcall(hasUI)
+        if not ok or API.IsSecret(isHunterPet) or isHunterPet ~= true then return nil end
+    end
+    local ci = rawget(_G, "C_PetInfo")
+    local h = ci and plain(ci.GetPetHappiness)
+    if type(h) == "number" then return h end
+    return nil
+end
+
 Engine.SetPainter("indicators", function(f)
     local ind, u = f.indicators, f.unit
     if not (ind and UnitExists(u)) then return end
@@ -489,6 +507,15 @@ Engine.SetPainter("indicators", function(f)
             ind.masterLoot:SetPoint("CENTER", f.indCorner.anchor, "TOPLEFT", f.indCorner.x, 0)
         end
         ind.masterLoot:SetShown(show)
+    end
+    if ind.happiness then
+        local cell = u == "pet" and HAPPINESS_CELLS[petHappiness()]
+        if cell then
+            ind.happiness:SetTexCoord(cell[1], cell[2], 0, 0.359375)
+            ind.happiness:Show()
+        else
+            ind.happiness:Hide()
+        end
     end
     if ind.resting then
         ind.resting:SetShown(plain(IsResting) == true)
@@ -814,6 +841,17 @@ local function buildIndicators(b, body, g, L, tileGlass)
         ind.pvp:Hide()
     end
     if want.resting and tileGlass then ind.resting = buildResting(tileGlass.top, large) end
+    -- Hunter pet happiness, the Blizzard way: its own square just right of
+    -- the pet frame, nearly as tall as it. No glass tile: the texture has its
+    -- own border, and sliced masks break on tiles this small (GLASS-MATERIAL §6).
+    if want.happiness then
+        local s = L.h - 6
+        ind.happiness = g.top:CreateTexture(nil, "OVERLAY", nil, 7)
+        ind.happiness:SetSize(s, s)
+        ind.happiness:SetTexture("Interface\\PetPaperDollFrame\\UI-PetHappiness")
+        ind.happiness:SetPoint("LEFT", b, "RIGHT", 4, 0)
+        ind.happiness:Hide()
+    end
     b.indicators = ind
 end
 

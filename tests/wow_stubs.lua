@@ -269,6 +269,7 @@ function Methods.CreateAnimation(ag, atype) return newWidget(atype or "Animation
 function Methods.Play(ag) ag._plays = (ag._plays or 0) + 1 end
 function Methods.SetTexture(t, file) t._file = file; return true end
 function Methods.SetAlpha(w, a) w._alpha = a end
+function Methods.SetTexCoord(t, ...) t._texCoord = { ... } end
 function Methods.GetAlpha(w) return w._alpha or 1 end
 function Methods.SetVertexColor(t, r, g, b, a) t._vertex = { r, g, b, a } end
 function Methods.AddMaskTexture(t, m) t._masks = t._masks or {}; table.insert(t._masks, m) end
@@ -522,6 +523,12 @@ function UnitThreatSituation(u, mob)
     return unitField(mob, "threat")
 end
 function UnitAffectingCombat(u) return unitField(u, "combat") end
+-- Hunter pet happiness. WoW.petHappiness (1-3 or nil), WoW.hunterPet.
+C_PetInfo = { GetPetHappiness = function()
+    if WoW.secretFields.happiness and WoW.petHappiness then return WoW.Secret("happiness") end
+    return WoW.petHappiness, 0, 0
+end }
+function HasPetUI() return WoW.units.pet ~= nil, WoW.hunterPet == true end
 function UnitIsUnit(a, b)
     local ua, ub = WoW.units[a], WoW.units[b]
     return ua ~= nil and ua == ub

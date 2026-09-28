@@ -32,7 +32,7 @@ Engine.CHANNEL_EVENTS = {
     -- Raid target / leader / loot / PvP icons. Most of their triggers are
     -- group-wide events, handled by the world frame below; only the PvP flag
     -- is per unit.
-    indicators = { "UNIT_FACTION" },
+    indicators = { "UNIT_FACTION", "UNIT_HAPPINESS" },   -- UNIT_HAPPINESS: the hunter pet's mood
     cast     = { "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
                  "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
                  "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
