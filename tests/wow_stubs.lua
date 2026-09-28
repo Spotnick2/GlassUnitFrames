@@ -194,6 +194,7 @@ function Methods.IsVisible(w)
 end
 function Methods.SetPoint(w, ...) if guard(w, "SetPoint") then table.insert(w._points, { ... }) end end
 function Methods.ClearAllPoints(w) if guard(w, "ClearAllPoints") then w._points = {} end end
+function Methods.GetNumPoints(w) return #w._points end
 function Methods.GetPoint(w, i)
     local p = w._points[i or 1]
     if not p then return nil end
