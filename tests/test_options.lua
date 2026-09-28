@@ -58,19 +58,20 @@ hide:SetChecked(false)
 hide._scripts.OnClick(hide)
 eq(GlassUnitFramesDB.hideBlizzard, false, "Blizzard frames toggle saved")
 
--- Choice rows: the raid mark placement and the font.
-local function findButton(text)
+-- Radio groups: the raid mark placement and the font.
+local function findRadio(text)
     for _, w in ipairs(WoW.frames) do
-        if w._type == "Button" and w._text == text then return w end
+        if w._type == "CheckButton" and w.label and w.label._text == text then return w end
     end
 end
-local right = findButton("Right of the frame")
-check(right ~= nil, "raid mark row has a 'Right of the frame' choice")
+local right, before = findRadio("Right of the frame"), findRadio("Before the name")
+check(right ~= nil and before ~= nil, "raid mark placement is a radio group")
+check(before._checked and not right._checked, "the current placement is the checked radio")
 right._scripts.OnClick(right)
 eq(GlassUF.Frames.markPos, "right", "placement switched live")
 eq(GlassUnitFramesDB.mark, "right", "and saved")
-check(right._highlightLocked, "the chosen button stays highlighted")
-local friz = findButton("Friz Quadrata")
+check(right._checked and not before._checked, "only the chosen radio stays checked")
+local friz = findRadio("Friz Quadrata")
 friz._scripts.OnClick(friz)
 eq(GlassUnitFramesDB.font, "friz", "font choice saved")
 eq(Glass.fontKey, "friz", "and applied")

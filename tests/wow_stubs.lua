@@ -285,6 +285,15 @@ function Methods.SetText(fs, text) fs._text = text end
 function Methods.SetChecked(cb, v) cb._checked = v and true or false end
 function Methods.GetChecked(cb) return cb._checked == true end
 function Methods.LockHighlight(b) b._highlightLocked = true end
+-- Button state textures: Set<State>Texture creates the texture, Get<State>Texture returns it.
+for _, state in ipairs({ "Normal", "Pushed", "Highlight", "Checked", "Disabled" }) do
+    Methods["Set" .. state .. "Texture"] = function(b, file)
+        local t = newWidget("Texture", b)
+        t._file = file
+        b["_" .. state] = t
+    end
+    Methods["Get" .. state .. "Texture"] = function(b) return b["_" .. state] end
+end
 function Methods.UnlockHighlight(b) b._highlightLocked = false end
 function Methods.GetText(fs) return fs._text end
 function Methods.SetFormattedText(fs, fmt, ...)

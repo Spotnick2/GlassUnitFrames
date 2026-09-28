@@ -52,22 +52,26 @@ local function label(parent, text, template)
     return fs
 end
 
--- Lays controls out top to bottom.
-local y = -16
-local function place(region, height, x)
-    region:SetPoint("TOPLEFT", panel, "TOPLEFT", x or 16, y)
-    y = y - height
+-- Two columns, each laid out top to bottom: the panel must fit the Settings
+-- canvas without scrolling (one column overflowed it in game).
+local function column(x, top)
+    return { x = x, y = top }
 end
 
-local function header(text)
-    y = y - 8
-    place(label(panel, text, "GameFontNormalLarge"), 26)
+local function place(col, region, height, indent)
+    region:SetPoint("TOPLEFT", panel, "TOPLEFT", col.x + (indent or 0), col.y)
+    col.y = col.y - height
 end
 
-local function note(text)
+local function header(col, text)
+    col.y = col.y - 6
+    place(col, label(panel, text, "GameFontNormalLarge"), 26)
+end
+
+local function note(col, text, width)
     local fs = label(panel, text, "GameFontHighlightSmall")
-    fs:SetWidth(560)
-    place(fs, 18, 20)
+    fs:SetWidth(width or 400)
+    place(col, fs, 18, 4)
 end
 
 local function button(parent, text, width, onClick)
@@ -84,52 +88,74 @@ local function button(parent, text, width, onClick)
     return b
 end
 
--- A row of mutually exclusive choices: { {value, text}, ... }. The chosen one
--- stays highlighted.
-local function choices(title, options, get, set)
-    place(label(panel, title), 22, 20)
-    local row, prev = {}, nil
-    for _, o in ipairs(options) do
-        local b = button(panel, o[2], 150, function()
-            if set(o[1]) then controls.refreshAll() end
-        end)
-        if prev then b:SetPoint("LEFT", prev, "RIGHT", 6, 0) else place(b, 30, 24) end
-        b.value = o[1]
-        row[#row + 1] = b
-        prev = b
-    end
-    controls[#controls + 1] = function()
-        local current = get()
-        for _, b in ipairs(row) do
-            if b.value == current then b:LockHighlight() else b:UnlockHighlight() end
-        end
-    end
-    return row
-end
-
-local function checkbox(text, get, set)
-    local cb, templated = safeFrame("CheckButton", panel, "UICheckButtonTemplate", "text")
-    cb:SetSize(24, 24)
+-- A labelled check button: UICheckButtonTemplate / UIRadioButtonTemplate when
+-- the client has them (both ship here, per Priestly), else our own art.
+local RADIO_ART = "Interface\\Buttons\\UI-RadioButton"   -- 4 cells: normal, checked, highlight, pushed
+local function checkButton(text, radio)
+    local cb, templated = safeFrame("CheckButton", panel, radio and "UIRadioButtonTemplate" or "UICheckButtonTemplate", "text")
     if not templated then
-        cb:SetNormalTexture(CHECK_ART.normal)
-        cb:SetPushedTexture(CHECK_ART.pushed)
-        cb:SetHighlightTexture(CHECK_ART.highlight)
-        cb:SetCheckedTexture(CHECK_ART.checked)
+        if radio then
+            cb:SetSize(16, 16)
+            cb:SetNormalTexture(RADIO_ART)
+            cb:GetNormalTexture():SetTexCoord(0, 0.25, 0, 1)
+            cb:SetCheckedTexture(RADIO_ART)
+            cb:GetCheckedTexture():SetTexCoord(0.25, 0.5, 0, 1)
+            cb:SetHighlightTexture(RADIO_ART)
+            cb:GetHighlightTexture():SetTexCoord(0.5, 0.75, 0, 1)
+        else
+            cb:SetSize(24, 24)
+            cb:SetNormalTexture(CHECK_ART.normal)
+            cb:SetPushedTexture(CHECK_ART.pushed)
+            cb:SetHighlightTexture(CHECK_ART.highlight)
+            cb:SetCheckedTexture(CHECK_ART.checked)
+        end
+    elseif not radio then
+        cb:SetSize(24, 24)
     end
     local fs = label(panel, text)
     fs:SetPoint("LEFT", cb, "RIGHT", 4, 0)
-    place(cb, 28, 20)
+    cb.label = fs
+    return cb
+end
+
+-- Mutually exclusive choices as radio buttons: { {value, text}, ... }.
+local function radios(col, title, options, get, set)
+    place(col, label(panel, title), 22, 4)
+    local group = {}
+    for _, o in ipairs(options) do
+        local rb = checkButton(o[2], true)
+        rb.value = o[1]
+        -- Re-sync the whole group either way: a refused choice snaps back.
+        rb:SetScript("OnClick", function()
+            set(o[1])
+            controls.refreshAll()
+        end)
+        place(col, rb, 22, 8)
+        group[#group + 1] = rb
+    end
+    controls[#controls + 1] = function()
+        local current = get()
+        for _, rb in ipairs(group) do rb:SetChecked(rb.value == current) end
+    end
+    return group
+end
+
+local function checkbox(col, text, get, set)
+    local cb = checkButton(text, false)
+    place(col, cb, 28, 4)
     cb:SetScript("OnClick", function(self) set(self:GetChecked() and true or false) end)
     controls[#controls + 1] = function() cb:SetChecked(get() and true or false) end
     return cb
 end
 
--- Template-free slider (OptionsSliderTemplate isn't on this client): track,
--- thumb and a value readout. Steps of 0.05.
-local SLIDER_W = 220
-local function slider(t)
+-- Template-free slider (OptionsSliderTemplate isn't on this client): label
+-- and value on one line, the track under it. Steps of 0.05.
+local SLIDER_W = 240
+local function slider(col, t)
     local fs = label(panel, t.label)
-    place(fs, 20, 20)
+    local value = label(panel, "")
+    value:SetPoint("LEFT", fs, "LEFT", SLIDER_W + 12, 0)
+    place(col, fs, 18, 4)
     local s = CreateFrame("Slider", nil, panel)
     s:SetSize(SLIDER_W, 16)
     s:SetOrientation("HORIZONTAL")
@@ -142,9 +168,7 @@ local function slider(t)
     track:SetHeight(6)
     track:SetColorTexture(0.25, 0.25, 0.3, 0.9)
     s:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
-    local value = label(panel, "")
-    value:SetPoint("LEFT", s, "RIGHT", 12, 0)
-    place(s, 26, 24)
+    place(col, s, 26, 8)
     s:SetScript("OnValueChanged", function(self, v)
         v = math.floor(v * 20 + 0.5) / 20
         value:SetText(string.format("%.2f", v))
@@ -175,25 +199,30 @@ end
 
 local function build()
     local title = label(panel, "GlassUnitFrames", "GameFontNormalHuge")
-    place(title, 30)
-    note("Liquid-glass unit frames. Shift-drag a frame to move it (out of combat). /glass lists the commands.")
+    title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
+    local sub = label(panel, "Liquid-glass unit frames. Shift-drag a frame to move it (out of combat). /glass lists the commands.",
+        "GameFontHighlightSmall")
+    sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
 
-    header("Look")
-    choices("Font", { { "arial", "Arial Narrow" }, { "friz", "Friz Quadrata" } },
+    local left, right = column(16, -72), column(400, -72)
+
+    header(left, "Look")
+    radios(left, "Font", { { "arial", "Arial Narrow" }, { "friz", "Friz Quadrata" } },
         function() return Glass.fontKey end,
         function(v)
             if not Glass.SetFont(v) then return false end
             db().font = v
             return true
         end)
-    for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key] = slider(t) end
-    place(button(panel, "Reset look to defaults", 190, function()
+    left.y = left.y - 6
+    for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key] = slider(left, t) end
+    place(left, button(panel, "Reset look to defaults", 190, function()
         Options.ResetLook()
         controls.refreshAll()
-    end), 32, 24)
+    end), 30, 4)
 
-    header("Raid mark")
-    choices("Placement", { { "name", "Before the name" }, { "top", "On the top edge" }, { "right", "Right of the frame" } },
+    header(right, "Raid mark")
+    radios(right, "Placement", { { "name", "Before the name" }, { "top", "On the top edge" }, { "right", "Right of the frame" } },
         function() return Frames.markPos end,
         function(v)
             if not Frames.SetMarkPosition(v) then return false end
@@ -201,20 +230,20 @@ local function build()
             return true
         end)
 
-    header("Blizzard frames")
-    controls.hideBlizzard = checkbox("Hide Blizzard's frames for the units GlassUF draws",
+    header(right, "Blizzard frames")
+    controls.hideBlizzard = checkbox(right, "Hide Blizzard's frames for the units GlassUF draws",
         function() return db().hideBlizzard end,
         function(v) db().hideBlizzard = v end)
-    controls.hideBlizzardCast = checkbox("Also hide Blizzard's player cast bar",
+    controls.hideBlizzardCast = checkbox(right, "Also hide Blizzard's player cast bar",
         function() return db().hideBlizzardCast end,
         function(v) db().hideBlizzardCast = v or nil end)
-    note("Both take effect after a /reload.")
+    note(right, "Both take effect after a /reload.")
 
-    header("Positions")
-    place(button(panel, "Reset frame positions", 190, function()
+    header(right, "Positions")
+    place(right, button(panel, "Reset frame positions", 190, function()
         GlassUF.WhenOutOfCombat("reset", function() Frames.ResetPositions() end,
             "positions reset when combat ends")
-    end), 32, 24)
+    end), 30, 4)
 end
 
 function controls.refreshAll()
