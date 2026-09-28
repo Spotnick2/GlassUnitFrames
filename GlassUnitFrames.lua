@@ -401,6 +401,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         -- before it applies, but do not bet the whole addon on that.
         whenOutOfCombat("build", function()
             Frames.Build(db)
+            GlassUF.Movers.Load(db)
             if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
             -- Blizzard's own player cast bar stays unless asked (the owner likes it).
             if db.hideBlizzardCast then Blizzard.HideFrame("PlayerCastingBarFrame") end

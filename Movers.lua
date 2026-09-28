@@ -31,15 +31,25 @@ Movers.unlocked = false
 local movers, selected, dragging = {}, nil, nil
 local panel
 
+-- Snapping while dragging: align a frame's edges and centre to other frames'
+-- (and the screen centre) within SNAP_DIST, with a guide line showing each
+-- match; else its centre to a GRID. Both on by default (saved when off); Alt
+-- held places freely. Everything is in UIParent units, like the offsets.
+local GRID, SNAP_DIST = 16, 8
+Movers.snapGrid, Movers.snapAlign = true, true
+local overlay   -- the grid and the guide lines, full screen, under the movers
+
 local function relName(rel)
     if rel == "UIParent" then return "the screen centre" end
     return NAMES[rel] or rel
 end
 
 -- The mover's centre as offsets from the frame's leader (or the screen).
+local snappedCenter, showGuide   -- defined below (need the snapping helpers)
+
 local function offsetsFromMover(m)
     local _, relFrame = Frames.AnchorOf(m.unit)   -- what SetPosition places it on
-    local mx, my = m:GetCenter()
+    local mx, my = snappedCenter(m)
     -- Not `relFrame and relFrame:GetCenter()`: `and` keeps only the first return.
     local rx, ry
     if relFrame then rx, ry = relFrame:GetCenter() end
@@ -76,6 +86,98 @@ local function finishDrag()
     m.lastX, m.lastY = nil, nil
     m:ClearAllPoints()
     m:SetAllPoints(Frames.byUnit[m.unit])
+    showGuide("vguide", nil)
+    showGuide("hguide", nil)
+end
+
+-- Is `unit` carried by `leader` (anchored to it, directly or through a chain)?
+local function followsFrom(unit, leader)
+    local L = Frames.LAYOUT[unit]
+    while L and L.anchorTo do
+        if L.anchorTo == leader then return true end
+        L = Frames.LAYOUT[L.anchorTo]
+    end
+    return false
+end
+
+-- The lines a dragged frame may align to on one axis: every other frame's
+-- two edges and centre (not the frame itself, nor what moves with it), plus
+-- the screen centre.
+local function alignLines(unit, axis)
+    local lines = {}
+    local ucx, ucy = UIParent:GetCenter()
+    lines[#lines + 1] = (axis == "x") and ucx or ucy
+    for u, b in pairs(Frames.byUnit) do
+        if u ~= unit and not followsFrom(u, unit) then
+            local lo, hi
+            if axis == "x" then lo, hi = b:GetLeft(), b:GetRight() else lo, hi = b:GetBottom(), b:GetTop() end
+            if type(lo) == "number" and type(hi) == "number" then
+                lines[#lines + 1] = lo
+                lines[#lines + 1] = hi
+                lines[#lines + 1] = (lo + hi) / 2
+            end
+        end
+    end
+    return lines
+end
+
+-- The nearest alignment for a centre `c` with half-size `half`: its low edge,
+-- centre or high edge onto any line within SNAP_DIST. Returns the new centre
+-- and the line, or nil.
+local function alignAxis(c, half, lines)
+    local bestD, bestC, bestLine
+    for _, line in ipairs(lines) do
+        for _, off in ipairs({ -half, 0, half }) do
+            local d = math.abs(c + off - line)
+            if d <= SNAP_DIST and (not bestD or d < bestD) then
+                bestD, bestC, bestLine = d, line - off, line
+            end
+        end
+    end
+    return bestC, bestLine
+end
+
+local function gridAxis(c, origin)
+    return origin + math.floor((c - origin) / GRID + 0.5) * GRID
+end
+
+function showGuide(which, at)
+    if not overlay then return end
+    local line = overlay[which]
+    if not at then line:Hide() return end
+    line:ClearAllPoints()
+    if which == "vguide" then
+        line:SetPoint("TOP", UIParent, "BOTTOMLEFT", at, UIParent:GetHeight())
+        line:SetSize(1, UIParent:GetHeight())
+    else
+        line:SetPoint("LEFT", UIParent, "BOTTOMLEFT", 0, at)
+        line:SetSize(UIParent:GetWidth(), 1)
+    end
+    line:Show()
+end
+
+-- The mover's centre after snapping (Alt: none). Also shows the guides.
+function snappedCenter(m)
+    local mx, my = m:GetCenter()
+    if type(mx) ~= "number" or type(my) ~= "number" then return nil end
+    local gx, gy
+    if not IsAltKeyDown() then
+        local w, h = m:GetWidth(), m:GetHeight()
+        local ucx, ucy = UIParent:GetCenter()
+        local nx, ny
+        if Movers.snapAlign and type(w) == "number" and type(h) == "number" then
+            nx, gx = alignAxis(mx, w / 2, alignLines(m.unit, "x"))
+            ny, gy = alignAxis(my, h / 2, alignLines(m.unit, "y"))
+        end
+        if Movers.snapGrid and type(ucx) == "number" then
+            nx = nx or gridAxis(mx, ucx)
+            ny = ny or gridAxis(my, ucy)
+        end
+        mx, my = nx or mx, ny or my
+    end
+    showGuide("vguide", gx)
+    showGuide("hguide", gy)
+    return mx, my
 end
 
 local function follow(m)
@@ -193,7 +295,7 @@ local function makePanel()
     local p = CreateFrame("Frame", nil, UIParent)
     p:SetFrameStrata("DIALOG")
     p:SetFrameLevel(100)
-    p:SetSize(250, 96)
+    p:SetSize(250, 120)
     p:SetClampedToScreen(true)
     p:EnableMouse(true)
     local bg = p:CreateTexture(nil, "BACKGROUND")
@@ -235,8 +337,60 @@ local function makePanel()
     local lock = makeButton(p, "Lock", 44, function() Movers.Lock() end)
     lock:SetPoint("LEFT", reset, "RIGHT", 4, 0)
     p.buttons = { left = left, right = right, up = up, down = down, reset = reset, lock = lock }
+    -- Snapping switches (Alt while dragging places freely).
+    local function toggle(text, key, x)
+        local cb = API.SafeFrame("CheckButton", p, "UICheckButtonTemplate", "text")
+        cb:SetSize(20, 20)
+        cb:SetPoint("TOPLEFT", p, "TOPLEFT", x, -68)
+        local fs = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+        fs:SetText(text)
+        cb:SetChecked(Movers[key])
+        cb:SetScript("OnClick", function(self) Movers.SetSnap(key, self:GetChecked() and true or false) end)
+        return cb
+    end
+    p.snapGrid = toggle("Snap to grid", "snapGrid", 8)
+    p.snapAlign = toggle("Align to frames", "snapAlign", 120)
     p:Hide()
     return p
+end
+
+-- Full-screen overlay: the grid (every GRID units from the screen centre,
+-- the centre lines brighter) and the two guide lines.
+local function makeOverlay()
+    local o = CreateFrame("Frame", nil, UIParent)
+    o:SetAllPoints(UIParent)
+    o:SetFrameStrata("DIALOG")
+    o:SetFrameLevel(1)
+    local grid = CreateFrame("Frame", nil, o)
+    grid:SetAllPoints(o)
+    local w, h = UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
+    local cx, cy = w / 2, h / 2
+    local function line(x, y, lw, lh, a)
+        local t = grid:CreateTexture(nil, "BACKGROUND")
+        t:SetColorTexture(1, 1, 1, a)
+        t:SetSize(lw, lh)
+        t:SetPoint("BOTTOMLEFT", o, "BOTTOMLEFT", x, y)
+    end
+    for i = -math.floor(cx / GRID), math.floor(cx / GRID) do
+        line(cx + i * GRID, 0, 1, h, i == 0 and 0.35 or 0.08)
+    end
+    for i = -math.floor(cy / GRID), math.floor(cy / GRID) do
+        line(0, cy + i * GRID, w, 1, i == 0 and 0.35 or 0.08)
+    end
+    o.grid = grid
+    for _, k in ipairs({ "vguide", "hguide" }) do
+        local g = o:CreateTexture(nil, "OVERLAY")
+        g:SetColorTexture(1, 0.82, 0, 0.9)
+        g:Hide()
+        o[k] = g
+    end
+    o:Hide()
+    return o
+end
+
+local function showGrid()
+    if overlay then overlay.grid:SetShown(Movers.snapGrid) end
 end
 
 -- Show the movers. Refused in combat (returns false, "combat").
@@ -244,6 +398,9 @@ function Movers.Unlock()
     if InCombatLockdown() then return false, "combat" end
     if not next(Frames.byUnit) then return false, "not built" end
     panel = panel or makePanel()
+    overlay = overlay or makeOverlay()
+    overlay:Show()
+    showGrid()
     Frames.NormalizeSaves()   -- older saves rewritten from the live rects, once
     for unit, b in pairs(Frames.byUnit) do
         movers[unit] = movers[unit] or makeMover(unit, b)
@@ -259,6 +416,7 @@ function Movers.Lock()
     finishDrag()
     for _, m in pairs(movers) do m:Hide() end
     if panel then panel:Hide() end
+    if overlay then overlay:Hide() end
     selected = nil
     Movers.unlocked = false
     return true
@@ -275,9 +433,26 @@ function Movers.CancelDrag()
     m.lastX, m.lastY = nil, nil
     m:ClearAllPoints()
     m:SetAllPoints(Frames.byUnit[m.unit])
+    showGuide("vguide", nil)
+    showGuide("hguide", nil)
 end
 
 function Movers.Refresh() refreshPanel() end
+
+-- Turn a snapping mode on or off (saved only when off, the default is on).
+function Movers.SetSnap(key, on)
+    if key ~= "snapGrid" and key ~= "snapAlign" then return false end
+    Movers[key] = on and true or false
+    if on then Frames.db[key] = nil else Frames.db[key] = false end
+    showGrid()
+    return true
+end
+
+-- Saved switches, applied once the settings exist.
+function Movers.Load(db)
+    Movers.snapGrid = db.snapGrid ~= false
+    Movers.snapAlign = db.snapAlign ~= false
+end
 
 -- Combat started: lock (a protected frame can't move under lockdown).
 function Movers.OnCombat()
@@ -285,4 +460,5 @@ function Movers.OnCombat()
 end
 
 Movers._test = { movers = movers, panel = function() return panel end,
+                 overlay = function() return overlay end, alignAxis = alignAxis,
                  selected = function() return selected end, nudge = nudge }

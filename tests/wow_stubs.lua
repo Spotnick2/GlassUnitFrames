@@ -252,6 +252,16 @@ function Methods.RegisterForClicks(w, ...) if guard(w, "RegisterForClicks") then
 function Methods.StartMoving(w) if guard(w, "StartMoving") then w._moving = true end end
 -- No real geometry in the stub: a test sets w._center = { x, y } where it matters.
 function Methods.GetCenter(w) if w._center then return w._center[1], w._center[2] end end
+-- Edges from a test-set centre and the frame's size (no real layout here).
+local function edge(w, axis, sign)
+    if not (w._center and w._width and w._height) then return nil end
+    if axis == "x" then return w._center[1] + sign * w._width / 2 end
+    return w._center[2] + sign * w._height / 2
+end
+function Methods.GetLeft(w) return edge(w, "x", -1) end
+function Methods.GetRight(w) return edge(w, "x", 1) end
+function Methods.GetBottom(w) return edge(w, "y", -1) end
+function Methods.GetTop(w) return edge(w, "y", 1) end
 function Methods.StopMovingOrSizing(w)
     if guard(w, "StopMovingOrSizing") then
         w._moving = false
@@ -375,6 +385,7 @@ function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 function GetBuildInfo() return "1.60.1", "70009", "Sep 23 2026", 16001 end
 function InCombatLockdown() return WoW.combat end
 function IsShiftKeyDown() return WoW.shift end
+function IsAltKeyDown() return WoW.alt == true end
 function RegisterUnitWatch(frame) WoW.unitWatch[frame] = true end
 function UnregisterUnitWatch(frame) WoW.unitWatch[frame] = nil; frame._unwatched = true end
 

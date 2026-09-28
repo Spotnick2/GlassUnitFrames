@@ -41,6 +41,7 @@ eq(p._points[1][4], -300, "player back at the default position")
 -- An unlock-mode drag that combat catches: the mover (insecure) stops, the
 -- frame keeps its last position, nothing protected is touched under lockdown.
 UIParent._center = { 512, 384 }
+WoW.alt = true   -- free placement: this test is about combat, not snapping
 check(GlassUF.Movers.Unlock(), "unlocked out of combat")
 local m = GlassUF.Movers._test.movers.player
 m._center = { 512 - 300, 384 - 90 }
