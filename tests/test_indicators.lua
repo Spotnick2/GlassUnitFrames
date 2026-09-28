@@ -132,4 +132,40 @@ loadAddon()
 local r2 = button("player").indicators.resting
 check(r2 and not r2.animated, "static fallback without the flipbook atlas")
 
+-- Raid mark placement (#30): "name" by default, a slot before the name.
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon()
+local tg = button("target")
+local mk = tg.indicators.raidTarget
+eq(GlassUF.Frames.markPos, "name", "default placement: before the name")
+eq(mk._points[1][2], tg.health, "mark sits inside the health bar")
+eq(mk._points[1][1], "LEFT", "at its left edge")
+eq(tg.nameText._points[1][2], tg.health, "unmarked: the name starts at the bar's padding")
+WoW.units.target.raidTarget = 8
+WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
+eq(tg.nameText._points[1][2], mk, "marked: the name moves right of the mark")
+-- A secret index (other units on Forever) still says "a mark exists".
+WoW.secretFields.raidTarget = true
+WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
+eq(tg.nameText._points[1][2], mk, "secret mark index: the name still makes room")
+WoW.secretFields.raidTarget = nil
+SlashCmdList.GLASSUNITFRAMES("mark top")
+eq(mk._points[1][2], tg.body, "top: centred on the frame's top edge")
+eq(tg.nameText._points[1][2], tg.health, "top: the name goes back to the bar's padding")
+eq(GlassUnitFramesDB.mark, "top", "placement saved")
+SlashCmdList.GLASSUNITFRAMES("mark right")
+eq(mk._points[1][2], tg, "right: anchored to the whole frame")
+eq(mk._points[1][3], "RIGHT", "past its right edge")
+SlashCmdList.GLASSUNITFRAMES("mark sideways")
+eq(GlassUnitFramesDB.mark, "right", "unknown placement rejected")
+WoW.units.target.raidTarget = nil
+WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
+-- A saved placement is used at build.
+local saved = GlassUnitFramesDB
+WoW.reset(); standardUnits(); GlassUF = nil
+GlassUnitFramesDB = saved
+loadAddon()
+eq(button("target").indicators.raidTarget._points[1][2], button("target"), "saved 'right' applied at build")
+GlassUnitFramesDB = nil
+
 done("test_indicators")
