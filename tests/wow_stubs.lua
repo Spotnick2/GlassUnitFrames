@@ -268,6 +268,7 @@ function Methods.CreateAnimation(ag, atype) return newWidget(atype or "Animation
 function Methods.Play(ag) ag._plays = (ag._plays or 0) + 1 end
 function Methods.SetTexture(t, file) t._file = file; return true end
 function Methods.SetAlpha(w, a) w._alpha = a end
+function Methods.GetAlpha(w) return w._alpha or 1 end
 function Methods.SetVertexColor(t, r, g, b, a) t._vertex = { r, g, b, a } end
 function Methods.AddMaskTexture(t, m) t._masks = t._masks or {}; table.insert(t._masks, m) end
 function Methods.SetGradient(t, orientation, c1, c2)
@@ -406,7 +407,25 @@ C_CurveUtil = { CreateCurve = function()
     function c:SetType(t) self.type = t end
     function c:AddPoint(x, y) table.insert(self.points, { x, y }) end
     return c
+end, CreateColorCurve = function()
+    local c = { points = {}, color = true }
+    function c:SetType(t) self.type = t end
+    function c:AddPoint(x, col) table.insert(self.points, { x, col }) end
+    return c
 end }
+-- A colour-curve result: a colour object; its components secret when the input was.
+local function curveColor(col, secret)
+    return { GetRGBA = function()
+        if secret then return WoW.Secret("r"), WoW.Secret("g"), WoW.Secret("b"), WoW.Secret("a") end
+        return col.r, col.g, col.b, col.a
+    end }
+end
+-- Step evaluation: the last point at or below x.
+local function evalColor(curve, x)
+    local col = curve.points[1][2]
+    for _, pt in ipairs(curve.points) do if x >= pt[1] then col = pt[2] end end
+    return col
+end
 
 function UnitExists(u) return WoW.units[u] ~= nil end
 function UnitGUID(u)
@@ -447,6 +466,14 @@ function UnitIsAFK(u) return unitField(u, "afk") end
 function UnitPowerPercent(u, powerType, unmodified, curve)
     local p, m = unitField(u, "power"), unitField(u, "maxPower")
     if p == nil then return nil end
+    if curve.color then
+        if secrets[p] or secrets[m] then
+            -- The stub still knows the real numbers behind the fields it made secret.
+            local rp, rm = WoW.units[u].power, WoW.units[u].maxPower
+            return curveColor(evalColor(curve, (rm and rm > 0 and not secrets[rp]) and rp / rm or 0), true)
+        end
+        return curveColor(evalColor(curve, (m and m > 0) and p / m or 0), false)
+    end
     if secrets[p] or secrets[m] then return WoW.Secret(u .. ".powerPercent") end
     local frac = (m and m > 0) and p / m or 0
     local p1, p2 = curve.points[1], curve.points[2]

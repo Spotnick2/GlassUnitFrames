@@ -32,7 +32,7 @@ Frames.LAYOUT = {
                      portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
                      healPrediction = true, healthLoss = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
-                     text = { healthRight = "curmaxhp_perhp", powerLeft = "level_class_perpp", powerRight = "curmaxpp" } },
+                     text = { healthRight = "curmaxhp_perhp", powerLevel = true, powerLeft = "perpp", powerRight = "curmaxpp" } },
     -- Same total width as the player frame and centred on it (portrait 32 + gap 3
     -- + body 330 = 365), 5 px under it (player bottom -141, pet top -146), as the
     -- owner's SUF had it.
@@ -146,15 +146,6 @@ local TEXT = {
     curmaxpp       = function(fs, u, pow, maxPow)
         fs:SetFormattedText("%s/%s", AbbreviateNumbers(pow), AbbreviateNumbers(maxPow))
     end,
-    level_class_perpp = function(fs, u)
-        local lc = levelClass(u)
-        -- The plain level line survives a missing/failed percent.
-        local ok = pcall(function()
-            if lc ~= "" then fs:SetFormattedText("%s  %.0f%%", lc, powerPct(u))
-            else fs:SetFormattedText("%.0f%%", powerPct(u)) end
-        end)
-        if not ok then fs:SetText(lc) end
-    end,
 }
 Frames.TEXT = TEXT
 
@@ -264,6 +255,27 @@ Engine.SetPainter("health", function(f)
     paintText(f.valueText, f.layout.text and f.layout.text.healthRight, u, hp, maxHp)
 end)
 
+-- A unit with no power left (an NPC without mana: max 0) shows no power bar
+-- or power numbers, instead of "0%" and "0/0" over an empty bar (#27). The
+-- level text stays. For the player and pet max power is plain, so only a max
+-- of 0 hides it (running out of mana must not hide your own bar); for other
+-- units max is secret, so the client's colour curve decides, which also
+-- hides a drained unit's bar until it has power again.
+local function paintPowerAlpha(f, u)
+    local a
+    local max = plain(UnitPowerMax, u)
+    if type(max) == "number" then
+        a = (max > 0) and 1 or 0
+    else
+        local ok, v = pcall(API.PowerAlpha, u)
+        a = ok and v or nil
+    end
+    if a == nil then a = 1 end   -- unknown: show, as before
+    for _, region in ipairs({ f.power, f.powerText, f.powerLeftText }) do
+        if region and not attempt("power alpha", region.SetAlpha, region, a) then region:SetAlpha(1) end
+    end
+end
+
 Engine.SetPainter("power", function(f)
     local u = f.unit
     if not (f.power and UnitExists(u)) then return end
@@ -274,8 +286,10 @@ Engine.SetPainter("power", function(f)
     local c = (token and POWER_COLORS[token]) or POWER_COLORS.MANA
     f.power:SetStatusBarColor(c[1], c[2], c[3])
     local t = f.layout.text or {}
+    if f.levelText then f.levelText:SetText(levelClass(u)) end
     paintText(f.powerLeftText, t.powerLeft, u, pow, maxPow)
     paintText(f.powerText, t.powerRight, u, pow, maxPow)
+    paintPowerAlpha(f, u)
 end)
 
 -- SUF's sequence (modules/portrait.lua): clear, set unit, zoom, reset position.
@@ -779,9 +793,20 @@ local function build(unit)
     if hasPower and large then
         b.powerText = Glass.Font(g.top, 11, "RIGHT")
         b.powerText:SetPoint("RIGHT", b.power, "RIGHT", -7, 0)
+        -- Level (and classification) in its own string, so it stays when the
+        -- power numbers beside it fade out on a unit with no power.
+        local left = b.power
+        if L.text and L.text.powerLevel then
+            b.levelText = Glass.Font(g.top, 11, "LEFT")
+            b.levelText:SetPoint("LEFT", b.power, "LEFT", 7, 0)
+        end
         if L.text and L.text.powerLeft then
             b.powerLeftText = Glass.Font(g.top, 11, "LEFT")
-            b.powerLeftText:SetPoint("LEFT", b.power, "LEFT", 7, 0)
+            if b.levelText then
+                b.powerLeftText:SetPoint("LEFT", b.levelText, "RIGHT", 6, 0)
+            else
+                b.powerLeftText:SetPoint("LEFT", left, "LEFT", 7, 0)
+            end
             b.powerLeftText:SetPoint("RIGHT", b.powerText, "LEFT", -6, 0)
         end
     end

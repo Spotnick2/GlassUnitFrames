@@ -34,7 +34,9 @@ eq(textOf(p.powerText), "920/" .. AbbreviateNumbers(1270), "player power right: 
 eq(textOf(p.powerLeftText), "72%", "player power left: percent")
 local t0 = button("target")
 eq(textOf(t0.valueText), "830/" .. AbbreviateNumbers(1317) .. " | 63%", "target health: cur/max | pct")
-eq(textOf(t0.powerLeftText), "10  100%", "target power left: level + power percent")
+eq(textOf(t0.levelText), "10", "target power line: level in its own string")
+eq(textOf(t0.powerLeftText), "100%", "then the power percent")
+check(p.levelText == nil, "the player's power line has no level")
 eq(textOf(button("targettarget").valueText), AbbreviateNumbers(1240), "targettarget: current health")
 eq(textOf(button("focus").valueText), "666", "focus: current health")
 check(button("pet").powerLeftText == nil and button("pet").powerText == nil, "small frames carry no power text")
@@ -87,11 +89,11 @@ eq(textOf(p.valueText), "775/" .. AbbreviateNumbers(1550), "value text after dam
 WoW.units.target.level = 12
 WoW.units.target.classification = "elite"
 WoW.fire("UNIT_CLASSIFICATION_CHANGED", "target"); WoW.tick()
-eq(textOf(button("target").powerLeftText), "12 Elite  100%", "target power left: level, classification, power")
+eq(textOf(button("target").levelText), "12 Elite", "target: level and classification")
 WoW.units.target.level = -1
 WoW.units.target.classification = "worldboss"
 WoW.fire("UNIT_LEVEL", "target"); WoW.tick()
-eq(textOf(button("target").powerLeftText), "?? Boss  100%", "boss: ?? level")
+eq(textOf(button("target").levelText), "?? Boss", "boss: ?? level")
 WoW.units.target.level, WoW.units.target.classification = 10, "normal"
 WoW.units.player.afk = true
 WoW.fire("PLAYER_FLAGS_CHANGED", "player"); WoW.tick()
@@ -121,8 +123,14 @@ eq(textOf(p.nameText), "Morphisto", "no group number out of a raid")
 WoW.units.player.maxPower, WoW.units.player.power = 0, 0
 WoW.fire("UNIT_MAXPOWER", "player"); WoW.tick()
 eq(textOf(p.powerLeftText), "", "no power: percent blank")
+eq(p.power._alpha, 0, "no power: the player's power bar fades out")
+eq(p.powerText._alpha, 0, "and its numbers")
+WoW.units.player.maxPower, WoW.units.player.power = 1270, 0
+WoW.fire("UNIT_MAXPOWER", "player"); WoW.tick()
+eq(p.power._alpha, 1, "out of mana is not 'no power': the player's bar stays")
 WoW.units.player.maxPower, WoW.units.player.power = 1270, 920
 WoW.fire("UNIT_MAXPOWER", "player"); WoW.tick()
+eq(p.power._alpha, 1, "power back: bar shown")
 local realAbbr = AbbreviateNumbers
 AbbreviateNumbers = function() error("client refused") end
 WoW.fire("UNIT_HEALTH", "player"); WoW.tick()
