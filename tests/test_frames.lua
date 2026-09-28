@@ -61,6 +61,8 @@ do
     eq(pl.health._height, 22, "casting: health shrinks")
     eq(pl.power._height, 10, "casting: power shrinks")
     eq(c.bar._points[1][2], pl.power, "cast row sits under the power bar")
+    check(c.spell:GetParent():GetFrameLevel() > c.bar.overlay:GetFrameLevel(),
+          "cast text above the cast bar's glass overlay")
     check(pl.healPred ~= nil, "player has heal prediction")
     eq(pl.healPred._height, 22, "heal prediction follows the health bar")
     WoW.units.player.casting = nil

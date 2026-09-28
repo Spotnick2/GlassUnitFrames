@@ -527,10 +527,10 @@ local function castHost(b, body, L)
         bar:SetPoint("TOPLEFT", b.power, "BOTTOMLEFT", 0, -CAST_GAP)
         bar:SetPoint("TOPRIGHT", b.power, "BOTTOMRIGHT", 0, -CAST_GAP)
         bar:SetFrameLevel(Glass.ContentLevel(body))
-        -- Text above the bar's glass overlay (+2); hides with the host.
+        -- Text above the bar's glass overlay (Glass.OVERLAY_LEVEL); hides with the host.
         local txt = CreateFrame("Frame", nil, host)
         txt:SetAllPoints(bar)
-        txt:SetFrameLevel(bar:GetFrameLevel() + 3)
+        txt:SetFrameLevel(bar:GetFrameLevel() + Glass.OVERLAY_LEVEL + 1)
         host:SetScript("OnShow", function() layoutRows(b, true) end)
         host:SetScript("OnHide", function() layoutRows(b, false) end)
         return host, bar, txt, 10
