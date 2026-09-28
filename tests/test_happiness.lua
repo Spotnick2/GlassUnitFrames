@@ -23,6 +23,13 @@ WoW.petHappiness = 1
 WoW.fire("UNIT_HAPPINESS", "pet"); WoW.tick()
 eq(icon._texCoord and icon._texCoord[1], 0.375, "unhappy: the red cell")
 
+-- PET_UI_UPDATE (Blizzard's PetFrame refreshes here) repaints it too: after a
+-- login or call, HasPetUI may only report the hunter pet by then.
+WoW.petHappiness = 2
+WoW.fire("PET_UI_UPDATE"); WoW.tick()
+eq(icon._texCoord and icon._texCoord[1], 0.1875, "PET_UI_UPDATE refreshes the icon (content)")
+check(button("player").channels.happiness == nil, "only the pet frame carries the happiness channel")
+
 -- A warlock's demon: never.
 WoW.hunterPet = false
 WoW.fire("UNIT_HAPPINESS", "pet"); WoW.tick()
@@ -51,10 +58,31 @@ SlashCmdList.GLASSUNITFRAMES("happiness under")
 eq(icon._points[1][2], pet.tile, "under: anchored to the portrait")
 eq(icon._points[1][3], "BOTTOM", "below it")
 check(not GlassUF.Settings.SetHappinessPosition("above"), "unknown placement rejected")
+-- Both on the right: the raid mark steps past the happiness icon.
+GlassUF.Settings.SetMark("right")
+GlassUF.Settings.SetHappinessPosition("right")
+eq(pet.indicators.raidTarget._points[1][2], icon, "right-hand mark sits past the right-hand happiness icon")
+GlassUF.Settings.SetHappinessPosition("left")
+eq(pet.indicators.raidTarget._points[1][2], pet, "happiness moved away: the mark takes the frame's edge again")
+GlassUF.Settings.SetMark("name")
+GlassUF.Settings.SetHappinessPosition("under")
 local saved = GlassUnitFramesDB
 WoW.reset(); standardUnits(); GlassUF = nil
 loadAddon({ db = saved })
 eq(button("pet").indicators.happiness._points[1][3], "BOTTOM", "saved placement applied at build")
 GlassUnitFramesDB = nil
+
+-- Without HasPetUI, only a hunter's pet shows it (fail closed).
+local realHasPetUI = HasPetUI
+rawset(_G, "HasPetUI", nil)
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon()
+WoW.hunterPet, WoW.petHappiness = true, 3
+WoW.fire("UNIT_HAPPINESS", "pet"); WoW.tick()
+check(not button("pet").indicators.happiness._shown, "no HasPetUI and a warlock player: hidden")
+WoW.units.player.class = "HUNTER"
+WoW.fire("UNIT_HAPPINESS", "pet"); WoW.tick()
+check(button("pet").indicators.happiness._shown, "no HasPetUI and a hunter player: shown")
+rawset(_G, "HasPetUI", realHasPetUI)
 
 done("test_happiness")

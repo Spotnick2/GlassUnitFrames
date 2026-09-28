@@ -365,7 +365,13 @@ local function placeMark(b)
     if pos == "top" then
         icon:SetPoint("CENTER", b.body, "TOP", 0, 0)
     elseif pos == "right" then
-        icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+        -- Past the pet's happiness icon when that is on the right too.
+        local happy = b.indicators.happiness
+        if happy and Frames.happinessPos == "right" then
+            icon:SetPoint("LEFT", happy, "RIGHT", 4, 0)
+        else
+            icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+        end
     else
         icon:SetPoint("LEFT", b.health, "LEFT", b.namePad or 5, 0)
     end
@@ -437,7 +443,6 @@ function Frames.SetAggroRed(on)
     Engine.RepaintChannel("color")
 end
 
--- Switch the placement live (out of combat or in: nothing here is secure).
 -- Pet happiness placement: "left" (default, the owner's pick: left of the
 -- pet's portrait, which sits at the frame's left edge), "right" (right of
 -- the frame, where Blizzard's PetFrame shows it) or "under" (under the portrait).
@@ -461,10 +466,14 @@ end
 function Frames.SetHappinessPosition(pos)
     if not Frames.HAPPINESS_POSITIONS[pos] then return false end
     Frames.happinessPos = pos
-    for _, b in pairs(Frames.byUnit) do placeHappiness(b) end
+    for _, b in pairs(Frames.byUnit) do
+        placeHappiness(b)
+        placeMark(b)   -- a right-hand mark steps past a right-hand happiness icon
+    end
     return true
 end
 
+-- Switch the placement live (out of combat or in: nothing here is secure).
 function Frames.SetMarkPosition(pos)
     if not Frames.MARK_POSITIONS[pos] then return false end
     Frames.markPos = pos
@@ -482,17 +491,36 @@ end
 -- Only for a hunter's pet (HasPetUI's second return), never a warlock's
 -- demon. Plain values only; anything else hides the icon.
 local HAPPINESS_CELLS = { { 0.375, 0.5625 }, { 0.1875, 0.375 }, { 0, 0.1875 } }
-local function petHappiness()
+local function isHunterPet()
     local hasUI = rawget(_G, "HasPetUI")
     if hasUI then
-        local ok, _, isHunterPet = pcall(hasUI)
-        if not ok or API.IsSecret(isHunterPet) or isHunterPet ~= true then return nil end
+        local ok, _, hunter = pcall(hasUI)
+        return ok and not API.IsSecret(hunter) and hunter == true
     end
+    -- No HasPetUI: fail closed on anything but a hunter's own pet.
+    local ok, _, class = pcall(UnitClass, "player")
+    return ok and class == "HUNTER"
+end
+
+local function petHappiness()
+    if not isHunterPet() then return nil end
     local ci = rawget(_G, "C_PetInfo")
     local h = ci and plain(ci.GetPetHappiness)
     if type(h) == "number" then return h end
     return nil
 end
+
+Engine.SetPainter("happiness", function(f)
+    local icon = f.indicators and f.indicators.happiness
+    if not icon then return end
+    local cell = UnitExists(f.unit) and HAPPINESS_CELLS[petHappiness()]
+    if cell then
+        icon:SetTexCoord(cell[1], cell[2], 0, 0.359375)
+        icon:Show()
+    else
+        icon:Hide()
+    end
+end)
 
 Engine.SetPainter("indicators", function(f)
     local ind, u = f.indicators, f.unit
@@ -534,15 +562,6 @@ Engine.SetPainter("indicators", function(f)
             ind.masterLoot:SetPoint("CENTER", f.indCorner.anchor, "TOPLEFT", f.indCorner.x, 0)
         end
         ind.masterLoot:SetShown(show)
-    end
-    if ind.happiness then
-        local cell = u == "pet" and HAPPINESS_CELLS[petHappiness()]
-        if cell then
-            ind.happiness:SetTexCoord(cell[1], cell[2], 0, 0.359375)
-            ind.happiness:Show()
-        else
-            ind.happiness:Hide()
-        end
     end
     if ind.resting then
         ind.resting:SetShown(plain(IsResting) == true)
@@ -942,6 +961,7 @@ local function build(unit)
     b.unit, b.layout = unit, L
     local hasPower = L.power and not L.nameOnly   -- nameOnly: just the name over a health bar
     b.channels = { name = true, color = true, health = true, power = hasPower or nil,
+                   happiness = (L.indicators and L.indicators.happiness) or nil,
                    indicators = L.indicators and true or nil,
                    heal = L.healPrediction or nil,
                    portrait = L.portrait and true or nil, cast = L.cast or nil }
@@ -1051,6 +1071,7 @@ local function build(unit)
 
     placeLevel(b)
     placeHappiness(b)   -- after the portrait tile exists
+    placeMark(b)        -- a right-hand mark may step past the happiness icon
     RegisterUnitWatch(b)
     Engine.Register(b, { ticker = L.ticker })
     Frames.byUnit[unit] = b

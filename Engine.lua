@@ -32,13 +32,15 @@ Engine.CHANNEL_EVENTS = {
     -- Raid target / leader / loot / PvP icons. Most of their triggers are
     -- group-wide events, handled by the world frame below; only the PvP flag
     -- is per unit.
-    indicators = { "UNIT_FACTION", "UNIT_HAPPINESS" },   -- UNIT_HAPPINESS: the hunter pet's mood
+    indicators = { "UNIT_FACTION" },
+    -- The hunter pet's mood, only on the pet frame (like heal on predicting frames).
+    happiness = { "UNIT_HAPPINESS" },
     cast     = { "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
                  "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
                  "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
                  "UNIT_SPELLCAST_CHANNEL_STOP" },
 }
-Engine.ORDER = { "name", "color", "health", "heal", "power", "portrait", "indicators", "cast" }
+Engine.ORDER = { "name", "color", "health", "heal", "power", "portrait", "indicators", "happiness", "cast" }
 
 local painters = {}
 local framesByUnit = {}      -- unit -> { frame, ... }
@@ -228,6 +230,10 @@ world:SetScript("OnEvent", function(_, event, unit)
         Engine.RepaintChannel("name")
     elseif event == "RAID_TARGET_UPDATE" or event == "PARTY_LEADER_CHANGED" or event == "PARTY_LOOT_METHOD_CHANGED" then
         Engine.RepaintChannel("indicators")
+    elseif event == "PET_UI_UPDATE" then
+        -- Blizzard's PetFrame refreshes happiness here: after a login, call or
+        -- revive, HasPetUI() may only report a hunter pet by now.
+        Engine.RepaintChannel("happiness")
     elseif event == "PLAYER_UPDATE_RESTING" then
         -- Only frames with a rest icon (the player's) depend on it.
         Engine.RepaintChannel("indicators", function(f) return f.indicators and f.indicators.resting end)
@@ -237,7 +243,8 @@ world:SetScript("OnEvent", function(_, event, unit)
 end)
 API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_PET",
                             "GROUP_ROSTER_UPDATE", "PLAYER_FLAGS_CHANGED", "RAID_TARGET_UPDATE",
-                            "PARTY_LEADER_CHANGED", "PARTY_LOOT_METHOD_CHANGED", "PLAYER_UPDATE_RESTING" })
+                            "PARTY_LEADER_CHANGED", "PARTY_LOOT_METHOD_CHANGED", "PLAYER_UPDATE_RESTING",
+                            "PET_UI_UPDATE" })
 
 -- UNIT_TARGET: registered per base unit so the client filters it (it fires for
 -- every nameplate/party/raid unit otherwise). The unit whose target changed
