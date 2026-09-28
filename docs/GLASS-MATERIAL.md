@@ -102,21 +102,29 @@ On a host frame, bottom to top:
 | *content* | frame level host+2 | caller's bars, models, etc. | inset by `Glass.Inset(size)` (6 / 3px) |
 | Dark rim | OVERLAY 4 | `g.top` (level host+10) | 9-sliced |
 | Sheen | OVERLAY 5 | `g.top`, own mask | optional |
-| Rim | OVERLAY 6 | `g.top` | 9-sliced |
+| Rim | OVERLAY 6 | `g.top` | 9-sliced, at `STYLE.rimAlpha` (0.7, picked in game; `Glass.SetRimAlpha(a)` retunes every surface) |
 | Text | OVERLAY 7 | `g.top` | `Glass.Font` |
 
-A glass bar (`Glass.Bar`) has four parts:
-- a black 0.35 background;
-- a masked `bar_fill`;
-- `gloss` (ADD, 0.45);
-- an inner shadow (bottom 45%, black 0.35 → 0; a `SetHeight` hook keeps it at 45% when the bar is
-  resized) and `bar_edge`.
+A glass bar (`Glass.Bar`), bottom to top:
 
-All of them are masked by `bar_mask`. The gloss, inner shadow and edge live on **`bar.overlay`**, a
-child frame three levels above the bar (`Glass.OVERLAY_LEVEL`), with its own mask. Anything drawn
-over the fill at bar level + 1 or + 2 (GlassUnitFrames' health-loss and heal-prediction bars)
-therefore sits *under* the glass layers, like the fill itself. A hook keeps the overlay at +3 when
-the bar's level changes.
+| Part | Where | Notes |
+|---|---|---|
+| Background | bar, BACKGROUND | black 0.15, masked |
+| Frost | bar, BACKGROUND 2 | white vertical gradient, 0 at the bottom → `STYLE.frost` 0.10 at the top |
+| Fill | bar's StatusBar texture | `bar_fill`, masked, at `STYLE.fillAlpha` 0.60 (the texture's own alpha, re-applied after every colour change). Optional left-to-right fade to `STYLE.fillEnd` (1.0 = off, since the mockup's fill is even; `Glass.SetFillEnd`). Text sits on the host's `g.top`, so it stays opaque |
+| Track | clip frame at bar + `Glass.TRACK_LEVEL` (1) | `track_fade` (256x8: alpha 1 over the first 30% of the bar, smoothstep to 0 at 85%) in the bar's own colour at `STYLE.trackTop` 0.75 via `SetVertexColor`. The ramp spans the whole bar, but its **clip frame starts at the fill's moving edge**, so it only shows past the fill: a full bar stays even, and it never doubles up under the translucent fill (`Glass.SetTrackAlpha`) |
+| Caller overlays | bar + 2, + 3 | e.g. GlassUnitFrames' health-loss and heal-prediction bars |
+| Gloss, inner shadow, edge | `bar.overlay`, bar + `Glass.OVERLAY_LEVEL` (4) | `gloss` (ADD, 0.45); inner shadow (bottom 45%, black 0.35 → 0; a `SetHeight` hook keeps it at 45% when the bar is resized); `bar_edge` |
+
+A `SetStatusBarColor` hook re-tints the fill and the track only when the colour actually changes
+(painters recolour on every health and power event), honours a 4th alpha argument, and does no
+arithmetic on the colour beyond that plain alpha, so a secret can't throw there. The tuning
+setters (`SetFillAlpha`, `SetRimAlpha`, `SetTrackAlpha`, `SetFillEnd`) reject NaN.
+
+All of them are masked by `bar_mask` (each child frame with its own mask anchored to the bar). The
+gloss, inner shadow and edge live on **`bar.overlay`**, so anything drawn over the fill at bar
+level + 2 or + 3 sits *under* the glass layers, like the fill itself. A hook keeps the overlay and
+the track's clip at their offsets when the bar's level changes.
 
 `Glass.Mask(host, file, margin, inset, anchor)` takes an optional `anchor`. A mask masks the
 textures of its own frame, so a child frame gets its own mask anchored to the shape it must
@@ -164,7 +172,8 @@ Glass.SetFont("friz")                            -- restyles every Glass.Font st
   Without `disableMasking` the client returns its own circular portrait on black corners.
 - **Portraits must be refreshed on events** (`UNIT_PORTRAIT_UPDATE`, `UNIT_MODEL_CHANGED`,
   `PLAYER_ENTERING_WORLD`), not only set once at login, when they come back blank.
-- **Text over glass** needs a shadow (`SetShadowOffset(1, -1)`, black 0.9). Arial Narrow
+- **Text over glass** needs a shadow (`SetShadowOffset(1.5, -1.5)`, opaque black; 1 unit at black
+  0.9 washed out over pale bars, since 1 UI unit is under a pixel at a 0.64 scale). Arial Narrow
   (`Fonts\ARIALN.TTF`, client-shipped) reads more modern than Friz Quadrata; it's the default.
 - **The sheen at full brightness washes out text.** Keep its alpha ≤ 0.8 with the narrow
   `sheen2`, and trigger it on events (e.g. a new target), never continuously.

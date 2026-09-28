@@ -19,9 +19,9 @@ eq(pred._width, 300 - 2 * GlassUF.Glass.Inset("large"), "prediction spans the fu
 eq(pred._points[1][2], p.health:GetStatusBarTexture(), "anchored to the health fill's edge")
 check(pred._parent._clips == true, "clipped at the health bar's boundary")
 local hl = p.health:GetFrameLevel()
-eq(pred._parent._level, hl + 2, "prediction over the fill (and over the health-loss bar at +1)")
-eq(pred._level, hl + 2, "the bar itself at the clip's level, not +1")
-eq(p.health.overlay._level, hl + 3, "the bar's glass overlay stays above the prediction")
+eq(pred._parent._level, hl + 3, "prediction over the fill (and over the health-loss bar at +2)")
+eq(pred._level, hl + 3, "the bar itself at the clip's level, not +1")
+eq(p.health.overlay._level, hl + 4, "the bar's glass overlay stays above the prediction")
 
 -- Values go straight through, snapped (never eased).
 Enum.StatusBarInterpolation = { Immediate = 0, ExponentialEaseOut = 1 }

@@ -527,10 +527,10 @@ local function castHost(b, body, L)
         bar:SetPoint("TOPLEFT", b.power, "BOTTOMLEFT", 0, -CAST_GAP)
         bar:SetPoint("TOPRIGHT", b.power, "BOTTOMRIGHT", 0, -CAST_GAP)
         bar:SetFrameLevel(Glass.ContentLevel(body))
-        -- Text above the bar's glass overlay (+2); hides with the host.
+        -- Text above the bar's glass overlay (Glass.OVERLAY_LEVEL); hides with the host.
         local txt = CreateFrame("Frame", nil, host)
         txt:SetAllPoints(bar)
-        txt:SetFrameLevel(bar:GetFrameLevel() + 3)
+        txt:SetFrameLevel(bar:GetFrameLevel() + Glass.OVERLAY_LEVEL + 1)
         host:SetScript("OnShow", function() layoutRows(b, true) end)
         host:SetScript("OnHide", function() layoutRows(b, false) end)
         return host, bar, txt, 10
@@ -665,7 +665,8 @@ local function buildIndicators(b, body, g, L, tileGlass)
 end
 
 -- A translucent bar over the health fill, with the FULL health-bar geometry,
--- in a clip frame at health level + `level` (under the glass overlay at +3).
+-- in a clip frame at health level + `level` (over the glass track at +1,
+-- under the glass overlay at +4).
 -- `fromEdge` clips it to the part past the health fill's moving edge. No Lua
 -- geometry from secrets: the client moves the fill edge, the clip follows.
 local function overlayBar(b, color, level, fromEdge)
@@ -694,12 +695,12 @@ end
 -- Incoming heals (#13): the FULL health-bar width, anchored to the health
 -- fill's moving edge and clipped at the bar's boundary, so a heal of X% of
 -- max always reads as X% (a bar squeezed into the remaining gap would
--- understate it). Level +2: above the health-loss bar.
+-- understate it). Level +3: above the health-loss bar.
 local HEAL_COLOR = { 0.35, 0.95, 0.55, 0.45 }
 local function buildHealPrediction(b)
     local calc = API.NewHealCalculator()
     if not calc then return end
-    local pred = overlayBar(b, HEAL_COLOR, 2, false)
+    local pred = overlayBar(b, HEAL_COLOR, 3, false)
     pred:SetSize(b.healthWidth, b.health:GetHeight())
     pred:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
     b.healCalc, b.healPred = calc, pred
@@ -709,7 +710,7 @@ end
 -- edge. A light red, so it still reads next to a hostile (red) health fill.
 local LOSS_COLOR = { 1.00, 0.55, 0.50, 0.90 }
 local function buildHealthLoss(b)
-    local loss = overlayBar(b, LOSS_COLOR, 1, true)
+    local loss = overlayBar(b, LOSS_COLOR, 2, true)
     loss:SetAllPoints(b.health)
     b.lossBar = loss
 end

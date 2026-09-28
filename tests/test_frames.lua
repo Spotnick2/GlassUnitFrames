@@ -61,6 +61,8 @@ do
     eq(pl.health._height, 22, "casting: health shrinks")
     eq(pl.power._height, 10, "casting: power shrinks")
     eq(c.bar._points[1][2], pl.power, "cast row sits under the power bar")
+    check(c.spell:GetParent():GetFrameLevel() > c.bar.overlay:GetFrameLevel(),
+          "cast text above the cast bar's glass overlay")
     check(pl.healPred ~= nil, "player has heal prediction")
     eq(pl.healPred._height, 22, "heal prediction follows the health bar")
     WoW.units.player.casting = nil
@@ -323,6 +325,63 @@ rawset(_G, "RestrictedThing", nil)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 eq(GlassUnitFramesDB.font, "friz", "font saved")
 eq(p.nameText._font[1], "Fonts\\FRIZQT__.TTF", "font applied to existing text")
+-- Translucent bar fill: texture alpha on every glass bar, text untouched.
+eq(p.health:GetStatusBarTexture()._alpha, 0.6, "bar fill at the default opacity (owner-picked)")
+SlashCmdList.GLASSUNITFRAMES("fill 0.5")
+eq(p.health:GetStatusBarTexture()._alpha, 0.5, "fill retuned live")
+eq(p.power:GetStatusBarTexture()._alpha, 0.5, "power bar too")
+eq(GlassUnitFramesDB.fill, 0.5, "fill saved")
+check(p.nameText._alpha == nil or p.nameText._alpha == 1, "text stays opaque")
+p.health:SetStatusBarColor(1, 0, 0)
+eq(p.health:GetStatusBarTexture()._alpha, 0.5, "recolouring keeps the fill opacity")
+local vc = p.health.track._vertex
+eq(p.health.track._file, GlassUF.Glass.MEDIA .. "track_fade", "missing health: the fading ramp")
+check(vc and vc[1] == 1 and vc[2] == 0 and vc[4] == 0.75, "tinted with the bar's own colour")
+-- Rim brightness: every glass surface, live, saved.
+eq(p.glass.rim._alpha, 0.7, "rim softened by default (owner-picked)")
+eq(GlassUnitFramesDB.rim, nil, "the default is not written into the saved settings")
+SlashCmdList.GLASSUNITFRAMES("rim 0.5")
+eq(p.glass.rim._alpha, 0.5, "rim retuned live")
+eq(button("pet").glass.rim._alpha, 0.5, "on every frame")
+eq(GlassUnitFramesDB.rim, 0.5, "rim saved")
+SlashCmdList.GLASSUNITFRAMES("rim 0")
+eq(GlassUnitFramesDB.rim, 0.5, "out-of-range rim rejected")
+SlashCmdList.GLASSUNITFRAMES("track 0.8")
+eq(p.health.track._vertex[4], 0.8, "track retuned live")
+eq(p.health.track._vertex[1], 1, "track keeps the bar colour")
+eq(GlassUnitFramesDB.track, 0.8, "track saved")
+local fg = p.health:GetStatusBarTexture()._gradient
+check(fg and fg[1] == "HORIZONTAL" and fg[2].a == 1 and fg[3].a == 1 and fg[3].r == 1,
+      "fill even by default (fade off), in the bar's colour")
+SlashCmdList.GLASSUNITFRAMES("fade 0.5")
+eq(p.health:GetStatusBarTexture()._gradient[3].a, 0.5, "fade retuned live")
+eq(GlassUnitFramesDB.fade, 0.5, "fade saved")
+-- The track only shows past the fill: its clip starts at the fill's moving
+-- edge, so a full bar stays even and the ramp never sits under the fill.
+local tc = p.health.trackClip
+eq(tc._points[1][2], p.health:GetStatusBarTexture(), "track clip starts at the fill's edge")
+eq(tc._points[1][3], "TOPRIGHT", "at the fill's right edge")
+eq(tc._points[2][2], p.health, "and ends with the bar")
+check(tc._clips == true, "the track is clipped")
+eq(p.health.track:GetParent(), tc, "the track lives in the clip")
+-- NaN fails every comparison: it must not slip through a range check.
+SlashCmdList.GLASSUNITFRAMES("fill nan")
+eq(GlassUnitFramesDB.fill, 0.5, "NaN fill rejected")
+check(not GlassUF.Glass.SetTrackAlpha(0 / 0), "NaN track rejected")
+-- A client visual reset of the fill's alpha is undone on the next recolour.
+local fillTex = p.health:GetStatusBarTexture()
+fillTex:SetAlpha(1)
+p.health:SetStatusBarColor(0, 1, 0)
+eq(fillTex._alpha, 0.5, "fill opacity re-applied after a reset")
+-- A caller's alpha is honoured by the fill gradient.
+p.health:SetStatusBarColor(0, 1, 0, 0.5)
+eq(fillTex._gradient[2].a, 0.5, "SetStatusBarColor's alpha kept")
+-- The same colour again does no work (painters recolour on every event).
+fillTex._gradient = nil
+p.health:SetStatusBarColor(0, 1, 0, 0.5)
+eq(fillTex._gradient, nil, "unchanged colour: no re-tint")
+SlashCmdList.GLASSUNITFRAMES("fill 3")
+eq(GlassUnitFramesDB.fill, 0.5, "out-of-range fill rejected")
 SlashCmdList.GLASSUNITFRAMES("font comic")
 eq(GlassUnitFramesDB.font, "friz", "unknown font rejected")
 

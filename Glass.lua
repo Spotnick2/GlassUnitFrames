@@ -36,6 +36,11 @@ Glass.STYLE = {
     wash = 0.18,                         -- top-down white gradient inside the body
     gloss = 0.45,                        -- ADD highlight on bars
     innerShadow = 0.35,                  -- bottom shade on bars
+    rimAlpha = 0.7,                      -- outer rim, softened (owner-picked; 1.0 read as bulky)
+    fillAlpha = 0.60,                    -- bar fill opacity: the scene shows through, text stays opaque
+    fillEnd = 1.0,                       -- optional left-to-right fade of the fill (1 = none, as the mockup)
+    trackTop = 0.75,                     -- the missing part: the bar's colour fading to clear across the bar
+    frost = 0.10,                        -- plus a white frost, 0 at the bottom to this at the top
     sheenAlpha = 0.8,
 }
 
@@ -69,6 +74,8 @@ end
 
 -- Apply the material to `host`. Returns a table of the regions it made:
 -- g.top is the frame to parent text and anything that must sit above the rim.
+local rims = {}
+
 function Glass.Apply(host, size)
     local S = Glass.SIZES[size or "large"]
     local st = Glass.STYLE
@@ -120,6 +127,8 @@ function Glass.Apply(host, size)
     rim:SetTexture(Glass.MEDIA .. S.rim)
     rim:SetAllPoints(top)
     slice(rim, S.rimMargin)
+    rim:SetAlpha(st.rimAlpha)
+    table.insert(rims, rim)
     g.rim = rim
 
     return g
@@ -138,10 +147,50 @@ end
 -- A glass StatusBar: masked rounded fill, ADD gloss, inner shadow, thin edge.
 -- Colour it with bar:SetStatusBarColor(r, g, b). Values may be secret:
 -- SetMinMaxValues/SetValue take them without Lua touching them.
--- The gloss, shade and edge live on bar.overlay (frame level bar + 3), so
--- anything added over the fill at level bar + 1 or + 2 (health loss, heal
--- prediction) sits UNDER the glass layers, like the fill itself.
-Glass.OVERLAY_LEVEL = 3
+-- Levels above the bar: the track's clip frame at +1 (Glass.TRACK_LEVEL);
+-- callers' overlays over the fill at +2 and +3 (GlassUnitFrames: health loss,
+-- heal prediction); the gloss, shade and edge on bar.overlay at +4, so all of
+-- them sit UNDER the glass layers, like the fill itself.
+Glass.TRACK_LEVEL = 1
+Glass.OVERLAY_LEVEL = 4
+local bars = {}
+
+-- Range check that also rejects NaN (it fails every comparison).
+local function inRange(a, lo, hi)
+    return type(a) == "number" and a >= lo and a <= hi
+end
+
+-- Re-applied after every colour change: the fill (optionally) fades from its
+-- colour to STYLE.fillEnd at its moving edge (the gradient spans the fill
+-- quad) and keeps STYLE.fillAlpha; the track takes the bar's colour at
+-- STYLE.trackTop over its horizontal ramp. No arithmetic on the colour
+-- beyond the caller's own (plain) alpha.
+local function tintTrack(bar)
+    local c, st = bar.trackColor, Glass.STYLE
+    if not c then return end
+    local fill = bar:GetStatusBarTexture()
+    fill:SetAlpha(st.fillAlpha)   -- a client visual reset (SetTimerDuration) must not leave it opaque
+    pcall(fill.SetGradient, fill, "HORIZONTAL",
+        CreateColor(c[1], c[2], c[3], c[4]), CreateColor(c[1], c[2], c[3], c[4] * st.fillEnd))
+    pcall(bar.track.SetVertexColor, bar.track, c[1], c[2], c[3], st.trackTop)
+end
+
+-- Live-tune how far the fill fades towards its edge (1 = no fade).
+function Glass.SetFillEnd(a)
+    if not inRange(a, 0, 1) then return false end
+    Glass.STYLE.fillEnd = a
+    for _, bar in ipairs(bars) do tintTrack(bar) end
+    return true
+end
+
+-- Live-tune how strongly the missing part shows the bar's colour (top alpha).
+function Glass.SetTrackAlpha(a)
+    if not inRange(a, 0, 1) then return false end
+    Glass.STYLE.trackTop = a
+    for _, bar in ipairs(bars) do tintTrack(bar) end
+    return true
+end
+
 function Glass.Bar(parent, height)
     local st = Glass.STYLE
     local bar = CreateFrame("StatusBar", nil, parent)
@@ -154,11 +203,50 @@ function Glass.Bar(parent, height)
 
     local bg = bar:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(bar)
-    bg:SetColorTexture(0, 0, 0, 0.35)
+    bg:SetColorTexture(0, 0, 0, 0.15)
     bg:AddMaskTexture(mask)
+
+    local frost = bar:CreateTexture(nil, "BACKGROUND", nil, 2)
+    frost:SetAllPoints(bar)
+    frost:SetColorTexture(1, 1, 1, 1)
+    frost:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, st.frost))
+    frost:AddMaskTexture(mask)
 
     bar:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
     bar:GetStatusBarTexture():AddMaskTexture(mask)
+    -- Translucent fill: the texture's own alpha, so SetStatusBarColor (which
+    -- sets vertex colour) never resets it. Text lives on the host's g.top,
+    -- not on the bar, so it stays fully opaque.
+    bar:GetStatusBarTexture():SetAlpha(st.fillAlpha)
+    table.insert(bars, bar)
+
+    -- (After the fill exists: the clip anchors to its moving edge.)
+    -- The missing health/power, as in the mockup: the bar's own colour, full
+    -- over the first 30% of the bar, easing to clear glass by 85%. The ramp
+    -- spans the whole bar but lives in a clip frame that starts at the fill's
+    -- moving edge, so it only shows past the fill: a full bar stays even, and
+    -- the ramp never doubles up under the translucent fill.
+    local trackClip = CreateFrame("Frame", nil, bar)
+    trackClip:SetPoint("TOPLEFT", bar:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+    trackClip:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+    trackClip:SetClipsChildren(true)
+    trackClip:SetFrameLevel(bar:GetFrameLevel() + Glass.TRACK_LEVEL)
+    local track = trackClip:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints(bar)
+    track:SetTexture(Glass.MEDIA .. "track_fade")
+    track:SetVertexColor(1, 1, 1, 0)
+    track:AddMaskTexture(Glass.Mask(trackClip, "bar_mask", 8, 0, bar))
+    bar.track, bar.trackClip = track, trackClip
+    -- Only re-tint on an actual change: painters recolour on every health and
+    -- power event. A 4th (alpha) argument is honoured.
+    hooksecurefunc(bar, "SetStatusBarColor", function(self, r, g, b, a)
+        a = a or 1
+        local c = self.trackColor
+        if c and c[1] == r and c[2] == g and c[3] == b and c[4] == a then return end
+        self.trackColor = { r, g, b, a }
+        tintTrack(self)
+    end)
+
 
     local over = CreateFrame("Frame", nil, bar)
     over:SetAllPoints(bar)
@@ -191,8 +279,11 @@ function Glass.Bar(parent, height)
     edge:SetTexture(Glass.MEDIA .. "bar_edge")
     slice(edge, 8)
 
-    -- Keep the overlay two levels above the bar when the caller moves the bar.
-    hooksecurefunc(bar, "SetFrameLevel", function(self, level) over:SetFrameLevel(level + Glass.OVERLAY_LEVEL) end)
+    -- Keep the overlay and the track's clip at their offsets when the caller moves the bar.
+    hooksecurefunc(bar, "SetFrameLevel", function(self, level)
+        over:SetFrameLevel(level + Glass.OVERLAY_LEVEL)
+        trackClip:SetFrameLevel(level + Glass.TRACK_LEVEL)
+    end)
     return bar
 end
 
@@ -255,12 +346,30 @@ function Glass.Font(parent, size, justify)
     local fs = parent:CreateFontString(nil, "OVERLAY", nil, 7)
     local f = Glass.FONTS[Glass.fontKey] or Glass.FONTS.arial
     fs:SetFont(f.file, size + f.bump, "")
-    fs:SetShadowColor(0, 0, 0, 0.9)
-    fs:SetShadowOffset(1, -1)
+    -- Opaque, slightly longer shadow: at a 0.64 UI scale a 1-unit offset is
+    -- under a pixel, and pale bars (a friendly target's green) washed it out.
+    fs:SetShadowColor(0, 0, 0, 1)
+    fs:SetShadowOffset(1.5, -1.5)
     fs:SetJustifyH(justify or "LEFT")
     fs:SetWordWrap(false)
     table.insert(fontStrings, { fs = fs, size = size })
     return fs
+end
+
+-- Live-tune the bright rim's opacity on every glass surface built so far.
+function Glass.SetRimAlpha(a)
+    if not inRange(a, 0.2, 1) then return false end
+    Glass.STYLE.rimAlpha = a
+    for _, rim in ipairs(rims) do rim:SetAlpha(a) end
+    return true
+end
+
+-- Live-tune the bar fill opacity on every glass bar built so far.
+function Glass.SetFillAlpha(a)
+    if not inRange(a, 0.2, 1) then return false end
+    Glass.STYLE.fillAlpha = a
+    for _, bar in ipairs(bars) do bar:GetStatusBarTexture():SetAlpha(a) end
+    return true
 end
 
 function Glass.SetFont(key)

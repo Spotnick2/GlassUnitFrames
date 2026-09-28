@@ -6,6 +6,15 @@ GlassUF = GlassUF or {}
 local API, Glass, Frames, Blizzard = GlassUF.API, GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 local say = API.Print
 
+-- Live material tweaks: /glass <key> <value>, saved only once set (so a new
+-- default in Glass.STYLE still reaches everyone who never touched it).
+local TWEAKS = {
+    { key = "fill",  set = Glass.SetFillAlpha,  style = "fillAlpha", range = "0.2-1", help = "bar fill opacity; text stays opaque" },
+    { key = "rim",   set = Glass.SetRimAlpha,   style = "rimAlpha",  range = "0.2-1", help = "brightness of the glass outline" },
+    { key = "track", set = Glass.SetTrackAlpha, style = "trackTop",  range = "0-1",   help = "how strongly a bar's empty part shows its colour" },
+    { key = "fade",  set = Glass.SetFillEnd,    style = "fillEnd",   range = "0-1",   help = "how far a bar's fill fades towards its edge, 1 = none" },
+}
+
 local DEFAULTS = { font = "arial", hideBlizzard = true }
 
 -- Read settings, fill missing keys. Nothing may REQUIRE a value to have
@@ -18,6 +27,9 @@ local function ensureDefaults()
     end
     if type(db.pos) ~= "table" then db.pos = {} end
     if not Glass.FONTS[db.font] then db.font = DEFAULTS.font end
+    for _, t in ipairs(TWEAKS) do
+        if db[t.key] ~= nil and not t.set(db[t.key]) then db[t.key] = nil end
+    end
     return db
 end
 
@@ -171,6 +183,9 @@ local HELP = {
     "Shift-drag a frame to move it (out of combat).",
 }
 
+local tweakByKey = {}
+for _, t in ipairs(TWEAKS) do tweakByKey[t.key] = t end
+
 local function slash(msg)
     local cmd, arg = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
     local rawArg = arg
@@ -181,6 +196,15 @@ local function slash(msg)
             say("font " .. arg)
         else
             say("font arial|friz")
+        end
+    elseif tweakByKey[cmd] then
+        local t = tweakByKey[cmd]
+        local a = tonumber(arg)
+        if t.set(a) then
+            GlassUnitFramesDB[t.key] = a
+            say(t.key .. " " .. arg)
+        else
+            say(string.format("%s %s (now %s)", t.key, t.range, tostring(Glass.STYLE[t.style])))
         end
     elseif cmd == "reset" then
         whenOutOfCombat("reset", function() Frames.ResetPositions(); say("positions reset") end)
@@ -205,6 +229,7 @@ local function slash(msg)
         frameReport(rawArg, "frame")
     else
         for _, line in ipairs(HELP) do say("/glass " .. line) end
+        for _, t in ipairs(TWEAKS) do say(string.format("/glass %s %s  - %s (saved)", t.key, t.range, t.help)) end
     end
 end
 
