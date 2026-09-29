@@ -32,7 +32,7 @@ happiness placement, per-frame health text, combo points and the druid mana stri
 totems were removed in #58: `TotemFrame` is a managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
-  druid mana strip (bear/cat), and #58 (no Edit Mode exit errors with Blizzard's frames hidden).
+  druid mana strip (bear/cat).
 - **Parked:** #35, healer/DPS layouts by spec. It waits for GlassRaidFrames; the two addons
   will need one role source and a way to talk (sketch on #35: a shared embedded role helper, and
   Retail's `EventRegistry`).
