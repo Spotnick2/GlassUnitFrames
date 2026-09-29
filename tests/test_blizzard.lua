@@ -8,9 +8,16 @@ local B = GlassUF.Blizzard
 local hidden = B.hiddenParent
 
 -- Every unit GlassUF draws loses its Blizzard frame; the rest are untouched.
+-- PetFrame and the ToT frames stay under their (hidden) Blizzard parents
+-- (#58): Blizzard's code calls into that parent.
+local keep = { PetFrame = PlayerFrame, TargetFrameToT = TargetFrame, FocusFrameToT = FocusFrame }
 for _, name in ipairs({ "PlayerFrame", "PetFrame", "TargetFrame", "TargetFrameToT", "FocusFrame", "FocusFrameToT" }) do
     local f = _G[name]
-    check(f._parent == hidden, name .. " reparented to the hidden parent")
+    if keep[name] then
+        check(f._parent == keep[name], name .. " stays under its Blizzard parent")
+    else
+        check(f._parent == hidden, name .. " reparented to the hidden parent")
+    end
     check(not f._shown, name .. " hidden")
     check(f._silenced, name .. " events unregistered")
     check(f._unwatched and not WoW.unitWatch[f], name .. " unit watch removed")
@@ -60,8 +67,43 @@ check(not B._test.pending[TargetFrame], "nothing left pending")
 
 -- Our own SetParent to the hidden parent does not re-trigger the hook.
 WoW.timers = {}
-PetFrame:SetParent(hidden)
+PlayerFrame:SetParent(hidden)
 eq(#WoW.timers, 0, "no timer queued for a reparent to the hidden parent")
+
+-- Edit Mode putting PetFrame back in PlayerFrame's managed container (every
+-- show, ManagedFrameSystem UpdateFrame) is left alone: no hook fights it.
+PetFrame:SetParent(UIParent)
+PetFrame:SetParent(PlayerFrame)
+eq(#WoW.timers, 0, "no timer queued for PetFrame")
+WoW.flushTimers()
+check(PetFrame._parent == PlayerFrame, "PetFrame stays where Blizzard put it")
+check(not B._test.pending[PetFrame] and not B._test.pending[TargetFrameToT], "no reparent pending for kept frames")
+
+-- A PetFrame moved in Edit Mode lives under UIParent (BreakFromFrameManager),
+-- and Edit Mode's exit shows it while a pet is out: hidden again on the next
+-- tick, never inside Blizzard's Show, and not while Edit Mode is open.
+WoW.timers, WoW.blocked = {}, {}
+WoW.SetEditMode(true)
+PetFrame:SetParent(UIParent)
+PetFrame:Show()
+check(PetFrame._shown, "not hidden inside Blizzard's Show")
+WoW.flushTimers()
+check(PetFrame._shown, "not hidden while Edit Mode is open")
+WoW.SetEditMode(false)
+WoW.flushTimers()
+check(not PetFrame._shown, "hidden again once Edit Mode closes")
+check(PetFrame._parent == UIParent, "still not reparented")
+PetFrame:SetParent(PlayerFrame)
+
+-- Any managed frame keeps its parent, found by isManagedFrame, not by name:
+-- Blizzard's cast bar (BottomManagedFrameTemplate) is hidden in place.
+check(B.HideFrame("PlayerCastingBarFrame"), "cast bar hidden")
+check(PlayerCastingBarFrame._parent == UIParent, "managed cast bar not reparented")
+PlayerCastingBarFrame:Show()
+check(PlayerCastingBarFrame._shown, "Edit Mode closed: still not hidden inside Blizzard's Show")
+WoW.flushTimers()
+check(not PlayerCastingBarFrame._shown, "a re-shown cast bar is hidden again")
+eq(#WoW.blocked, 0, "nothing blocked")
 
 -- Missing Blizzard globals are skipped, not errors.
 check(B.HideFrame("NoSuchBlizzardFrame") == false, "absent frame skipped")

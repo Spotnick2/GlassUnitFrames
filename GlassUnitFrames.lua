@@ -144,9 +144,9 @@ local function secretsReport()
 end
 
 --------------------------------------------------------------------------------
--- /glass totem: where Blizzard's TotemFrame lives on this client (#18). Works
--- on any class; the answer decides how a shaman's totem bar survives hiding
--- PlayerFrame.
+-- /glass totem: where Blizzard's TotemFrame lives on this client (#18). A
+-- diagnostic only: hosting TotemFrame was removed in #58 (it's a managed
+-- frame; moving it out of its container breaks Blizzard's layout code).
 --------------------------------------------------------------------------------
 
 -- Every client call guarded the same way: a report that throws prints nothing.
@@ -214,7 +214,7 @@ local HELP = {
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
-    "totem  - where Blizzard's totem bar lives (measurement for shaman support)",
+    "totem  - where Blizzard's totem bar lives (diagnostic)",
     "frame <Name>  - where any Blizzard frame lives, e.g. /glass frame PetActionBar",
 }
 
@@ -438,13 +438,6 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             -- Our combo pips replace Blizzard's (only built for rogues and druids).
             local t = Frames.byUnit.target
             if db.hideBlizzard and t and t.combo then Blizzard.HideFrame("ComboFrame") end
-            -- Totem timers survive the hidden PlayerFrame, hosted under ours. Guarded:
-            -- a failure here must not abort the rest of the build or the queue.
-            local pl = Frames.byUnit.player
-            if db.hideBlizzard and pl then
-                local ok, err = pcall(Blizzard.HostTotems, pl.body)
-                if not ok then API.Fail("totems", err) end
-            end
         end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- arg1 = isInitialLogin: warn at a real login, never on /reload.

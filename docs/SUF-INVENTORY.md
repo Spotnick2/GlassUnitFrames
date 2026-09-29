@@ -68,8 +68,9 @@ flash; positioning (now unlock mode, see below).
 an in-game check); an options panel (#39); unlock mode with movers, group moves via anchors,
 nudging, grid snap, alignment guides and player/target mirroring (#34); per-frame health text and
 target level placement (#46); raid mark placement (#30); the hidden-power fade (#27); neutral NPCs
-red in a fight (#28); pet happiness; the red health-loss segment; shaman totems hosted from
-Blizzard's TotemFrame (#18, awaiting an in-game check).
+red in a fight (#28); pet happiness; the red health-loss segment. Shaman totems hosted from
+Blizzard's TotemFrame (#18) were removed again (#58): TotemFrame is an Edit Mode managed frame, and
+moving it out of its container broke Blizzard's layout code.
 
 **Out of scope here: party and raid frames** (decided 2026-09-27). They became a separate
 addon, **GlassRaidFrames** (`..\GlassRaidFrames`, 2026-09-28), a glass-styled, streamlined take
@@ -82,8 +83,7 @@ aura indicators, dispel-coloured health or borders, combat fader on health/power
 display, **drawing** totem timers ourselves, and the health gradient without a colour curve.
 
 **Turned out feasible after all** (measured): hiding the power bar at 0 / 0-of-max through a
-client colour curve and `SetAlpha` (#27, #42); totem timers by **hosting Blizzard's own
-TotemFrame** (#18); health red on aggro for a neutral NPC through a plain
+client colour curve and `SetAlpha` (#27, #42); health red on aggro for a neutral NPC through a plain
 `UnitThreatSituation("player", "target")` (#28).
 
 ---

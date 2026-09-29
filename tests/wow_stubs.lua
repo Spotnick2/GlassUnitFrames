@@ -403,15 +403,21 @@ end
 -- Blizzard's own unit frames: secure (protected) buttons under UIParent,
 -- watched by the client. EditModeManagerFrame stays absent unless a test
 -- opens Edit Mode with WoW.SetEditMode.
--- name -> unit the client watches it for (ComboFrame is not unit-watched).
-local BLIZZARD_FRAMES = { { "PlayerFrame", "player" }, { "PetFrame", "pet" }, { "TargetFrame", "target" },
-                          { "ComboFrame" }, { "TargetFrameToT", "targettarget" },
-                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget" },
+-- name -> unit the client watches it for (ComboFrame is not unit-watched),
+-- then the Blizzard parent when it isn't UIParent (the forever branch of
+-- wow-ui-source: PetFrame sits in PlayerFrame's managed container).
+local BLIZZARD_FRAMES = { { "PlayerFrame", "player" }, { "PetFrame", "pet", "PlayerFrame" },
+                          { "TargetFrame", "target" }, { "ComboFrame" },
+                          { "TargetFrameToT", "targettarget", "TargetFrame" },
+                          { "FocusFrame", "focus" }, { "FocusFrameToT", "focustarget", "FocusFrame" },
                           { "PlayerCastingBarFrame" } }
 function WoW.CreateBlizzardFrames()
     for _, spec in ipairs(BLIZZARD_FRAMES) do
-        local f = CreateFrame("Button", spec[1], UIParent, "SecureUnitButtonTemplate")
+        local parent = spec[3] and _G[spec[3]] or UIParent
+        local f = CreateFrame("Button", spec[1], parent, "SecureUnitButtonTemplate")
         f._blizzard = true
+        -- ManagedFrameTemplate's key (PlayerBottomManagedFrameTemplate / BottomManagedFrameTemplate).
+        if spec[1] == "PetFrame" or spec[1] == "PlayerCastingBarFrame" then f.isManagedFrame = true end
         f.healthbar = CreateFrame("StatusBar", nil, f)
         f.manabar = CreateFrame("StatusBar", nil, f)
         if spec[2] then
