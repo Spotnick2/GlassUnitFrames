@@ -144,9 +144,9 @@ local function secretsReport()
 end
 
 --------------------------------------------------------------------------------
--- /glass totem: where Blizzard's TotemFrame lives on this client (#18). Works
--- on any class; the answer decides how a shaman's totem bar survives hiding
--- PlayerFrame.
+-- /glass totem: where Blizzard's TotemFrame lives on this client (#18). A
+-- diagnostic only: hosting TotemFrame was removed in #58 (it's a managed
+-- frame; moving it out of its container breaks Blizzard's layout code).
 --------------------------------------------------------------------------------
 
 -- Every client call guarded the same way: a report that throws prints nothing.
@@ -214,7 +214,7 @@ local HELP = {
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
-    "totem  - where Blizzard's totem bar lives (measurement for shaman support)",
+    "totem  - where Blizzard's totem bar lives (diagnostic)",
     "frame <Name>  - where any Blizzard frame lives, e.g. /glass frame PetActionBar",
 }
 

@@ -416,6 +416,8 @@ function WoW.CreateBlizzardFrames()
         local parent = spec[3] and _G[spec[3]] or UIParent
         local f = CreateFrame("Button", spec[1], parent, "SecureUnitButtonTemplate")
         f._blizzard = true
+        -- ManagedFrameTemplate's key (PlayerBottomManagedFrameTemplate / BottomManagedFrameTemplate).
+        if spec[1] == "PetFrame" or spec[1] == "PlayerCastingBarFrame" then f.isManagedFrame = true end
         f.healthbar = CreateFrame("StatusBar", nil, f)
         f.manabar = CreateFrame("StatusBar", nil, f)
         if spec[2] then

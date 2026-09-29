@@ -31,14 +31,17 @@ Blizzard.FRAMES = {
 }
 Blizzard.active = false   -- true once anything was hidden this session
 
--- Frames that stay under their Blizzard parent (#58), which we hide anyway:
--- reparenting them breaks Blizzard code that expects that parent.
--- PetFrame is a managed frame: every show puts it back in PlayerFrame's
--- container (ManagedFrameSystem UpdateFrame), inside Edit Mode's secure pass,
--- so a reparent hook fights Blizzard there. The ToT frames call
--- GetParent():ConfigureAuraContainer() on show and hide. Caveat: a PetFrame
--- moved in Edit Mode lives under UIParent, so keep it at its default position.
-Blizzard.KEEP_PARENT = { PetFrame = true, TargetFrameToT = true, FocusFrameToT = true }
+-- Frames that stay under their Blizzard parent (#58): reparenting them breaks
+-- Blizzard code that expects that parent. Every managed frame (isManagedFrame,
+-- set by ManagedFrameTemplate: PetFrame, PlayerCastingBarFrame, ...): each show
+-- puts it back in its container (ManagedFrameSystem UpdateFrame), inside Edit
+-- Mode's secure pass, so a reparent hook fights Blizzard there. Plus the ToT
+-- frames, which call GetParent():ConfigureAuraContainer() on show and hide.
+Blizzard.KEEP_PARENT = { TargetFrameToT = true, FocusFrameToT = true }
+
+local function keepsParent(frame, name)
+    return frame.isManagedFrame == true or Blizzard.KEEP_PARENT[name] == true
+end
 
 local hiddenParent = CreateFrame("Frame", nil, UIParent)
 hiddenParent:Hide()
@@ -90,7 +93,20 @@ function Blizzard.HideFrame(name)
     silence(frame.healthbar or frame.healthBar)
     silence(frame.manabar or frame.manaBar)
     silence(frame.spellbar)
-    if Blizzard.KEEP_PARENT[name] then return true end
+    if keepsParent(frame, name) then
+        -- Hidden by its hidden parent, except where Blizzard moves it out: a
+        -- PetFrame moved in Edit Mode lives under UIParent, and Edit Mode's
+        -- exit shows it while a pet is out. Hide it again, deferred (never
+        -- inside Blizzard's Show) and when safe.
+        frame:HookScript("OnShow", function(self)
+            C_Timer.After(0, function()
+                whenSafe("blizzard:" .. tostring(self:GetName()), self, function()
+                    if self:IsShown() then self:Hide() end
+                end)
+            end)
+        end)
+        return true
+    end
     frame:SetParent(hiddenParent)
     -- Edit Mode (or anything else) reparenting it: undo that on a timer, never
     -- synchronously inside the caller's SetParent.

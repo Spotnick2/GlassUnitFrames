@@ -163,14 +163,16 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     `ComboFrame` is hidden only once our combo pips exist (rogues and druids). Party is never touched, since the owner uses
     Cell.
   - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.
-  - **`KEEP_PARENT`** (#58): PetFrame, TargetFrameToT and FocusFrameToT are never reparented or
-    hooked. They stay under their Blizzard parents, which we hide anyway. PetFrame is a
-    **managed frame**: every show puts it back in `PlayerBottomManagedFrameContainer`
-    (`ManagedFrameSystem` `UpdateFrame`) inside Edit Mode's secure pass, and a hook fighting that
-    threw "attempt to call a nil value" on Edit Mode exit. The ToT frames call
-    `GetParent():ConfigureAuraContainer()`. **Never reparent a managed frame, or a frame whose code
-    calls into its parent** (GlassPanel #39 is the same trap). Blizzard's PetFrame must stay at its
-    default Edit Mode position: a moved one lives under UIParent and Edit Mode's exit shows it.
+  - **Kept parents** (#58): every **managed frame** (`isManagedFrame`, set by
+    `ManagedFrameTemplate`: PetFrame, PlayerCastingBarFrame) and the `KEEP_PARENT` names
+    (TargetFrameToT, FocusFrameToT) are never reparented or `SetParent`-hooked. A managed frame is
+    put back in its container on every show (`ManagedFrameSystem` `UpdateFrame`) inside Edit
+    Mode's secure pass, and a hook fighting that threw "attempt to call a nil value" on Edit Mode
+    exit. The ToT frames call `GetParent():ConfigureAuraContainer()`. **Never reparent a managed
+    frame, or a frame whose code calls into its parent** (GlassPanel #39 is the same trap). They
+    stay hidden by their hidden parent. Where Blizzard moves one out (a PetFrame moved in Edit Mode
+    lives under UIParent, and Edit Mode's exit shows it), an `OnShow` hook hides it again,
+    deferred and through `whenSafe`.
   - A `SetParent` post-hook undoes Edit Mode's reparenting **on a timer, never
     synchronously**: doing it inside the caller taints secret reads for the session
     (EllesmereUI's finding). It waits while Edit Mode is open, and a protected frame waits for

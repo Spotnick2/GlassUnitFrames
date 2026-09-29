@@ -79,6 +79,32 @@ WoW.flushTimers()
 check(PetFrame._parent == PlayerFrame, "PetFrame stays where Blizzard put it")
 check(not B._test.pending[PetFrame] and not B._test.pending[TargetFrameToT], "no reparent pending for kept frames")
 
+-- A PetFrame moved in Edit Mode lives under UIParent (BreakFromFrameManager),
+-- and Edit Mode's exit shows it while a pet is out: hidden again on the next
+-- tick, never inside Blizzard's Show, and not while Edit Mode is open.
+WoW.timers, WoW.blocked = {}, {}
+WoW.SetEditMode(true)
+PetFrame:SetParent(UIParent)
+PetFrame:Show()
+check(PetFrame._shown, "not hidden inside Blizzard's Show")
+WoW.flushTimers()
+check(PetFrame._shown, "not hidden while Edit Mode is open")
+WoW.SetEditMode(false)
+WoW.flushTimers()
+check(not PetFrame._shown, "hidden again once Edit Mode closes")
+check(PetFrame._parent == UIParent, "still not reparented")
+PetFrame:SetParent(PlayerFrame)
+
+-- Any managed frame keeps its parent, found by isManagedFrame, not by name:
+-- Blizzard's cast bar (BottomManagedFrameTemplate) is hidden in place.
+check(B.HideFrame("PlayerCastingBarFrame"), "cast bar hidden")
+check(PlayerCastingBarFrame._parent == UIParent, "managed cast bar not reparented")
+PlayerCastingBarFrame:Show()
+check(PlayerCastingBarFrame._shown, "Edit Mode closed: still not hidden inside Blizzard's Show")
+WoW.flushTimers()
+check(not PlayerCastingBarFrame._shown, "a re-shown cast bar is hidden again")
+eq(#WoW.blocked, 0, "nothing blocked")
+
 -- Missing Blizzard globals are skipped, not errors.
 check(B.HideFrame("NoSuchBlizzardFrame") == false, "absent frame skipped")
 
