@@ -15,7 +15,7 @@
 --   so test_methods.lua can check each against the dump's widget methods.
 
 WoW = {}
-local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/References/forever-api-1.60.1.70009.md"
+local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/References/forever-api-1.60.1.70205.md"
 
 --------------------------------------------------------------------------------
 -- Secrets
@@ -78,6 +78,7 @@ function WoW.reset()
     WoW.frames = {}
     WoW.blocked = {}
     WoW.chat = {}
+    WoW.addonVersion = "dev"
     WoW.timers = {}
     WoW.unitWatch = {}
     WoW.methodsCalled = {}
@@ -384,7 +385,7 @@ Enum = {
     UITextureSliceMode = { Stretched = 0, Tiled = 1 },
 }
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
-function GetBuildInfo() return "1.60.1", "70009", "Sep 23 2026", 16001 end
+function GetBuildInfo() return "1.60.1", "70205", "Sep 23 2026", 16001 end
 function InCombatLockdown() return WoW.combat end
 function IsShiftKeyDown() return WoW.shift end
 function IsAltKeyDown() return WoW.alt == true end
@@ -590,6 +591,11 @@ function Methods.Stop(ag) ag._stops = (ag._stops or 0) + 1 end
 C_AddOns = {
     IsAddOnLoaded = function(name) return WoW.loadedAddOns[name] == true, WoW.loadedAddOns[name] == true end,
     LoadAddOn = function(name) WoW.loadedAddOns[name] = true; return true end,
+    -- WoW.addonVersion is the TOC's Version field (nil = unreadable).
+    GetAddOnMetadata = function(name, field)
+        if name == "GlassUnitFrames" and field == "Version" then return WoW.addonVersion end
+        return nil
+    end,
 }
 
 -- Raid roster: WoW.raid = { [unit] = { index = n, subgroup = g } } while in a raid.
