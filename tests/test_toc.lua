@@ -18,7 +18,32 @@ end
 
 -- Two places that must agree, never derived from each other (porting guide §0).
 loadAddon()
-eq(GlassUF.MEASURED_ON_BUILD, "1.60.1.70009", "MEASURED_ON_BUILD")
+eq(GlassUF.MEASURED_ON_BUILD, "1.60.1.70205", "MEASURED_ON_BUILD")
+
+-- The packager replaces its version keyword in every shipped file, so a
+-- literal one in Lua would turn into the release tag (AltStable's bug).
+for _, f in ipairs(tocFiles()) do
+    check(not io.open(f):read("*a"):find("@project-version@", 1, true), "no literal version keyword in " .. f)
+end
+
+-- The newer-build warning is for dev copies only; a release stays quiet.
+local function warned(version, build)
+    WoW.reset()
+    WoW.addonVersion = version
+    local real = GetBuildInfo
+    GetBuildInfo = function() return "1.60.1", build, "Sep 23 2026", 16001 end
+    loadAddon()
+    GetBuildInfo = real
+    for _, line in ipairs(WoW.chat) do
+        if line:find("is newer than", 1, true) then return true end
+    end
+    return false
+end
+check(warned("dev", "99999"), "dev copy warns on a newer build")
+check(warned("@" .. "project-version" .. "@", "99999"), "unpackaged checkout warns on a newer build")
+check(warned(nil, "99999"), "unreadable version counts as dev")
+check(not warned("v1.2.0", "99999"), "release does not warn on a newer build")
+check(not warned("dev", "70205"), "no warning on the measured build")
 
 -- Every texture the material names exists in Media/.
 for size, S in pairs(GlassUF.Glass.SIZES) do

@@ -8,7 +8,7 @@ GlassUF.API = API
 
 -- The build the notes in docs/FOREVER-PROBE.md were measured on. Bump only
 -- after re-measuring in game; tests/test_toc.lua pins the same literal.
-GlassUF.MEASURED_ON_BUILD = "1.60.1.70009"
+GlassUF.MEASURED_ON_BUILD = "1.60.1.70205"
 
 function API.Print(msg)
     print("|cff7fd4ffGlassUF|r " .. msg)
@@ -24,6 +24,19 @@ end
 function API.ClientBuild()
     local version, build = GetBuildInfo()
     return tostring(version) .. "." .. tostring(build)
+end
+
+-- A development copy: deploy.ps1 stamps "dev", a checkout run as-is still
+-- carries the packager's keyword, and an unreadable version counts as dev. A
+-- packaged release carries its tag. The keyword is assembled, never written
+-- out: the packager replaces it in every file it ships, so a literal here
+-- would make a release count itself as dev (AltStable shipped that bug).
+local VERSION_KEYWORD = "@" .. "project-version" .. "@"
+
+function API.IsDevBuild()
+    local ok, v = pcall(C_AddOns.GetAddOnMetadata, "GlassUnitFrames", "Version")
+    if not ok or type(v) ~= "string" or v == "" then return true end
+    return v == "dev" or v:sub(1, 4) == "dev-" or v == VERSION_KEYWORD
 end
 
 -- RegisterEvent/RegisterUnitEvent throw on an unknown name and return false

@@ -440,8 +440,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             if db.hideBlizzard and t and t.combo then Blizzard.HideFrame("ComboFrame") end
         end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
-        -- arg1 = isInitialLogin: warn at a real login, never on /reload.
-        if arg1 and API.ClientBuild() ~= GlassUF.MEASURED_ON_BUILD then
+        -- arg1 = isInitialLogin: warn at a real login, never on /reload. Dev
+        -- copies only: re-measuring the client is a chore a player can't do.
+        if arg1 and API.IsDevBuild() and API.ClientBuild() ~= GlassUF.MEASURED_ON_BUILD then
             say("client build " .. API.ClientBuild() .. " is newer than the one this addon was measured on ("
                 .. GlassUF.MEASURED_ON_BUILD .. "). Things may misbehave until it is re-checked.")
         end

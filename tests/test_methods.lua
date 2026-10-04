@@ -8,7 +8,7 @@
 dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
-local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/References/forever-api-1.60.1.70009.md"
+local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/References/forever-api-1.60.1.70205.md"
 local f = io.open(DUMP, "r")
 if not f then
     io.write("test_methods: SKIPPED (no API dump at " .. DUMP .. ")\n")
