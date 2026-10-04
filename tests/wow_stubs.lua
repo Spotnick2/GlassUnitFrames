@@ -286,6 +286,7 @@ function Methods.SetAlpha(w, a) w._alpha = a end
 function Methods.SetTexCoord(t, ...) t._texCoord = { ... } end
 function Methods.GetAlpha(w) return w._alpha or 1 end
 function Methods.SetVertexColor(t, r, g, b, a) t._vertex = { r, g, b, a } end
+function Methods.SetColorTexture(t, r, g, b, a) t._color = { r, g, b, a } end
 function Methods.AddMaskTexture(t, m) t._masks = t._masks or {}; table.insert(t._masks, m) end
 function Methods.SetGradient(t, orientation, c1, c2)
     assert(type(c1) == "table" and type(c2) == "table", "SetGradient takes color objects on this API")

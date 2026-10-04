@@ -9,6 +9,7 @@
 --   shadow -> tint -> grain -> wash      (on the host, masked to a rounded rect)
 --   ...caller's content frames...        (host level + 2)
 --   dark rim -> sheen -> rim -> text     (on g.top, host level + 10)
+--   optional edge: top line + glow, bottom line (on g.top; off by default)
 
 local ADDON = ...
 GlassUF = GlassUF or {}
@@ -42,7 +43,12 @@ Glass.STYLE = {
     trackTop = 0.75,                     -- the missing part: the bar's colour fading to clear across the bar
     frost = 0.10,                        -- plus a white frost, 0 at the bottom to this at the top
     sheenAlpha = 0.8,
+    edge = 0,                            -- the optional directional edge's top line (0 = off; GlassChat ships 0.45)
 }
+
+-- The directional edge, as fractions of its top line (GlassChat's owner-tuned
+-- values: top 0.45, glow 0.12, bottom 0.35), and the glow's depth.
+Glass.EDGE = { glow = 0.12 / 0.45, bottom = 0.35 / 0.45, glowh = 4 }
 
 -- Client-shipped fonts only. Arial Narrow runs small, so it gets a point more.
 Glass.FONTS = {
@@ -75,6 +81,44 @@ end
 -- Apply the material to `host`. Returns a table of the regions it made:
 -- g.top is the frame to parent text and anything that must sit above the rim.
 local rims = {}
+local edges = {}   -- every edge built, for Glass.SetEdgeAlpha (hosts that set their own are skipped)
+
+-- Paint an edge: the top line's alpha, the glow's peak, the bottom line's, the
+-- glow's depth. Hidden at 0, so an unused edge costs nothing to draw.
+local function paintEdge(e, top, glow, bottom, glowh)
+    e.top:SetColorTexture(1, 1, 1, top)
+    e.glow:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, glow))
+    e.glow:SetHeight(math.max(1, glowh))
+    e.bottom:SetColorTexture(0, 0, 0, bottom)
+    e.top:SetShown(top > 0)
+    e.glow:SetShown(glow > 0)
+    e.bottom:SetShown(bottom > 0)
+end
+
+-- A fine bright line along the top with a short sheen fading under it, and a
+-- dark line along the bottom: a thinner, lit-from-above edge than the rim
+-- alone (GlassChat, after an outside critique). Straight lines, kept off the
+-- rounded corners by the mask's slice margin.
+local function makeEdge(g, host, S)
+    local inset = S.maskMargin - 2
+    local e = {}
+    e.top = g.top:CreateTexture(nil, "OVERLAY", nil, 7)
+    e.top:SetPoint("TOPLEFT", host, "TOPLEFT", inset, -1)
+    e.top:SetPoint("TOPRIGHT", host, "TOPRIGHT", -inset, -1)
+    e.top:SetHeight(1)
+    e.glow = g.top:CreateTexture(nil, "OVERLAY", nil, 5)
+    e.glow:SetColorTexture(1, 1, 1, 1)
+    e.glow:SetPoint("TOPLEFT", e.top, "BOTTOMLEFT", 0, 0)
+    e.glow:SetPoint("TOPRIGHT", e.top, "BOTTOMRIGHT", 0, 0)
+    e.bottom = g.top:CreateTexture(nil, "OVERLAY", nil, 7)
+    e.bottom:SetPoint("BOTTOMLEFT", host, "BOTTOMLEFT", inset, 1)
+    e.bottom:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -inset, 1)
+    e.bottom:SetHeight(1)
+    local a = Glass.STYLE.edge
+    paintEdge(e, a, a * Glass.EDGE.glow, a * Glass.EDGE.bottom, Glass.EDGE.glowh)
+    table.insert(edges, e)
+    return e
+end
 
 function Glass.Apply(host, size)
     local S = Glass.SIZES[size or "large"]
@@ -130,6 +174,8 @@ function Glass.Apply(host, size)
     rim:SetAlpha(st.rimAlpha)
     table.insert(rims, rim)
     g.rim = rim
+
+    g.edge = makeEdge(g, host, S)
 
     return g
 end
@@ -372,6 +418,24 @@ function Glass.SetFillAlpha(a)
     return true
 end
 
+-- Live-tune the directional edge on every glass surface built so far (its top
+-- line; the glow and bottom line keep their ratios). 0 hides it.
+function Glass.SetEdgeAlpha(a)
+    if not inRange(a, 0, 1) then return false end
+    Glass.STYLE.edge = a
+    for _, e in ipairs(edges) do
+        if not e.custom then paintEdge(e, a, a * Glass.EDGE.glow, a * Glass.EDGE.bottom, Glass.EDGE.glowh) end
+    end
+    return true
+end
+
+-- One host's own edge values (GlassChat's /gchat tune); Glass.SetEdgeAlpha
+-- leaves it alone from then on.
+function Glass.SetEdge(g, top, glow, bottom, glowh)
+    g.edge.custom = true
+    paintEdge(g.edge, top, glow, bottom, glowh or Glass.EDGE.glowh)
+end
+
 function Glass.SetFont(key)
     local f = Glass.FONTS[key]
     if not f then return false end
@@ -392,5 +456,7 @@ Glass.TUNABLES = {
       label = "Empty bar colour",     help = "how strongly a bar's empty part shows its colour" },
     { key = "fade",  style = "fillEnd",   set = Glass.SetFillEnd,    min = 0,   max = 1,
       label = "Fill fade (1 = none)", help = "how far a bar's fill fades towards its edge, 1 = none" },
+    { key = "edge",  style = "edge",      set = Glass.SetEdgeAlpha,  min = 0,   max = 1,
+      label = "Edge highlight",       help = "a fine bright top line and dark bottom line, 0 = off" },
 }
 for _, t in ipairs(Glass.TUNABLES) do t.default = Glass.STYLE[t.style] end
