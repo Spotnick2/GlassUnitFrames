@@ -59,14 +59,12 @@ do
         f:close()
         WoW.dumpAvailable = next(WoW.KNOWN_EVENTS) ~= nil
     end
+    -- Without the dump (CI: it is local only) no name can be judged, so every
+    -- one is accepted. A hand-kept fallback list went stale: events wired
+    -- later (UNIT_THREAT_LIST_UPDATE, UNIT_FLAGS) failed to register and
+    -- test_aggro went red only where the dump was missing.
     if not WoW.dumpAvailable then
-        for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_DISABLED",
-            "PLAYER_REGEN_ENABLED", "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "UNIT_TARGET", "UNIT_PET", "UNIT_HEALTH",
-            "UNIT_MAXHEALTH", "UNIT_CONNECTION", "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER",
-            "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED",
-            "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED", "UNIT_SPELLCAST_INTERRUPTED",
-            "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
-            "UNIT_SPELLCAST_CHANNEL_STOP" }) do WoW.KNOWN_EVENTS[e] = true end
+        setmetatable(WoW.KNOWN_EVENTS, { __index = function() return true end })
     end
 end
 
@@ -704,11 +702,15 @@ function WoW.applyUnitWatch()
     end
 end
 
+-- Client string alias (in the dump's _G walk); LibStub's version check uses it.
+strmatch = string.match
+
 WoW.reset()
 
 -- Strict globals: any read of an undefined global is an error, except the
 -- addon's own globals that are legitimately nil before first assignment.
-local allowNil = { GlassUF = true, GlassUnitFramesDB = true }
+-- LibStub: the embedded library's own loader reads _G.LibStub before creating it.
+local allowNil = { GlassUF = true, GlassUnitFramesDB = true, LibStub = true }
 setmetatable(_G, { __index = function(_, k)
     if allowNil[k] then return nil end
     error("read of undefined global '" .. tostring(k) .. "' (not stubbed: is it in the API dump?)", 2)

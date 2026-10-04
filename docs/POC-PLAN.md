@@ -2,7 +2,7 @@
 
 > **Historical.** The POC is answered: yes, convincing liquid-glass unit frames are possible with
 > layered textures (no live backdrop blur), at acceptable cost. GlassUnitFrames is now a working
-> addon; see CLAUDE.md's Status, `docs/GLASS-MATERIAL.md` for the material as built, and
+> addon; see CLAUDE.md's Status, LibGlass's `docs/GLASS-MATERIAL.md` for the material as built, and
 > `docs/FOREVER-PROBE.md` for the measurements. This plan is kept for its reasoning.
 
 _Revised after a Codex adversarial review on 2026-09-27. Changes: the capture candidates, mask

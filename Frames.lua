@@ -1054,7 +1054,7 @@ local function buildIndicators(b, body, g, L, tileGlass)
     -- Hunter pet happiness: its own square, nearly as tall as the frame,
     -- placed by placeHappiness (left of the portrait by default). No glass
     -- tile: the texture has its own border, and sliced masks break on tiles
-    -- this small (GLASS-MATERIAL §6).
+    -- this small (LibGlass docs/GLASS-MATERIAL.md §6).
     if want.happiness then
         local s = L.h - 6
         ind.happiness = g.top:CreateTexture(nil, "OVERLAY", nil, 7)

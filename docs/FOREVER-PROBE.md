@@ -14,7 +14,7 @@ bright warm scene). UI effective scale 0.71 on the owner's setup.
 |---|---|
 | All 35 construction steps (textures, masks, slicing, gradients, animation, model) | **All ran without error** |
 | 9-slice via `SetTextureSliceMargins` + `SetTextureSliceMode` on a Texture | **Works**: rims and shadow scale cleanly to 360x66 and 66x66 |
-| 9-slice on a **MaskTexture** | **Works**: corner radius holds on a non-square frame. **Caveat (later, from a sibling glass addon):** fails on boxes small in both directions (16-22 px square tiles); see GLASS-MATERIAL.md §6 |
+| 9-slice on a **MaskTexture** | **Works**: corner radius holds on a non-square frame. **Caveat (later, from a sibling glass addon):** fails on boxes small in both directions (16-22 px square tiles); see LibGlass's docs/GLASS-MATERIAL.md §6 |
 | `MaskTexture` on a `StatusBar:GetStatusBarTexture()` fill | **Works**: rounded at empty, 3%, 50% and 100%; the moving fill edge stays square, as expected |
 | `SetGradient("VERTICAL", CreateColor(...), CreateColor(...))` | **Works** (colour objects) |
 | `SetBlendMode("ADD")` gloss and sheen | **Works** |
