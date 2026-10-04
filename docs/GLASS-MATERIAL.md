@@ -104,6 +104,7 @@ On a host frame, bottom to top:
 | Sheen | OVERLAY 5 | `g.top`, own mask | optional |
 | Rim | OVERLAY 6 | `g.top` | 9-sliced, at `STYLE.rimAlpha` (0.7, picked in game; `Glass.SetRimAlpha(a)` retunes every surface) |
 | Text | OVERLAY 7 | `g.top` | `Glass.Font` |
+| Edge (optional) | OVERLAY 7 / 5 / 7 | `g.top`, `g.edge` | a 1px top line, a short glow fading under it, and a 1px dark bottom line, kept `maskMargin - 2` px off the corners. **Off by default** (`STYLE.edge` = 0: hidden). `Glass.SetEdgeAlpha(a)` sets every surface's top line, with the glow and bottom line at `Glass.EDGE` ratios (0.27 / 0.78) over a 4px glow; `Glass.SetEdge(g, top, glow, bottom, glowh)` gives one host its own values, which the global tune then leaves alone |
 
 A glass bar (`Glass.Bar`), bottom to top:
 
@@ -122,7 +123,7 @@ shipped `default`), so any settings UI or slash command can expose them from one
 A `SetStatusBarColor` hook re-tints the fill and the track only when the colour actually changes
 (painters recolour on every health and power event), honours a 4th alpha argument, and does no
 arithmetic on the colour beyond that plain alpha, so a secret can't throw there. The tuning
-setters (`SetFillAlpha`, `SetRimAlpha`, `SetTrackAlpha`, `SetFillEnd`) reject NaN.
+setters (`SetFillAlpha`, `SetRimAlpha`, `SetTrackAlpha`, `SetFillEnd`, `SetEdgeAlpha`) reject NaN.
 
 All of them are masked by `bar_mask` (each child frame with its own mask anchored to the bar). The
 gloss, inner shadow and edge live on **`bar.overlay`**, so anything drawn over the fill at bar
@@ -203,3 +204,4 @@ Glass.SetFont("friz")                            -- restyles every Glass.Font st
 | Style 3 | ~7px mostly clear slab, light only on its lips | First version that read as glass |
 | Style 4 | Style 3 with a brighter top lip, corner glints, inner catch-light, cooler lighter tint, Arial | The chosen look; approved in game |
 | Style 5 (current) | Style 4's rim at 0.72x width and 0.8x light, content inset 8→6, portrait gap 6→3, width 360→300 | From an outside review: style 4 "looks a little like a clear plastic case". **Approved in game**, then tuned live with `/glass fill|rim|track|fade`: fill 0.60, rim 0.70, a colour-tinted track that fades to clear, fill fade off (2026-09-27/28). |
+| Edge (optional, #60) | A directional edge: fine bright top line + short glow, dark bottom line | From GlassChat: two outside critiques of its chat panel ("the thick translucent perimeter still gives it a molded-plastic appearance"; "a narrow highlight fading around the corners"), then the owner's in-game pick there: top 0.45, glow 0.12 over 4px, bottom 0.35, with the rim and dark rim at 0.10 and no shadow or grain. Added **off by default**, so no addon's look changes; GlassUF exposes it as `/glass edge` and an options slider to try on the unit frames (2026-10-03). |
