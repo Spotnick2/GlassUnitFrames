@@ -75,7 +75,9 @@ jobs:
             tr -d '\r' < GlassUnitFrames.toc | grep -v '^#' | grep '\.lua$' | tr '\\' '/' | sed 's|^|GlassUnitFrames/|'
             echo "$lib/LibGlass-1.0.xml"
             echo "$lib/LICENSE"
-            tr -d '\r' < "$LIBGLASS/LibGlass-1.0.xml" | sed 's/<!--/\n<!--/g' | sed '/<!--/,/-->/d' |
+            # Comments stripped non-greedily, as the test harness does (a sed
+            # range would swallow the lines after a one-line comment).
+            tr -d '\r' < "$LIBGLASS/LibGlass-1.0.xml" | perl -0pe 's/<!--.*?-->//gs' |
               sed -n 's/.*<Script file="\([^"]*\)".*/\1/p' | tr '\\' '/' | sed "s|^|$lib/|"
             (cd "$LIBGLASS" && ls Media/*.tga) | sed "s|^|$lib/|"
           } | sort > expected.txt

@@ -6,10 +6,21 @@
 # The url and the pin are read from .pkgmeta, the one place they are written,
 # so CI tests exactly what the packager will embed.
 #
-# Usage (from the repo root):  bash tests/fetch_libglass.sh [dest]   (default ../LibGlass)
+# Usage (from the repo root):  bash tests/fetch_libglass.sh <dest>
+#
+# <dest> must not exist: the script never deletes anything (a default of
+# ../LibGlass would have wiped the dev checkout, uncommitted work included).
 set -euo pipefail
 
-dest="${1:-../LibGlass}"
+dest="${1:-}"
+if [ -z "$dest" ]; then
+    echo "usage: bash tests/fetch_libglass.sh <dest>   (a path that does not exist yet)" >&2
+    exit 2
+fi
+if [ -e "$dest" ]; then
+    echo "$dest already exists; refusing to touch it (pick a fresh path)" >&2
+    exit 1
+fi
 
 # The Libs/LibGlass-1.0 entry of the externals block.
 entry=$(tr -d '\r' < .pkgmeta | awk '
@@ -30,7 +41,6 @@ if [ -z "$url" ] || [ -z "$ref" ]; then
 fi
 
 echo "LibGlass: $kind $ref from $url -> $dest"
-rm -rf "$dest"
 # A full clone: a commit pin can't be fetched with --branch (the packager does
 # the same for `commit:`).
 git clone -q "$url" "$dest"

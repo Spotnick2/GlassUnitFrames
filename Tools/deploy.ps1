@@ -33,8 +33,33 @@ if (-not (Test-Path -LiteralPath (Join-Path $LibGlass "Tools\deploy.ps1"))) {
     exit 1
 }
 
+# The commit or tag .pkgmeta pins, which is what the packager will ship. A dev
+# checkout elsewhere is legitimate (trying a library change before a pin bump),
+# but an in-game check then tests something the release won't carry: say so.
+function Test-LibGlassPin {
+    $pin = (Get-Content -LiteralPath (Join-Path $RepoRoot ".pkgmeta")) |
+        Where-Object { $_ -match '^\s+(commit|tag):\s*(\S+)\s*$' } | ForEach-Object { $Matches[2] } | Select-Object -First 1
+    if (-not $pin) { Write-Host "  (no LibGlass pin found in .pkgmeta)" -ForegroundColor Yellow; return }
+    $want = $null; $head = $null
+    try {
+        $want = (git -C $LibGlass rev-parse --verify --quiet "$pin^{commit}" 2>$null)
+        $head = (git -C $LibGlass rev-parse HEAD 2>$null)
+        $dirty = (git -C $LibGlass status --porcelain 2>$null)
+    } catch { }
+    if (-not $want -or $want -ne $head -or $dirty) {
+        Write-Host "  WARNING: the LibGlass checkout is not at the .pkgmeta pin ($pin)$(if ($dirty) { ', or has uncommitted changes' }):" -ForegroundColor Yellow
+        Write-Host "  this deploy tests a library the release won't ship." -ForegroundColor Yellow
+    }
+}
+
 function Deploy-Addon {
     $dest = Join-Path $AddOnsPath "GlassUnitFrames"
+    Test-LibGlassPin
+    # The library first: its deploy checks the checkout and may refuse, and a
+    # refusal must leave the deployed addon as it was (a new TOC naming a
+    # library that never arrived loads no frames at all).
+    & pwsh -NoProfile -File (Join-Path $LibGlass "Tools\deploy.ps1") -Addon GlassUnitFrames -AddOnsPath $AddOnsPath
+    if ($LASTEXITCODE -ne 0) { Write-Error "LibGlass deploy refused; GlassUnitFrames was not touched"; exit 1 }
     Write-Host "Deploying GlassUnitFrames -> $dest" -ForegroundColor Cyan
     New-Item -ItemType Directory -Force -Path $dest | Out-Null
     $files = @("GlassUnitFrames.toc") + (Get-ChildItem -LiteralPath $RepoRoot -Filter "*.lua" | Select-Object -ExpandProperty Name)
@@ -59,8 +84,6 @@ function Deploy-Addon {
         Write-Host "  removing stale Media\ (textures now come from LibGlass)" -ForegroundColor DarkYellow
         Remove-Item -LiteralPath $oldMedia -Recurse -Force
     }
-    & pwsh -NoProfile -File (Join-Path $LibGlass "Tools\deploy.ps1") -Addon GlassUnitFrames -AddOnsPath $AddOnsPath
-    if ($LASTEXITCODE -ne 0) { Write-Error "LibGlass deploy failed"; exit 1 }
 }
 
 # The probe is standalone (its own MEDIA path): it gets its 12 legacy textures
