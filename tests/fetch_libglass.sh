@@ -18,9 +18,12 @@ entry=$(tr -d '\r' < .pkgmeta | awk '
     inext && /^  Libs\/LibGlass-1\.0:/ { inlib = 1; next }
     inlib && /^  [^ ]/ { inlib = 0 }
     inext && inlib')
-url=$(printf '%s\n' "$entry" | sed -n 's/^ *url: *\([^ #]*\).*/\1/p')
-kind=$(printf '%s\n' "$entry" | sed -n 's/^ *\(commit\|tag\): *\([^ #]*\).*/\1/p')
-ref=$(printf '%s\n' "$entry" | sed -n 's/^ *\(commit\|tag\): *\([^ #]*\).*/\2/p')
+# Values are read the way the packager reads them: the whole rest of the line.
+# Its YAML reader keeps an inline "# comment" as part of the value, so a
+# comment there must fail here too, not only in the packaging step.
+url=$(printf '%s\n' "$entry" | sed -n 's/^ *url: *\(.*[^ ]\) *$/\1/p')
+kind=$(printf '%s\n' "$entry" | sed -n 's/^ *\(commit\|tag\): *\(.*[^ ]\) *$/\1/p')
+ref=$(printf '%s\n' "$entry" | sed -n 's/^ *\(commit\|tag\): *\(.*[^ ]\) *$/\2/p')
 if [ -z "$url" ] || [ -z "$ref" ]; then
     echo "no url and commit/tag pin for Libs/LibGlass-1.0 in .pkgmeta" >&2
     exit 1

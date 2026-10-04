@@ -6,11 +6,15 @@ enable-nolib-creation: no
 # newest tag by creation date and falls back to the branch HEAD). Bump the pin
 # only in a release made anyway: players get library fixes earlier through
 # whichever glass addon ships the newest copy, since LibStub runs that one.
-# CI reads the pin from here, so it is written once.
+# CI reads the pin from here, so it is written once. The pilot pin is a commit;
+# it becomes `tag: r1` once that tag exists.
+#
+# No comment on a value line: the packager's YAML reader keeps it as part of
+# the value (it tried to check out "562da7b   # ...").
 externals:
   Libs/LibGlass-1.0:
     url: https://github.com/Spotnick2/LibGlass
-    commit: 562da7b   # the pilot pin; becomes `tag: r1` once that tag exists
+    commit: 562da7b
 
 # YAML list, not markdown bullets. Every pattern matches the WHOLE path from
 # the package root (release.sh's match_pattern is a shell `case`), so the
