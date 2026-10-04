@@ -23,7 +23,8 @@ technique, the reference is DinoUnitFrames (see "Reference addons" below).
    picks").
 
 **Status (2026-09-28): a working addon, in daily use by the owner.** The glass look is settled and
-tuned in game (`docs/GLASS-MATERIAL.md`). Frames: player, target, pet, targettarget,
+tuned in game (LibGlass's `docs/GLASS-MATERIAL.md`; the material is now the embedded library
+LibGlass-1.0, see "The glass material"). Frames: player, target, pet, targettarget,
 targettargettarget, focus, focustarget. Every "Owner's picks" item in `docs/SUF-INVENTORY.md` is
 done, plus: an options panel (Options > AddOns > Glass Unit Frames), unlock mode (movers, group
 moves, nudging, grid snap, alignment guides, player/target mirroring), the red health-loss
@@ -41,8 +42,9 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 
 ## Layout
 
-TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` → `Auras.lua` →
-`Blizzard.lua` → `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
+TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Auras.lua` → `Blizzard.lua` → `Movers.lua` →
+`GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
   - `IsSecret`;
@@ -66,7 +68,9 @@ TOC load order: `Compat.lua` → `Glass.lua` → `Engine.lua` → `Frames.lua` �
     frame rather than throwing, so `proof` names a field the template would make.
 
   It also holds `MEASURED_ON_BUILD`.
-- **`Glass.lua`**: the material (see below). Self-contained.
+- **`Glass.lua`**: one line that matters, `GlassUF.Glass = LibStub("LibGlass-1.0"):New()`: this
+  addon's instance of the embedded material (see below). Every call site dot-calls it
+  (`Glass.Apply`, `Glass.Bar`, `Glass.MEDIA`, ...).
 - **`Engine.lua`**: who gets painted and when:
   - one tracker per unit (`RegisterUnitEvent`);
   - events grouped into channels (name, color, health, heal, power, portrait, indicators,
@@ -222,11 +226,30 @@ Classic API is usually stale.
 
 ## The glass material
 
-`docs/GLASS-MATERIAL.md` is the reusable write-up of the glass effect: textures, generator
-parameters, the layer stack, how to lift `Glass.lua` into another addon, gotchas, and the
-iteration history. The owner reuses it across addons. **Any change to `Glass.lua`,
-`Tools/make_textures.py` or the material parameters updates that document in the same commit.**
-Keep `Glass.lua` self-contained: no dependency on the engine, the frames, or units.
+The material is **LibGlass-1.0**, an embedded LibStub library (`..\LibGlass`,
+github.com/Spotnick2/LibGlass, public, MIT) that every glass addon embeds. Its repo owns the code,
+the textures, the generator (`Tools/make_textures.py`) and the write-up
+(`docs/GLASS-MATERIAL.md`: layers, parameters, gotchas, history), and its `CLAUDE.md` holds the
+contract (the API, region fields and texture names only grow; instances; upgrade rules).
+
+- **Material changes are LibGlass PRs**, never edits here. A bug or a need found here goes on a
+  LibGlass issue.
+- **How it's embedded:** `.pkgmeta` externals put it in `Libs\LibGlass-1.0\` (the only supported
+  path: `MEDIA` is derived from it), and the TOC loads its XML first. `Libs/` is gitignored; a dev
+  copy comes from the LibGlass checkout (`$env:LIBGLASS`, default `..\LibGlass`) through its own
+  `Tools\deploy.ps1`, which `Tools\deploy.ps1` here calls. The tests load the same checkout.
+- **The pin:** `.pkgmeta` pins a commit or tag, **never `tag: latest`**. Bump it only in a release
+  made anyway: players get library fixes earlier through whichever glass addon ships the newest
+  copy (LibStub runs that one). CI reads the pin from `.pkgmeta` (`tests/fetch_libglass.sh`),
+  tests against it, and asserts the zip's `Libs/LibGlass-1.0/` is exactly that commit's shipped
+  files.
+- **`GlassUF.Glass` is an instance**: `STYLE`, the `TUNABLES` setters and the font registry are
+  this addon's own, so `/glass rim` never touches another glass addon. `Glass.MEDIA` resolves to
+  the winning copy's `Media\`; use it only for library textures (`bar_fill`, `bar_edge`, ...).
+- **Colours passed to a glass bar's `SetStatusBarColor` must be plain** (the library's hook
+  compares them): never a secret.
+- GlassUnitFrames is the library's **pilot consumer**: its CI is where the packaged library is
+  checked.
 
 ## Reference addons
 
@@ -280,15 +303,21 @@ not a newer Lua that may be first on `PATH`.
 
 ```powershell
 & 'C:\Program Files (x86)\Lua\5.1\luac.exe' -p File.lua             # syntax check; silent on success
-pwsh tests\run.ps1                                                   # luac -p on TOC files + every tests\test_*.lua
+pwsh tests\run.ps1                                                   # luac -p on our TOC files + every tests\test_*.lua
 & 'C:\Program Files (x86)\Lua\5.1\lua.exe' tests\test_frames.lua    # one test, run from the repo root
-python Tools\make_textures.py                                        # regenerate Media\*.tga (Pillow + numpy)
-pwsh Tools\deploy.ps1                                                # copy the addon + Media into AddOns (-Probe adds GlassProbe)
+pwsh Tools\deploy.ps1                                                # the addon + its LibGlass into AddOns (-Probe adds GlassProbe)
+bash tests/fetch_libglass.sh <dir>                                   # clone LibGlass at the .pkgmeta pin (what CI does)
 ```
 
-`Tools\GlassProbe\` is the throwaway material probe (`/gprobe help` in game). Textures are generated, never hand-edited: change
-`Tools\make_textures.py` and rerun it. On 70009 a **new texture file loads after `/reload`**
-(measured, `docs\FOREVER-PROBE.md`); only a brand-new addon folder needs a full client restart.
+The tests and the deploy need a LibGlass checkout: `..\LibGlass`, or `$env:LIBGLASS`. Without one
+they fail loudly rather than skip.
+
+`Tools\GlassProbe\` is the throwaway material probe (`/gprobe help` in game). Its earlier rim and
+sheen iterations live in `Tools\GlassProbe\Media\` as frozen artefacts (the generator that made
+them is in history at `09b6f0d`); its deploy adds LibGlass's current textures. Textures are
+generated, never hand-edited: LibGlass's `Tools\make_textures.py`. On 70009 a **new texture file
+loads after `/reload`** (measured, `docs\FOREVER-PROBE.md`); only a brand-new addon folder needs
+a full client restart.
 
 - **Default AddOns path:** `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns`.
   The deploy script takes `-AddOnsPath`.
@@ -470,7 +499,10 @@ break the behaviour and confirm it goes red.
   sets the channel: `alpha` / `beta` / anything else → Release. That's a distribution channel,
   not a stability claim.
 - `.pkgmeta` ignores `.github`, `docs`, `tests`, `Tools`, `AGENTS.md`, `CLAUDE.md`, `README.md`,
-  `CHANGELOG.md` and `LICENSE`.
+  `CHANGELOG.md` and `LICENSE`, plus the library's non-dot dev files under `Libs/LibGlass-1.0/`
+  (CurseForge's packager doesn't apply an external's own ignore list). Patterns match the whole
+  path from the package root, so the top-level `LICENSE` ignore never strips
+  `Libs/LibGlass-1.0/LICENSE`, which ships (MIT).
 
 ## Conventions
 

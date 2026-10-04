@@ -1,5 +1,5 @@
 -- GlassProbe: probe 1 of docs/POC-PLAN.md. One glass unit frame, built from
--- the textures in Media/ (Tools/make_textures.py), with slash commands to flip
+-- the textures in Media/ (its own Tools/GlassProbe/Media plus LibGlass's), with slash commands to flip
 -- every layer and setting for A/B screenshots. Throwaway: not secure, fake
 -- values only, no events beyond login.
 --

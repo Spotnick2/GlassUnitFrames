@@ -16,7 +16,9 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 
 Push-Location $RepoRoot
 try {
-    # The TOC is the list, so a new file cannot go unchecked.
+    # The TOC is the list, so a new file cannot go unchecked. Only our own .lua
+    # lines: the embedded LibGlass (the TOC's .xml line) is checked in its repo,
+    # and the tests load it from $env:LIBGLASS (default ..\LibGlass).
     $luac = Join-Path (Split-Path -Parent $Lua) "luac.exe"
     $tocFiles = Get-Content "GlassUnitFrames.toc" | ForEach-Object { $_.Trim() } |
         Where-Object { $_ -notmatch "^#" -and $_ -match "[.]lua$" }

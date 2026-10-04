@@ -4,8 +4,14 @@
     The repo keeps "## Version: @project-version@" for the packager; the deployed
     copy gets "dev". The repo copy is never modified.
 
+    The glass material is the embedded LibGlass-1.0. The packager fetches it
+    into Libs\LibGlass-1.0 (.pkgmeta externals); for a dev copy this script
+    hands that job to the LibGlass checkout's own deploy.ps1, which checks the
+    checkout, copies only the shipped files and prints its commit. The checkout
+    is $env:LIBGLASS, else ..\LibGlass.
+
     Usage:
-        pwsh Tools/deploy.ps1               # GlassUnitFrames
+        pwsh Tools/deploy.ps1               # GlassUnitFrames + its LibGlass
         pwsh Tools/deploy.ps1 -Probe        # ...and GlassProbe
         pwsh Tools/deploy.ps1 -ProbeOnly    # just GlassProbe
         pwsh Tools/deploy.ps1 -AddOnsPath "D:\...\_classic_beta_\Interface\AddOns"
@@ -21,12 +27,10 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 if (-not (Test-Path $AddOnsPath)) { Write-Error "AddOns path not found: $AddOnsPath"; exit 1 }
 
-function Copy-Media([string]$dest) {
-    $media = Join-Path $dest "Media"
-    New-Item -ItemType Directory -Force -Path $media | Out-Null
-    $textures = Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Media") -Filter "*.tga"
-    foreach ($t in $textures) { Copy-Item -LiteralPath $t.FullName -Destination (Join-Path $media $t.Name) -Force }
-    Write-Host "  Media\  ($($textures.Count) textures)"
+$LibGlass = if ($env:LIBGLASS) { $env:LIBGLASS } else { Join-Path (Split-Path -Parent $RepoRoot) "LibGlass" }
+if (-not (Test-Path -LiteralPath (Join-Path $LibGlass "Tools\deploy.ps1"))) {
+    Write-Error "LibGlass checkout not found at $LibGlass (clone github.com/Spotnick2/LibGlass there, or set `$env:LIBGLASS)"
+    exit 1
 }
 
 function Deploy-Addon {
@@ -49,9 +53,18 @@ function Deploy-Addon {
         Write-Host "  removing stale $($_.Name)" -ForegroundColor DarkYellow
         Remove-Item -LiteralPath $_.FullName -Force
     }
-    Copy-Media $dest
+    # The textures now ship inside Libs\LibGlass-1.0\Media; the old folder is dead weight.
+    $oldMedia = Join-Path $dest "Media"
+    if (Test-Path -LiteralPath $oldMedia) {
+        Write-Host "  removing stale Media\ (textures now come from LibGlass)" -ForegroundColor DarkYellow
+        Remove-Item -LiteralPath $oldMedia -Recurse -Force
+    }
+    & pwsh -NoProfile -File (Join-Path $LibGlass "Tools\deploy.ps1") -Addon GlassUnitFrames -AddOnsPath $AddOnsPath
+    if ($LASTEXITCODE -ne 0) { Write-Error "LibGlass deploy failed"; exit 1 }
 }
 
+# The probe is standalone (its own MEDIA path): it gets its 12 legacy textures
+# from Tools\GlassProbe\Media and the 15 current ones from the LibGlass checkout.
 function Deploy-Probe {
     $dest = Join-Path $AddOnsPath "GlassProbe"
     Write-Host "Deploying GlassProbe -> $dest" -ForegroundColor Cyan
@@ -60,7 +73,12 @@ function Deploy-Probe {
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dest $_.Name) -Force
         Write-Host "  $($_.Name)"
     }
-    Copy-Media $dest
+    $media = Join-Path $dest "Media"
+    New-Item -ItemType Directory -Force -Path $media | Out-Null
+    $textures = @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\GlassProbe\Media") -Filter "*.tga") +
+                @(Get-ChildItem -LiteralPath (Join-Path $LibGlass "Media") -Filter "*.tga")
+    foreach ($t in $textures) { Copy-Item -LiteralPath $t.FullName -Destination (Join-Path $media $t.Name) -Force }
+    Write-Host "  Media\  ($($textures.Count) textures)"
 }
 
 if (-not $ProbeOnly) { Deploy-Addon }
