@@ -2,6 +2,11 @@ package-as: GlassUnitFrames
 
 enable-nolib-creation: no
 
+# Without this the packager writes a CHANGELOG.md from git history into the zip.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 # The glass material. Pinned, never `tag: latest` (the packager picks the
 # newest tag by creation date and falls back to the branch HEAD). Bump the pin
 # only in a release made anyway: players get library fixes earlier through
