@@ -15,7 +15,7 @@
 --   so test_methods.lua can check each against the dump's widget methods.
 
 WoW = {}
-local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/References/forever-api-1.60.1.70205.md"
+local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/WoW/References/forever-api-1.60.1.70338.md"
 
 --------------------------------------------------------------------------------
 -- Secrets
@@ -383,7 +383,7 @@ Enum = {
     UITextureSliceMode = { Stretched = 0, Tiled = 1 },
 }
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
-function GetBuildInfo() return "1.60.1", "70205", "Sep 23 2026", 16001 end
+function GetBuildInfo() return "1.60.1", "70338", "Oct  9 2026", 16001 end
 function InCombatLockdown() return WoW.combat end
 function IsShiftKeyDown() return WoW.shift end
 function IsAltKeyDown() return WoW.alt == true end

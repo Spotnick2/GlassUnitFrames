@@ -213,10 +213,10 @@ Classic API is usually stale.
 
 ## References: read these before touching an unfamiliar API
 
-- `C:\Projects\References\PORTING-TBC-TO-FOREVER.md` holds the canonical addon-agnostic field
+- `C:\Projects\WoW\References\PORTING-TBC-TO-FOREVER.md` holds the canonical addon-agnostic field
   notes, measured on the live client. Treat them as fact; don't re-derive them. Other sessions
   edit this file, so write new addon-agnostic findings there, not into a copy in this repo.
-- `C:\Projects\References\forever-api-1.60.1.70205.md` is the full API dump for the current
+- `C:\Projects\WoW\References\forever-api-1.60.1.70338.md` is the full API dump for the current
   build: documented functions and events, enums, **widget methods** (the only list of those), and
   the `_G` walk. It proves a name exists, not that it works. **Presence is not a contract.**
 - For a live check in game: `/api search <name>`, `/api system list`, `/api <system> list`
@@ -253,7 +253,7 @@ contract (the API, region fields and texture names only grow; instances; upgrade
 
 ## Reference addons
 
-These live in `C:\Projects\References`. They show what works on this client *in practice*,
+These live in `C:\Projects\WoW\References`. They show what works on this client *in practice*,
 which the dump can't tell you. Reason about what they do rather than copying it. **None is
 licensed for reuse:** SUF and DinoUF ship no license, and EllesmereUI is "all rights reserved".
 Write our own code.
@@ -290,7 +290,7 @@ Write our own code.
   `EllesmereUIRaidFrames\` covers party and raid frames. `EllesmereUI_ForeverLayout.lua` shows
   default positions coexisting with Edit Mode.
 
-Keep a `MEASURED_ON_BUILD` constant in the source, matching the dump's build (`1.60.1.70205`),
+Keep a `MEASURED_ON_BUILD` constant in the source, matching the dump's build (`1.60.1.70338`),
 and warn at login when `GetBuildInfo()` differs, **dev copies only** (`API.IsDevBuild`: version
 `dev`, the unreplaced packager keyword, or unreadable), as AltStable does. Bump it only after
 re-measuring in game. Matching dumps don't prove runtime behaviour.

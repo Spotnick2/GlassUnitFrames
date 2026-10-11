@@ -2,7 +2,7 @@
 
 Runtime measurements on the live client, recorded with the build number. The API dump says what
 exists; this file says what works. Addon-agnostic findings also belong in
-`C:\Projects\References\PORTING-TBC-TO-FOREVER.md`.
+`C:\Projects\WoW\References\PORTING-TBC-TO-FOREVER.md`.
 
 ## Probe 1: glass material rendering (build 1.60.1.70009, 2026-09-27)
 
