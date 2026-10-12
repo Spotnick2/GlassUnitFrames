@@ -43,8 +43,8 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 ## Layout
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Auras.lua` → `Blizzard.lua` → `Movers.lua` →
-`GlassUnitFrames.lua` → `Options.lua`.
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Auras.lua` → `Blizzard.lua` →
+`Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
   - `IsSecret`;
@@ -116,6 +116,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 - **`Frames.lua`** (frames): `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
+- **`Castbar.lua`**: the player and target cast bars (#72 moved them out of `Frames.lua`):
+  the inside player row and the target's pill (`Castbar.Build`, `Castbar.CastingRows`), and the
+  `cast` channel's painter. It paints through `Frames.attempt`, and Frames resolves it at build
+  time.
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
   (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
   `Blizzard_AuraContainer`). The client picks, sorts and draws the auras, so secret aura data
@@ -205,7 +209,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   `refreshing` guard keeps that from saving). Every control goes through **`GlassUF.Settings`**,
   the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
   `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`).
-- **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe.
+- **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe;
+  `Tools/CastProbe/` is the throwaway cast/swing event trace for #72 and the later cast-bar PRs
+  (`/cprobe help`, deployed with `Tools\deploy.ps1 -CastProbe`).
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla
 content and the Retail API. `WOW_PROJECT_ID == WOW_PROJECT_MAINLINE`. Advice that cites a TBC or

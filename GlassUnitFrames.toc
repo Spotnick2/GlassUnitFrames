@@ -10,6 +10,7 @@ Compat.lua
 Glass.lua
 Engine.lua
 Frames.lua
+Castbar.lua
 Auras.lua
 Blizzard.lua
 Movers.lua
