@@ -14,13 +14,15 @@
         pwsh Tools/deploy.ps1               # GlassUnitFrames + its LibGlass
         pwsh Tools/deploy.ps1 -Probe        # ...and GlassProbe
         pwsh Tools/deploy.ps1 -ProbeOnly    # just GlassProbe
+        pwsh Tools/deploy.ps1 -CastProbe    # ...and CastProbe (the #72 event trace)
         pwsh Tools/deploy.ps1 -AddOnsPath "D:\...\_classic_beta_\Interface\AddOns"
 #>
 
 param(
     [string]$AddOnsPath = "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns",
     [switch]$Probe,
-    [switch]$ProbeOnly
+    [switch]$ProbeOnly,
+    [switch]$CastProbe
 )
 
 $ErrorActionPreference = "Stop"
@@ -104,8 +106,20 @@ function Deploy-Probe {
     Write-Host "  Media\  ($($textures.Count) textures)"
 }
 
+# CastProbe is a plain event trace: two files, no media, no library.
+function Deploy-CastProbe {
+    $dest = Join-Path $AddOnsPath "CastProbe"
+    Write-Host "Deploying CastProbe -> $dest" -ForegroundColor Cyan
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+    Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\CastProbe") -File | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dest $_.Name) -Force
+        Write-Host "  $($_.Name)"
+    }
+}
+
 if (-not $ProbeOnly) { Deploy-Addon }
 if ($Probe -or $ProbeOnly) { Deploy-Probe }
+if ($CastProbe) { Deploy-CastProbe }
 
 Write-Host ""
 Write-Host "Changed or new files: /reload is enough (measured on 70009). A brand-new addon folder needs a client restart." -ForegroundColor Yellow

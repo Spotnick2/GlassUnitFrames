@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: CastProbe
+## Notes: Throwaway event trace for GlassUnitFrames #72 (cast latency/pushback) and the later cast-bar PRs. /cprobe help
+## Author: Spotnick
+## Version: dev
+## SavedVariables: CastProbeDB
+
+CastProbe.lua
