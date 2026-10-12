@@ -909,21 +909,22 @@ local function buildIndicators(b, body, g, L, tileGlass)
     b.indicators = ind
 end
 
--- A translucent bar over the health fill, with the FULL health-bar geometry,
--- in a clip frame at health level + `level` (over the glass track at +1,
--- under the glass overlay at +4).
+-- A translucent bar over a glass bar's fill (`base`: the health bar, or the
+-- player's cast bar for the latency block), with the base's FULL geometry, in
+-- a clip frame at base level + `level` (over the glass track at +1, under the
+-- glass overlay at +4).
 -- `fromEdge` clips it to the part past the health fill's moving edge. No Lua
 -- geometry from secrets: the client moves the fill edge, the clip follows.
-local function overlayBar(b, color, level, fromEdge)
-    local clip = CreateFrame("Frame", nil, b.health)
+local function overlayBar(base, color, level, fromEdge)
+    local clip = CreateFrame("Frame", nil, base)
     if fromEdge then
-        clip:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
-        clip:SetPoint("BOTTOMRIGHT", b.health, "BOTTOMRIGHT", 0, 0)
+        clip:SetPoint("TOPLEFT", base:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+        clip:SetPoint("BOTTOMRIGHT", base, "BOTTOMRIGHT", 0, 0)
     else
-        clip:SetAllPoints(b.health)
+        clip:SetAllPoints(base)
     end
     clip:SetClipsChildren(true)
-    clip:SetFrameLevel(b.health:GetFrameLevel() + level)
+    clip:SetFrameLevel(base:GetFrameLevel() + level)
     local bar = CreateFrame("StatusBar", nil, clip)
     bar:SetFrameLevel(clip:GetFrameLevel())   -- a child would default to +1, tying the overlay
     bar:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
@@ -931,11 +932,12 @@ local function overlayBar(b, color, level, fromEdge)
     bar:SetAlpha(color[4])
     bar:SetMinMaxValues(0, 1)
     bar:SetValue(0)
-    -- The rounded mask covers the health bar's bounds, so only the far end
+    -- The rounded mask covers the base bar's bounds, so only the far end
     -- is rounded, never the seam against the fill.
-    bar:GetStatusBarTexture():AddMaskTexture(Glass.Mask(bar, "bar_mask", 8, 0, b.health))
+    bar:GetStatusBarTexture():AddMaskTexture(Glass.Mask(bar, "bar_mask", 8, 0, base))
     return bar
 end
+Frames.OverlayBar = overlayBar   -- the cast bar's latency block (Castbar.lua) too
 
 -- Incoming heals (#13): the FULL health-bar width, anchored to the health
 -- fill's moving edge and clipped at the bar's boundary, so a heal of X% of
@@ -945,7 +947,7 @@ local HEAL_COLOR = { 0.35, 0.95, 0.55, 0.45 }
 local function buildHealPrediction(b)
     local calc = API.NewHealCalculator()
     if not calc then return end
-    local pred = overlayBar(b, HEAL_COLOR, 3, false)
+    local pred = overlayBar(b.health, HEAL_COLOR, 3, false)
     pred:SetSize(b.healthWidth, b.health:GetHeight())
     pred:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
     b.healCalc, b.healPred = calc, pred
@@ -1001,7 +1003,7 @@ end
 -- edge. A light red, so it still reads next to a hostile (red) health fill.
 local LOSS_COLOR = { 1.00, 0.55, 0.50, 0.90 }
 local function buildHealthLoss(b)
-    local loss = overlayBar(b, LOSS_COLOR, 2, true)
+    local loss = overlayBar(b.health, LOSS_COLOR, 2, true)
     loss:SetAllPoints(b.health)
     b.lossBar = loss
 end
@@ -1149,6 +1151,7 @@ function Frames.Build(db)
     Frames.db = db
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
     if db.aggroRed == false then Frames.aggroRed = false end
+    GlassUF.Castbar.Configure(db)
     if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
     if Frames.HAPPINESS_POSITIONS[db.happiness] then Frames.happinessPos = db.happiness end
     if type(db.healthText) == "table" then

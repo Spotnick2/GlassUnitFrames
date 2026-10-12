@@ -315,6 +315,16 @@ function Settings_.SetAggroRed(on)
     if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
 end
 
+-- The player cast bar's extras (#72): "latency" (the block), "latencyText"
+-- (its ms text) and "pushback" (the +0.4 before the time). Saved only when off.
+function Settings_.SetCastOption(key, on)
+    local Castbar = GlassUF.Castbar
+    if not Castbar.SetOption(key, on) then return false end
+    local dbKey = Castbar.DB_KEYS[key]
+    if on then GlassUnitFramesDB[dbKey] = nil else GlassUnitFramesDB[dbKey] = false end
+    return true
+end
+
 -- "show" brings back everything GlassUF hides from Blizzard, the cast bar too.
 function Settings_.SetHideBlizzard(hide)
     GlassUnitFramesDB.hideBlizzard = hide and true or false

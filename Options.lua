@@ -311,6 +311,17 @@ local function build()
         GlassUF.Settings.SetAggroRed)
     note(right, "While they fight you or your group.", 270)
 
+    header(right, "Cast bar")
+    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "latencyText", "Latency in ms (taller bars)" },
+                           { "pushback", "Pushback before the time" } }
+    for _, o in ipairs(CAST_OPTIONS) do
+        local key = o[1]
+        controls["cast_" .. key] = checkbox(right, o[2],
+            function() return GlassUF.Castbar.options[key] end,
+            function(v) GlassUF.Settings.SetCastOption(key, v) end)
+    end
+    note(right, "Your own casts only. The block estimates the tail you can't cancel: key press to cast start.", 270)
+
     header(right, "Positions")
     -- Unlocking closes the Settings window, or the movers would sit behind it.
     place(right, button(content, "Unlock frames", 190, function()

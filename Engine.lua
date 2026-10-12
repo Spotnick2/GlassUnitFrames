@@ -43,6 +43,9 @@ Engine.CHANNEL_EVENTS = {
                  "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
                  "UNIT_SPELLCAST_CHANNEL_STOP" },
 }
+-- The player's own cast events that only the latency estimate needs (#72):
+-- registered on the player's tracker alone, routed to the cast painter.
+Engine.PLAYER_CAST_EVENTS = { "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED" }
 Engine.ORDER = { "name", "color", "health", "heal", "power", "portrait", "indicators", "happiness",
                  "combo", "druidmana", "cast" }
 
@@ -58,6 +61,7 @@ for channel, events in pairs(Engine.CHANNEL_EVENTS) do
         table.insert(eventChannels[e], channel)
     end
 end
+for _, e in ipairs(Engine.PLAYER_CAST_EVENTS) do eventChannels[e] = { "cast" } end
 
 function Engine.SetPainter(channel, fn)
     painters[channel] = fn
@@ -65,10 +69,10 @@ end
 
 -- A painter that throws must not take the rest of the flush with it (nor
 -- leave frame.snap set): record the first error per channel and carry on.
-local function paint(frame, channel, event)
+local function paint(frame, channel, event, ...)
     local fn = painters[channel]
     if not (fn and frame.channels[channel]) then return end
-    local ok, err = pcall(fn, frame, event)
+    local ok, err = pcall(fn, frame, event, ...)
     if not ok then API.Fail("painter " .. channel, err) end
 end
 
@@ -126,12 +130,15 @@ function Engine.RepaintUnit(unit)
     for _, frame in ipairs(framesByUnit[unit] or {}) do Engine.FullRepaint(frame) end
 end
 
-local function onUnitEvent(_, event, unit)
+-- The cast painter gets the event's payload after the unit (castGUID, ...):
+-- one ordered path, so the player's latency/pushback state is updated before
+-- the bar is painted from it.
+local function onUnitEvent(_, event, unit, ...)
     local chans = eventChannels[event]
     if not chans then return end
     for _, frame in ipairs(framesByUnit[unit] or {}) do
         for _, channel in ipairs(chans) do
-            if channel == "cast" then paint(frame, "cast", event)
+            if channel == "cast" then paint(frame, "cast", event, ...)
             else Engine.MarkDirty(frame, channel) end
         end
     end
@@ -146,13 +153,17 @@ local function tracker(unit, channels)
         trackers[unit] = t
     end
     local want = {}
-    for channel in pairs(channels) do
-        for _, e in ipairs(Engine.CHANNEL_EVENTS[channel] or {}) do
-            if not t.registered[e] then
-                t.registered[e] = true
-                table.insert(want, e)
-            end
+    local function add(e)
+        if not t.registered[e] then
+            t.registered[e] = true
+            table.insert(want, e)
         end
+    end
+    for channel in pairs(channels) do
+        for _, e in ipairs(Engine.CHANNEL_EVENTS[channel] or {}) do add(e) end
+    end
+    if unit == "player" and channels.cast then
+        for _, e in ipairs(Engine.PLAYER_CAST_EVENTS) do add(e) end
     end
     if #want > 0 then API.RegisterUnitEvents(t, want, unit) end
 end
@@ -218,6 +229,12 @@ end
 local world = CreateFrame("Frame")
 world:SetScript("OnEvent", function(_, event, unit)
     local base = TOKEN_EVENTS[event]
+    if event == "CURRENT_SPELL_CAST_CHANGED" then
+        -- Not a unit event: its argument is cancelledCast. The player's cast
+        -- tracker (Castbar.lua) stamps it for the latency estimate (#72).
+        if Engine.OnCastChanged then Engine.OnCastChanged(unit) end
+        return
+    end
     if base then
         repaintChain(base, true)
         if Engine.OnTokenChanged then Engine.OnTokenChanged(base) end
@@ -248,7 +265,7 @@ end)
 API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_PET",
                             "GROUP_ROSTER_UPDATE", "PLAYER_FLAGS_CHANGED", "RAID_TARGET_UPDATE",
                             "PARTY_LEADER_CHANGED", "PARTY_LOOT_METHOD_CHANGED", "PLAYER_UPDATE_RESTING",
-                            "PET_UI_UPDATE" })
+                            "PET_UI_UPDATE", "CURRENT_SPELL_CAST_CHANGED" })
 
 -- UNIT_TARGET: registered per base unit so the client filters it (it fires for
 -- every nameplate/party/raid unit otherwise). The unit whose target changed

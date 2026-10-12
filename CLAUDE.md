@@ -81,7 +81,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     `UNIT_FACTION` feeds both name and indicators. Each painter runs under `pcall`, so one that
     throws is recorded in `GlassUF.paintFailures` and the rest of the flush still paints;
   - dirty channels flushed once per rendered frame;
-  - the cast channel painted immediately with its event;
+  - the cast channel painted immediately with its event **and its payload** (castGUID, ...).
+    The player's tracker also registers `UNIT_SPELLCAST_SENT` / `SUCCEEDED`
+    (`Engine.PLAYER_CAST_EVENTS`), and the world frame hands `CURRENT_SPELL_CAST_CHANGED` to
+    `Engine.OnCastChanged` (Castbar's latency stamp);
   - one shared 0.5 s ticker for event-less chained tokens (`targettarget`, `targettargettarget`,
     `focustarget`);
   - full repaints when a token changes meaning. One rule, `repaintChain`: when `base` changes
@@ -119,7 +122,27 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 - **`Castbar.lua`**: the player and target cast bars (#72 moved them out of `Frames.lua`):
   the inside player row and the target's pill (`Castbar.Build`, `Castbar.CastingRows`), and the
   `cast` channel's painter. It paints through `Frames.attempt`, and Frames resolves it at build
-  time.
+  time. On the **player's** bar (#72):
+  - **Latency block:** a red overlay (`Frames.OverlayBar`) over the end the cast heads for:
+    reverse fill for casts, normal for channels. It estimates the tail you probably can't
+    cancel, so it's the **key press → cast start** interval, not a network RTT.
+    - Measured: SENT and START share a frame, so send→start is always 0. The interval from
+      `CURRENT_SPELL_CAST_CHANGED(false)` to SENT has a median of 139 ms, where `GetNetStats`
+      says 33 ms.
+    - A sample is taken at every player SENT. The stamp is consumed by every SENT. A sample is
+      rejected when stale (over 1 s), and when queued (SENT in the same frame as a STOP /
+      SUCCEEDED / CHANNEL_STOP of another guid).
+    - Shown: the median of the last 7 samples; `GetNetStats` (`~`) before the first.
+    - The `ms` text shows only on bars at least 18 tall.
+  - **Pushback:** `+0.4` / `-0.4` before the time. It's **assigned** from the cumulative
+    `delayTimeMs` (the 11th return of `UnitCastingInfo`), or from how far a channel's end moved.
+    It resets on START.
+  - **The interrupt flash:** the client repeats INTERRUPTED after the STOP. A FAILED or
+    INTERRUPTED flashes only for the newest cast's guid (`latestGUID`), and only once
+    (`flashedGUID`). An unreadable guid keeps the old behaviour, and a rejected attempt
+    (client-side `Cast-2-0-0-0-…` guid) no longer flashes.
+  - **Options:** `latency`, `latencyText`, `pushback` (`Castbar.SetOption`).
+  - Measuring tool: `Tools/CastProbe`.
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
   (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
   `Blizzard_AuraContainer`). The client picks, sorts and draws the auras, so secret aura data
@@ -191,8 +214,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - `Blizzard.active` records whether anything was hidden this session. Hiding is one-way per
     session.
 - **`GlassUnitFrames.lua`**:
-  - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`, and the
-    material knobs `fill|rim|track|fade|edge`, saved only once set);
+  - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
+    `castLatency|castLatencyText|castPushback` (saved only when off), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
@@ -208,10 +231,13 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   radio groups. Built on first show, **re-synced from the current state on every show** (a
   `refreshing` guard keeps that from saving). Every control goes through **`GlassUF.Settings`**,
   the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
-  `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`).
+  `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`,
+  `SetCastOption`).
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe;
   `Tools/CastProbe/` is the throwaway cast/swing event trace for #72 and the later cast-bar PRs
-  (`/cprobe help`, deployed with `Tools\deploy.ps1 -CastProbe`).
+  (deployed with `Tools\deploy.ps1 -CastProbe`). Typed `/cprobe` didn't dispatch in game,
+  although `SlashCmdList.CASTPROBE` was registered (cause unknown), so drive it with
+  `/run SlashCmdList.CASTPROBE("status")` (or `hier`, `mark <text>`, `dump`).
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla
 content and the Retail API. `WOW_PROJECT_ID == WOW_PROJECT_MAINLINE`. Advice that cites a TBC or
@@ -372,7 +398,12 @@ not port cleanly.
     dump lists neither as secret-safe, so measure before relying on them.
   - **Cast bars:** `UnitCastingDuration` / `UnitChannelDuration` return a `LuaDurationObject`.
     Pass it to `StatusBar:SetTimerDuration`, and read time left with `GetRemainingDuration`
-    into `SetFormattedText`. Never read start/end times in Lua. See DinoUF `modules\cast.lua`.
+    into `SetFormattedText`. Never read start/end times in Lua, with **one measured exception**:
+    the player's own cast. Its start/end, `delayTimeMs`, `isTradeskill` and castGUID came back
+    plain in and out of combat on 1.60.1.70338 (#72, `Tools/CastProbe`), and
+    `HasSecretValues()` is false. So `Castbar.lua` reads them for the latency block and the
+    pushback, each behind an `IsSecret` guard (secret means not shown). Other units' casts stay
+    unread. See DinoUF `modules\cast.lua`.
   - **Heal prediction:** `CreateUnitHealPredictionCalculator` +
     `UnitGetDetailedHealPrediction(unit, healer, calc)`, feeding the calculator's values
     straight into a StatusBar. See DinoUF `modules\incheal.lua`.
