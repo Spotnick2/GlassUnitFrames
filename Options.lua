@@ -378,14 +378,24 @@ local function openPicker(key, hasAlpha, refresh)
     local r0, g0, b0, a0 = cur[1], cur[2], cur[3], cur[4] or 1
     local wasSet = type(db().castColors) == "table" and db().castColors[key] ~= nil
     local function same(x, y) return math.abs(x - y) < 0.001 end
+    local edited = false
     local function apply()
         local r, g, b = cp:GetColorRGB()
         local a = 1
         if hasAlpha then a = (cp.GetColorAlpha and cp:GetColorAlpha()) or a0 end
         -- The picker reports its starting colour when it opens: an unchanged
         -- default stays a default (nothing saved), so a later default still
-        -- reaches this player.
-        if not wasSet and same(r, r0) and same(g, g0) and same(b, b0) and same(a, a0) then return end
+        -- reaches this player. Dragged away and back to it: the override goes
+        -- (Codex, #79).
+        if not wasSet and same(r, r0) and same(g, g0) and same(b, b0) and same(a, a0) then
+            if edited then
+                edited = false
+                S.SetCastColor(key, nil)
+                refresh()
+            end
+            return
+        end
+        edited = true
         S.SetCastColor(key, r, g, b, a)
         refresh()   -- this swatch only: a drag calls this many times a second
     end

@@ -236,6 +236,37 @@ info.swatchFunc()
 eq(GlassUnitFramesDB.castColors, nil, "an unchanged default: nothing saved")
 picker:Hide()
 eq(picker._strata, "DIALOG", "its own strata back when it closes")
+-- Dragged away and back to the starting default: the override goes (Codex).
+cs._scripts.OnClick(cs)
+rawset(picker, "GetColorRGB", function() return 0.1, 0.2, 0.3 end)
+info.swatchFunc()
+eq(GlassUnitFramesDB.castColors.cast[1], 0.1, "dragged away: saved")
+rawset(picker, "GetColorRGB", function() return d[1], d[2], d[3] end)
+info.swatchFunc()
+eq(GlassUnitFramesDB.castColors, nil, "back to the default: the override cleared")
+eq(Castbar.colors.cast[1], d[1], "and the bar's colour is the default again")
+picker:Hide()
+-- A refused instant (SENT, FAILED, no START) after a cast with an icon: the
+-- red flash doesn't show the previous spell's icon (Codex).
+local gp = guid()
+cast("player", gp)
+check(pc.icon._shown, "the cast's icon")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", gp, 2061, "CastBar-1")
+stop("player", gp); WoW.flushTimers()
+local gi = guid()
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "", gi, 139)
+WoW.fire("UNIT_SPELLCAST_FAILED", "player", gi, 139)
+check(pc.host._shown and textOf(pc.spell) == "Failed", "the refused instant flashes")
+check(not pc.icon._shown, "without the previous spell's icon")
+WoW.flushTimers()
+-- An interrupt of the cast shown keeps its own icon.
+local gk = guid()
+cast("player", gk)
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "player", gk, 2061, nil, "CastBar-1")
+stop("player", gk)
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "player", gk, 2061, nil, nil)
+check(pc.host._shown and pc.icon._shown, "an interrupt keeps the interrupted cast's icon")
+WoW.flushTimers()
 
 -- Saved colours are validated at load: junk falls back to the default.
 local saved = GlassUnitFramesDB
