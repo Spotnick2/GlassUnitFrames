@@ -305,28 +305,20 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **Colours:** `castColors` keys `swingMH`, `swingOH`, `swingRanged`. The option is
     `db.swingTimer` (saved only when off).
 - **`FiveSecond.lua`** (#94): the five-second rule, for mana users only (none for warriors or rogues).
-  - **The strip:** 2 px along the bottom of the player's power bar, or of the druid mana strip in a
-    form (chosen by power token; `UNIT_DISPLAYPOWER` re-picks it). An `OverlayBar` inside the
-    bar's rounded mask.
-  - **Red** drains (`RemainingTime`) for 5 s after a likely spend. **Blue** fills (`ElapsedTime`)
-    toward the next estimated mana tick.
-  - **Mana is secret** in and out of combat (measured), so it's never read:
-    - **A spend:** a player `UNIT_SPELLCAST_SUCCEEDED` whose `C_Spell.GetSpellPowerCost` (measured
-      plain) has a mana entry with a cost or `costPerSec` > 0, or a secret amount. The whole
-      traversal is under `pcall`, secrecy-checked step by step; unknown is not a spend.
-    - **A tick:** `UNIT_POWER_UPDATE("MANA")`. Updates in the window are ignored (a spend's own
-      update lands up to 0.115 s after SUCCEEDED).
-  - **States:** idle → window → pending → sweep.
-    - **Pending:** the window has ended and the first tick hasn't come. It shows nothing and goes
-      idle after 4 s.
-    - **Combat exit during the window:** it goes to pending (regen was measured resuming about 2 s
-      after a killing spend).
-    - **The sweep:** an update at least 1.5 s after the last anchor re-anchors it (ticks measured
-      1.83–2.03 s apart). An earlier one (the echoes) only keeps it alive. Sweeps run back to back
-      from the sweep's end, and stop when no update has come for 2.5 s at a sweep's end.
-    - **Timers:** each is generation-checked, so a superseded one does nothing.
-  - **Full mana** hides it through `API.ManaAlpha` on the strip's clip frame.
-  - **Its own event frame:** the order of SUCCEEDED and the updates matters, so it doesn't go
+  - **The strip:** 2 px red along the bottom of the player's power bar, or of the druid mana strip in
+    a form (chosen by power token; `UNIT_DISPLAYPOWER` re-picks it). An `OverlayBar` inside the
+    bar's rounded mask. It drains (`RemainingTime`) for the 5 s after a likely spend, then hides.
+  - **No tick timer.** Forever's regen is continuous (Retail's engine; `GetManaRegen` is a
+    per-second rate). The ~2 s `UNIT_POWER_UPDATE` cadence is the server's sync, not a tick.
+  - **Mana is secret** in and out of combat (measured), so it's never read. **A spend:** a player
+    `UNIT_SPELLCAST_SUCCEEDED` whose `C_Spell.GetSpellPowerCost` (measured plain) has a mana
+    entry with a cost or `costPerSec` > 0, or a secret amount. The whole traversal is under
+    `pcall`, secrecy-checked step by step; unknown is not a spend. A new spend restarts it.
+  - **Ending it:** the window's timer (generation-checked), combat exit (regen was measured
+    resuming about 2 s after a killing spend), death, and the option off.
+  - **Full mana** hides it through `API.ManaAlpha` on the strip's clip frame, refreshed on
+    `UNIT_POWER_UPDATE("MANA")`.
+  - **Its own event frame:** the order of SUCCEEDED and combat changes matters, so it doesn't go
     through Engine.
   - **Options:** `db.fiveSecondRule` and `db.fsrCombatOnly` (on by default, each saved only when
     off), on the main page, only for mana users.

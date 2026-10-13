@@ -1,7 +1,7 @@
--- The five-second rule (#94): a 2 px strip on the player's mana bar. Red,
--- draining, for 5 s after a spell that costs mana; blue sweeps toward the next
--- mana tick, synced to UNIT_POWER_UPDATE("MANA") (an estimate). Mana is never
--- read: the spend comes from the spell's cost, full mana from a client curve.
+-- The five-second rule (#94): a 2 px red strip on the player's mana bar,
+-- draining for 5 s after a spell that costs mana. No tick timer (regen on
+-- Forever is continuous). Mana is never read: the spend comes from the
+-- spell's cost, full mana from a client curve.
 dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
@@ -38,7 +38,7 @@ local function combat(on)
     WoW.fire(on and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED")
 end
 local function dur() return T.dur() end
-local REMAINING, ELAPSED = Enum.StatusBarTimerDirection.RemainingTime, Enum.StatusBarTimerDirection.ElapsedTime
+local REMAINING = Enum.StatusBarTimerDirection.RemainingTime
 local function settle() adv(30); T.reset() end   -- let every timer lapse
 
 -- The cost test: what counts as a spend.
@@ -80,11 +80,11 @@ eq(bar._timer.duration, dur(), "the window's duration object")
 eq(dur()._start, t0, "from the spend")
 eq(dur()._dur, 5, "5 seconds")
 
--- The spend's own update (same frame, and 0.115 s later) is ignored.
+-- Mana updates (the spend's own, regen, a potion) never restart or end it.
 mana()
 adv(0.115); mana()
-eq(st.state, "window", "updates inside the window are ignored")
-eq(dur()._start, t0, "the window isn't restarted by them")
+eq(st.state, "window", "mana updates leave the window")
+eq(dur()._start, t0, "and don't restart it")
 
 -- A free instant and a rage spell don't touch it.
 cast(FREE); cast(RAGE_SPELL)
@@ -97,88 +97,36 @@ cast(MANA_SPELL)
 eq(dur()._start, t1, "a second spend restarts the window")
 adv(2)                         -- the first window's 5 s
 eq(st.state, "window", "the superseded window's timer does nothing")
+check(clip._shown, "still shown")
 adv(3)                         -- the second window's 5 s
-eq(st.state, "pending", "after 5 s: waiting for the first tick")
-check(not clip._shown, "pending shows nothing")
-
--- The first update after the window syncs a blue, filling 2 s sweep.
-adv(0.56)
-local a0 = WoW.now
+eq(st.state, "idle", "after 5 s: done (no tick timer: regen is continuous)")
+check(not clip._shown, "hidden when it runs out")
 mana()
-eq(st.state, "sweep", "the first update starts the tick sweep")
-check(clip._shown, "shown")
-eq(bar._color[1], 0.55, "blue")
-eq(bar._timer.dir, ELAPSED, "filling (ElapsedTime)")
-eq(dur()._start, a0, "from the update")
-eq(dur()._dur, 2, "a 2 s tick")
-
--- An echo 0.13 s later only keeps it alive.
-adv(0.13); mana()
-eq(dur()._start, a0, "an echo doesn't restart the sweep")
--- An update 1.6 s after the anchor re-anchors; the old sweep's end does nothing.
-adv(1.47)
-local a1 = WoW.now
-mana()
-eq(dur()._start, a1, "an update 1.6 s in re-anchors the sweep")
-adv(0.4)                       -- the old sweep's 2 s deadline
-eq(st.state, "sweep", "the superseded sweep-end callback can't idle it")
-eq(dur()._start, a1, "nor restart it from the old anchor")
-
--- No update at the boundary: the next sweep starts back to back, and an update
--- just past it re-anchors.
-adv(1.65)                      -- the timer fires a little late (a1 + 2.05)
-eq(dur()._start, a1 + 2, "back to back from the sweep's end, not the late timer")
-local a2 = WoW.now
-mana()
-eq(dur()._start, a2, "a tick 2.05 s after the anchor re-anchors")
-
--- The measured 1.125 s mid-tick update (328.714 -> 329.670) is a keep-alive.
-adv(1.125); mana()
-eq(dur()._start, a2, "a mid-tick update leaves the sweep")
-adv(0.955)
-mana()
-eq(dur()._start, WoW.now, "the next real tick re-anchors")
-
--- Updates stop (full mana): one more sweep, then idle.
-local last = WoW.now
-adv(2)
-eq(st.state, "sweep", "2 s without an update: one more sweep")
-eq(dur()._start, last + 2, "back to back")
-adv(2)
-eq(st.state, "idle", "4 s without an update: idle")
-check(not clip._shown, "hidden when idle")
-
--- An update while idle (regen below full, no spend seen) starts a sweep.
-mana()
-eq(st.state, "sweep", "an update while idle starts a sweep")
-eq(dur()._start, WoW.now, "from it")
+eq(st.state, "idle", "a regen update after it starts nothing")
+check(not clip._shown, "still hidden")
 settle()
 
--- Pending with no update for 2 ticks goes idle.
-combat(true)
-cast(MANA_SPELL)
-adv(5)
-eq(st.state, "pending", "pending after the window")
-adv(4)
-eq(st.state, "idle", "no update for 4 s: idle")
-settle()
-
--- Combat ending inside the window ends it (measured twice); the next update syncs.
+-- Combat ending inside the window ends it (measured twice).
 combat(true)
 cast(MANA_SPELL)
 adv(0.98)
-combat(false)
-eq(st.state, "pending", "combat exit inside the window: pending")
-adv(0.98)
-mana()
-eq(st.state, "sweep", "the next update syncs a sweep")
-check(not clip._shown, "out of combat, combat only: hidden")
 GlassUF.Settings.SetFiveSecondCombatOnly(false)
-check(clip._shown, "combat only off: shown out of combat")
+combat(false)
+eq(st.state, "idle", "combat exit inside the window: done")
+check(not clip._shown, "hidden, even with combat only off")
+GlassUF.Settings.SetFiveSecondCombatOnly(true)
+settle()
+
+-- Combat only off: a spend out of combat shows it.
+GlassUF.Settings.SetFiveSecondCombatOnly(false)
 eq(GlassUnitFramesDB.fsrCombatOnly, false, "saved when off")
+cast(MANA_SPELL)
+check(clip._shown, "combat only off: shown out of combat")
 GlassUF.Settings.SetFiveSecondCombatOnly(true)
 eq(GlassUnitFramesDB.fsrCombatOnly, nil, "on is the default: not saved")
-check(not clip._shown, "hidden again")
+check(not clip._shown, "combat only again: hidden out of combat")
+combat(true)
+check(clip._shown, "a fight starting mid-window shows it")
 settle()
 
 -- Full mana hides the strip through the client's curve, never a Lua read.
@@ -186,8 +134,8 @@ combat(true)
 cast(MANA_SPELL)
 eq(clip._alpha, 1, "below full: visible")
 WoW.units.player.power = WoW.units.player.maxPower
-adv(5.5); mana()
-eq(clip._alpha, 0, "full mana: alpha 0")
+adv(1); mana()
+eq(clip._alpha, 0, "full mana (a potion): alpha 0")
 WoW.units.player.power = 400
 WoW.secretFields.power = true
 adv(0.13); mana()
