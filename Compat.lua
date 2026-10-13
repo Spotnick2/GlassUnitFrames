@@ -230,6 +230,21 @@ function API.IncomingHeals(unit, calc)
     return incoming, calc:GetMaximumHealth()
 end
 
+-- The client's world latency in seconds (GetNetStats' 4th return, else its
+-- 3rd), or nil when unreadable. Only the latency block's fallback (#72): it
+-- measured 33 ms where a cast's keypress-to-start took 139 ms.
+function API.NetLatency()
+    local fn = rawget(_G, "GetNetStats")
+    if not fn then return nil end
+    local ok, _, _, home, world = pcall(fn)
+    if not ok then return nil end
+    local function ms(v)
+        if API.IsSecret(v) or type(v) ~= "number" or v <= 0 then return nil end
+        return v / 1000
+    end
+    return ms(world) or ms(home)
+end
+
 -- Cast/channel timing as a LuaDurationObject, or nil. Lua never reads the
 -- start/end numbers; StatusBar:SetTimerDuration animates natively.
 function API.CastDuration(unit)

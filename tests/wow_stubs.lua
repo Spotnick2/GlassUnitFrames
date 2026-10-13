@@ -78,6 +78,8 @@ function WoW.reset()
     WoW.chat = {}
     WoW.addonVersion = "dev"
     WoW.timers = {}
+    WoW.now = 1000            -- GetTime(): the frame time, advanced by tests
+    WoW.netStats = { 3.4, 0.15, 29, 33 }   -- GetNetStats(): in, out, home ms, world ms (measured)
     WoW.unitWatch = {}
     WoW.methodsCalled = {}
     WoW.combat = false
@@ -335,6 +337,8 @@ function Methods.SetValue(b, v, interp)
     if b._scripts and b._scripts.OnValueChanged then b._scripts.OnValueChanged(b, v, false) end
 end
 function Methods.GetValue(b) return b._value end
+function Methods.SetReverseFill(b, on) b._reverse = on end
+function Methods.GetReverseFill(b) return b._reverse end
 function Methods.SetStatusBarTexture(b, file)
     b._fill = b._fill or newWidget("Texture", b)
     b._fill._file = file
@@ -385,6 +389,8 @@ Enum = {
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 function GetBuildInfo() return "1.60.1", "70338", "Oct  9 2026", 16001 end
 function InCombatLockdown() return WoW.combat end
+function GetTime() return WoW.now end
+function GetNetStats() return unpack(WoW.netStats) end
 function IsShiftKeyDown() return WoW.shift end
 function IsAltKeyDown() return WoW.alt == true end
 function RegisterUnitWatch(frame) WoW.unitWatch[frame] = true end
@@ -605,14 +611,24 @@ function GetRaidRosterInfo(index)
     end
 end
 
+-- casting also takes, for the player's own cast (#72): total (s), startMs,
+-- endMs, guid, spellID, delayMs. WoW.secretFields.castTimes makes those
+-- secret, and the duration report HasSecretValues.
 local function durationFor(u, channel)
     local un = WoW.units[u]
     local c = un and un.casting
     if not c or (c.channel == true) ~= channel then return nil end
-    return { GetRemainingDuration = function()
-        if WoW.secretFields.castRemaining then return WoW.Secret("remaining") end
-        return c.remaining or 1.25
-    end }
+    return {
+        GetRemainingDuration = function()
+            if WoW.secretFields.castRemaining then return WoW.Secret("remaining") end
+            return c.remaining or 1.25
+        end,
+        GetTotalDuration = function()
+            if WoW.secretFields.castTimes then return WoW.Secret("total") end
+            return c.total or 2
+        end,
+        HasSecretValues = function() return WoW.secretFields.castTimes == true end,
+    }
 end
 function UnitCastingDuration(u) return durationFor(u, false) end
 
@@ -633,17 +649,27 @@ function UnitGetDetailedHealPrediction(u, healer, calc)
     calc._incoming = unitField(u, "incoming") or 0
     calc._max = unitField(u, "maxHealth")
 end
+local function castTime(c, field)
+    if c[field] ~= nil and WoW.secretFields.castTimes then return WoW.Secret(field) end
+    return c[field]
+end
+-- name, displayName, texture, startMs, endMs, isTradeskill, castID,
+-- notInterruptible, spellID, castBarID, delayTimeMs (the dump's order).
 function UnitCastingInfo(u)
     local c = WoW.units[u] and WoW.units[u].casting
     if not c or c.channel then return nil end
     if WoW.secretFields.castName then return WoW.Secret("castName") end
-    return c.name
+    return c.name, c.name, 136243, castTime(c, "startMs"), castTime(c, "endMs"), false, c.guid,
+        false, c.spellID, nil, castTime(c, "delayMs")
 end
+-- name, displayName, texture, startMs, endMs, isTradeskill, notInterruptible,
+-- spellID, isEmpowered, numEmpowerStages, castBarID.
 function UnitChannelInfo(u)
     local c = WoW.units[u] and WoW.units[u].casting
     if not (c and c.channel) then return nil end
     if WoW.secretFields.castName then return WoW.Secret("castName") end
-    return c.name
+    return c.name, c.name, 136243, castTime(c, "startMs"), castTime(c, "endMs"), false, false,
+        c.spellID, false, 0, nil
 end
 
 --------------------------------------------------------------------------------

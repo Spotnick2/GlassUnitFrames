@@ -224,7 +224,7 @@ Legend.
 | spell name and icon | SUF `cast.lua:124-166, 421-437` | **works** | none | S | partial (no icon) |
 | interrupt flash | SUF `cast.lua:347-367` | **patched** (addon-owned state) | none | S | yes (measured) |
 | colours: cast / channel / uninterruptible / finished / interrupted | SUF `cast.lua:466-472, 370-389` | **patched**: colour applied after the timer | none | S | partial |
-| pushback display | SUF `cast.lua:391-410` | **impossible** (start-time arithmetic) | impossible | – | no |
+| pushback display | SUF `cast.lua:391-410` | **player only**: measured plain for the player's own cast (#72): cumulative `delayTimeMs`; other units' timing stays secret | none | S | yes (player, #72) |
 | uninterruptible detection | SUF `cast.lua:97-98, 378-389` | **unknown**: events in dump | none | S | no |
 | auto-hide when idle | SUF `cast.lua:171-173` | **works** | none | S | yes |
 | cast bar on ToT (polls end times) | SUF `cast.lua:8-64` | **broken as written**; could poll `UnitCastingDuration` existence | client path | S | no |
