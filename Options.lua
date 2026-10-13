@@ -101,10 +101,14 @@ local function header(col, text)
     place(col, label(col.parent, text, "GameFontNormalLarge"), 26)
 end
 
+-- As tall as it wraps: a fixed one-line slot let a two-line note run into the
+-- next one (the Combat zoom page, #96).
 local function note(col, text, width)
     local fs = label(col.parent, text, "GameFontHighlightSmall")
     fs:SetWidth(width or 400)
-    place(col, fs, 18, 4)
+    local h = fs:GetStringHeight()
+    if type(h) ~= "number" or h ~= h or h <= 0 then h = 14 end
+    place(col, fs, math.max(18, math.ceil(h) + 4), 4)
 end
 
 local function button(parent, text, width, onClick)
