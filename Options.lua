@@ -291,6 +291,11 @@ local function build()
     local left, right = column(16, -72), column(400, -72)
 
     header(left, "Look")
+    -- The glass (#102): saved now, built after /reload.
+    controls.look = radioRow(left, "Glass", { { "classic", "Classic" }, { "clean", "Clean" } },
+        function() return (GlassUnitFramesDB and GlassUnitFramesDB.look) or "classic" end,
+        GlassUF.Settings.SetLook, 60, { 0, 84 })
+    note(left, "The glass look takes effect after /reload.", 340)
     radios(left, "Font", { { "arial", "Arial Narrow" }, { "friz", "Friz Quadrata" } },
         function() return Glass.fontKey end,
         GlassUF.Settings.SetFont)
