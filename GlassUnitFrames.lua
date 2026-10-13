@@ -261,6 +261,7 @@ function Settings_.ResetLook()
         GlassUnitFramesDB[t.key] = nil
     end
     Settings_.SetFont(DEFAULTS.font)
+    Settings_.SetLook("classic")   -- the glass look too (after /reload, #102)
 end
 
 -- Unlock mode (movers + nudge panel). Unlock is refused in combat, never queued.

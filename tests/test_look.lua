@@ -49,6 +49,14 @@ for _, rb in ipairs(row) do
     if rb.value == "classic" then rb._scripts.OnClick(rb) end
 end
 eq(GlassUnitFramesDB.look, nil, "Classic from the radio")
+-- "Reset look to defaults" resets the glass look too (Codex, #103).
+S.SetLook("clean")
+GlassUF.Options.ResetLook()
+eq(GlassUnitFramesDB.look, nil, "reset: back to classic (after /reload)")
+O.controls.refreshAll()
+for _, rb in ipairs(row) do
+    if rb.value == "classic" then check(rb:GetChecked(), "the radio shows Classic after the reset") end
+end
 
 eq(next(GlassUF.paintFailures), nil, "no paint failures")
 GlassUnitFramesDB = nil
