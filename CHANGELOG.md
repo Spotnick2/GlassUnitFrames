@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **The five-second rule on your mana bar.** A thin line along the bottom of your mana bar:
+  - **red**, draining, for the 5 seconds after a spell that costs mana, while your spirit regen is
+    paused;
+  - then **blue**, filling toward the next mana tick.
+
+  It hides at full mana. As a druid in bear or cat form, it shows on the mana strip under your
+  frame. The tick timing is an estimate. On by default, in combat only; both switches are under
+  Options > AddOns > Glass Unit Frames > Five-second rule.
 - **Portraits: 3D, 2D or none.** Choose per frame (player, target, pet) under Options > AddOns >
   Glass Unit Frames > Portraits, or `/glass portrait target 2d`.
   - **2D** always shows the flat portrait: lighter, and the same look on every unit.

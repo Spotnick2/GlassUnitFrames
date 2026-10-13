@@ -402,6 +402,19 @@ function Settings_.SetSwingTimer(on)
     return true
 end
 
+-- The five-second rule strip (#94): db.fiveSecondRule = false when off,
+-- db.fsrCombatOnly = false to show it out of combat too.
+function Settings_.SetFiveSecond(on)
+    GlassUF.FiveSecond.SetEnabled(on)
+    if on then GlassUnitFramesDB.fiveSecondRule = nil else GlassUnitFramesDB.fiveSecondRule = false end
+    return true
+end
+function Settings_.SetFiveSecondCombatOnly(on)
+    GlassUF.FiveSecond.SetCombatOnly(on)
+    if on then GlassUnitFramesDB.fsrCombatOnly = nil else GlassUnitFramesDB.fsrCombatOnly = false end
+    return true
+end
+
 -- Blizzard's own swing bars: its "Enable Swing Timer" option (the
 -- showSwingTimer CVar). Only ever from a click, out of combat.
 function Settings_.SetBlizzardSwing(on) return GlassUF.Swing.SetBlizzardShown(on) end

@@ -376,6 +376,18 @@ local function build()
         GlassUF.Settings.SetAggroRed)
     note(right, "While they fight you or your group.", 270)
 
+    -- The five-second rule (#94): mana users only.
+    if GlassUF.FiveSecond.Built() then
+        header(right, "Five-second rule")
+        controls.fsr = checkbox(right, "Show it on your mana bar",
+            function() return GlassUF.FiveSecond.enabled end,
+            GlassUF.Settings.SetFiveSecond)
+        controls.fsrCombat = checkbox(right, "Only in combat",
+            function() return GlassUF.FiveSecond.combatOnly end,
+            GlassUF.Settings.SetFiveSecondCombatOnly)
+        note(right, "Red: 5 s after a spell that costs mana. Blue: the next mana tick (an estimate).", 270)
+    end
+
     header(right, "Cast bars")
     note(right, "On their own page: Glass Unit Frames > Cast bars.", 270)
 
