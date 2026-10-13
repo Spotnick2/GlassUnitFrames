@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **One cast bar for a whole craft batch.** Smelting 50 ores now shows a single bar for the batch,
+  counting down to when the last one lands. The estimate corrects itself at every craft. The latency
+  block and pushback text are hidden on it. Prefer one bar per craft? Untick "One bar for a whole
+  batch" under Options > AddOns > Glass Unit Frames > Cast bars.
 - **Craft count on your cast bar.** Making several of something shows **Heavy Linen Bandage
   (3/5)** while it crafts. A single craft shows just its name. The green "complete" flash now
   comes once, at the end of the batch, not between every craft. Turn the count off under Options >

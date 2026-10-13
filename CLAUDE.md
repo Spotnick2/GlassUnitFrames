@@ -229,8 +229,24 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       it.
     - **Flash and target:** crafts with more of their batch to come don't flash "complete" (the next
       starts about 0.1 s later), and a craft never shows "-> target".
+  - **Merged batch bar** (#93, option `craftMerge`, on by default): one duration for the whole
+    batch.
+    - **The estimate** is re-anchored at every craft START and DELAYED: this craft's plain end +
+      `left` × (its base total + the gap). The gap is the running mean of STOP→next-START gaps in
+      this batch: 0.1 s to start (measured), clamped to 0.5.
+    - **Display:** `showCast` attaches the batch duration (fill and time text). The latency block
+      and the pushback prefix are hidden.
+    - **Hold:** a matched intermediate STOP sets a persistent `k.holding` (armed once), and the
+      no-cast branch keeps the bar as it is through the gap.
+    - **Guard:** a hold with no next craft START within 1.5 s ends the merge for the batch. It
+      checks its own generation (`k.holdGen`), never `c.token`.
+    - **Sticky per batch:** it's decided at the batch's first START. Unreadable timing, the guard,
+      or the option turned off end it for the rest of the batch; turning the option on applies from
+      the next batch.
+    - `UPDATE_TRADESKILL_CAST_STOPPED` repaints the player's bar, so a held bar hides while a flash
+      or a replacement cast stays.
   - **Options:** `latency`, `latencyText`, `pushback`, `targetName`, `totalTime`, `complete`,
-    `craftCount` (`Castbar.SetOption`, saved only when off).
+    `craftCount`, `craftMerge` (`Castbar.SetOption`, saved only when off).
   - Measuring tool: `Tools/CastProbe`.
 - **`Swing.lua`** (#87): the player's swing timer.
   - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
@@ -372,7 +388,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
