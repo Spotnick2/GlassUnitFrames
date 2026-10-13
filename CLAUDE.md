@@ -144,8 +144,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     INTERRUPTED flashes only for the newest cast's guid (`latestGUID`, or the player's last
     SENT `sentGUID`, for an instant refused after SENT), and only once (`flashedGUID`). An
     unreadable guid keeps the old behaviour, and a rejected attempt (client-side
-    `Cast-2-0-0-0-…` guid, never SENT) no longer flashes. A full repaint of a non-player unit
-    (a target change) forgets both guids.
+    `Cast-2-0-0-0-…` guid, never SENT) no longer flashes. A flashed guid never flashes again,
+    even when the newest guid is unknown. A target change (`Engine.OnTokenChanged` →
+    `Castbar.TokenChanged`) forgets the newest guid; an ordinary full repaint doesn't.
   - **Options:** `latency`, `pushback` (`Castbar.SetOption`).
   - Measuring tool: `Tools/CastProbe`.
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container

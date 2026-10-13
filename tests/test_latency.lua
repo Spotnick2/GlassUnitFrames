@@ -322,6 +322,29 @@ WoW.units.target.casting = nil
 WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", t2, 116)
 check(tc.host._shown and textOf(tc.spell) == "Interrupted",
       "a cast begun before the target change still flashes when kicked")
+-- ...and its repeats don't restart it, though its newest guid is unknown.
+local ttoken = tc.token
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", t2, 116)
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", t2, 116)
+eq(tc.token, ttoken, "repeats after a mid-cast target switch leave the flash alone")
+WoW.flushTimers()
+
+-- An ordinary full repaint (an option change) is no new unit: the target's
+-- newest guid survives it, and an interrupt's repeats flash once.
+local t3 = newGUID()
+WoW.units.target.casting = { name = "Fireball" }
+WoW.fire("UNIT_SPELLCAST_START", "target", t3, 133)
+GlassUF.Settings.SetCastOption("pushback", false); WoW.tick()
+GlassUF.Settings.SetCastOption("pushback", true); WoW.tick()
+eq(tc.latestGUID, t3, "an ordinary repaint keeps the newest guid")
+WoW.units.target.casting = nil
+WoW.fire("UNIT_SPELLCAST_STOP", "target", t3, 133)
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", t3, 133)
+ttoken = tc.token
+check(tc.host._shown, "the first repeat flashes")
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", t3, 133)
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", t3, 133)
+eq(tc.token, ttoken, "later repeats after an ordinary repaint don't restart it")
 WoW.flushTimers()
 
 eq(next(GlassUF.paintFailures), nil, "no paint failures")

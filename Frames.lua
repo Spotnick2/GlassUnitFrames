@@ -1139,7 +1139,7 @@ Engine.OnTokenChanged = function(base)
     if base ~= "target" then return end
     local t = Frames.byUnit.target
     if t and t.auraContainers then GlassUF.Auras.Refresh(t) end
-    if t and t.cast then t.cast.flashing = false end   -- the old target's flash is not the new one's
+    if t and t.cast then GlassUF.Castbar.TokenChanged(t.cast) end   -- the old target's cast state is not the new one's
     if t and t.sheen and UnitExists("target") then
         t.sheen:Stop()
         t.sheen:Play()

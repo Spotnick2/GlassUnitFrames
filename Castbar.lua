@@ -228,14 +228,16 @@ end
 -- May a FAILED/INTERRUPTED for `guid` start a flash? The client repeats an
 -- interrupt after the STOP (3 times ~0.1 s later, or twice in the same frame;
 -- measured), and the first INTERRUPTED still has the cast live, so the flash
--- starts on a repeat. Only the newest cast's guid (or the player's last SENT,
--- for an instant refused after it) may flash, and only once. A guid we can't
--- read (secret, absent) keeps the old behaviour: flash.
+-- starts on a repeat. A guid flashes only once, even when the newest cast's
+-- guid is unknown (a target picked mid-cast, no START seen). Once it is known,
+-- only that guid (or the player's last SENT, for an instant refused after it)
+-- may flash. A guid we can't read (secret, absent) keeps the old behaviour.
 local function mayFlash(c, guid)
-    if guid == nil or c.latestGUID == nil then return true end
+    if guid == nil then return true end
+    if guid == c.flashedGUID then return false end
+    if c.latestGUID == nil then return true end
     -- An older cast, or a rejected attempt (a client-side guid, never SENT).
-    if guid ~= c.latestGUID and guid ~= c.sentGUID then return false end
-    return c.flashedGUID ~= guid
+    return guid == c.latestGUID or guid == c.sentGUID
 end
 
 -- Every event re-reads what the unit is casting NOW rather than trusting the
@@ -247,9 +249,6 @@ Engine.SetPainter("cast", function(f, event, ...)
     if not c then return end
     if event and f.unit == "player" then trackPlayer(c, event, ...) end
     if TRACK_ONLY[event] then return end
-    -- A full repaint of another unit may mean a new unit behind the token (a
-    -- target change): the old one's guids would keep the new one from flashing.
-    if event == nil and f.unit ~= "player" then c.latestGUID, c.flashedGUID = nil, nil end
     if CAST_START[event] then c.latestGUID = plainGUID((...)) end
 
     local d, channel = currentCast(f.unit)
@@ -370,6 +369,14 @@ function Castbar.Build(b, body, L)
         if c.duration then attempt("cast time", paintTime) end
     end)
     return c
+end
+
+-- A new unit behind the token (Engine.OnTokenChanged, a target change): the
+-- old unit's flash and newest guid aren't the new one's. Not on an ordinary
+-- full repaint: that would let an interrupt's repeats flash again.
+function Castbar.TokenChanged(c)
+    c.flashing = false
+    c.latestGUID = nil
 end
 
 -- Turn a cast option on or off; repaint so the change shows mid-cast.
