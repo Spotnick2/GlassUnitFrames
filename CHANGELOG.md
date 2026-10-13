@@ -10,6 +10,11 @@
   (also there for every frame). **Attach** puts it back
   on its frame. Detaching and attaching work in combat too. **Reset frame positions** also puts
   detached bars back at their default spot and size.
+- **Pet and focus cast bars.** Your pet's casts show in a thin glass bar under the pet frame,
+  your focus's in one above the focus frame. Both can be detached, scaled and centred like the
+  others.
+- Fixed: the **Unlock frames** button in the options no longer causes an "AddOn tried to call the
+  protected function SpellStopCasting()" error when the options were opened from the game menu.
 - A detached player cast bar shows your **latency in ms** above the end of the bar (it can be
   turned off).
 - **Unlock dialog.** While the frames are unlocked, a glass panel at the top of the screen says

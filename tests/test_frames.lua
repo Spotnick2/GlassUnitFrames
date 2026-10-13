@@ -294,6 +294,8 @@ eq(textOf(button("pet").nameText), "Grunthok", "pet repainted after UNIT_PET")
 -- are mid-cast so START events have a cast to find, as they would in game.
 WoW.units.player.casting = { name = "Shadow Bolt" }
 WoW.units.target.casting = { name = "Fireball" }
+if WoW.units.focus then WoW.units.focus.casting = { name = "Heal" } end
+if WoW.units.pet then WoW.units.pet.casting = { name = "Firebolt" } end
 local seen = WoW.fireAllRegistered()
 WoW.tick()
 check(seen.UNIT_HEALTH and seen.UNIT_SPELLCAST_START and seen.PLAYER_TARGET_CHANGED, "core events registered")

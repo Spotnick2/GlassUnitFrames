@@ -40,8 +40,12 @@ Frames.LAYOUT = {
     -- Same total width as the player frame and centred on it (portrait 32 + gap 3
     -- + body 330 = 365), 5 px under it (player bottom -141, pet top -146), as the
     -- owner's SUF had it.
+    -- Pet and focus cast bars (#76): a 16 px pill, the pet's under its body
+    -- (bottom -200, clear of the action bars), the focus's ABOVE it (under it
+    -- would cover the ToT row).
     pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -162 },
                      portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
+                     cast = true, castH = 16,
                      indicators = { raidTarget = true, happiness = true }, anchorTo = "player" },
     -- The target cluster, SUF-style: targettarget and targettargettarget side by
     -- side ABOVE the target body (x 117.5..417.5, top at -79), 12 px up so the
@@ -58,6 +62,7 @@ Frames.LAYOUT = {
     -- Above the ToT row, following the target; focustarget to its right, following focus.
     focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -15 },
                      power = true, size = "small", text = { healthRight = "curhp" },
+                     cast = true, castH = 16, castAbove = true,
                      indicators = { raidTarget = true, leader = true }, healPrediction = true, anchorTo = "target" },
     focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -15 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
@@ -1133,13 +1138,16 @@ local function build(unit)
     return b
 end
 
--- A fresh target sweeps the sheen across its frame. Only the target: a focus
--- change must not replay it or cut off the target's cast flash.
+-- A new unit behind a token (target, focus, pet): its cast bar forgets the
+-- old unit's cast state. A fresh target also sweeps the sheen across its
+-- frame. Only the target: a focus change must not replay it or cut off the
+-- target's cast flash.
 Engine.OnTokenChanged = function(base)
+    local f = Frames.byUnit[base]
+    if f and f.cast then GlassUF.Castbar.TokenChanged(f.cast) end   -- the old unit's cast state is not the new one's
     if base ~= "target" then return end
-    local t = Frames.byUnit.target
+    local t = f
     if t and t.auraContainers then GlassUF.Auras.Refresh(t) end
-    if t and t.cast then GlassUF.Castbar.TokenChanged(t.cast) end   -- the old target's cast state is not the new one's
     if t and t.sheen and UnitExists("target") then
         t.sheen:Stop()
         t.sheen:Play()

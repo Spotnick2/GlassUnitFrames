@@ -239,7 +239,11 @@ world:SetScript("OnEvent", function(_, event, unit)
         repaintChain(base, true)
         if Engine.OnTokenChanged then Engine.OnTokenChanged(base) end
     elseif event == "UNIT_PET" then
-        if unit == "player" then Engine.RepaintUnit("pet") end
+        if unit == "player" then
+            Engine.RepaintUnit("pet")
+            -- A new pet behind the token (#76): its cast bar forgets the old one's.
+            if Engine.OnTokenChanged then Engine.OnTokenChanged("pet") end
+        end
     elseif event == "GROUP_ROSTER_UPDATE" then
         -- Only the name line carries the group number: repainting the whole
         -- frame would reload the 3D portrait on every roster change.

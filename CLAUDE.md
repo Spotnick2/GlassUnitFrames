@@ -96,7 +96,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     filtered). `GROUP_ROSTER_UPDATE` repaints only the name line of frames showing a group number,
     so it doesn't reload portraits. `PLAYER_FLAGS_CHANGED` (AFK) fires with group tokens, never
     target/focus, so it repaints every name line;
-  - `Engine.OnTokenChanged(base)` is the hook for per-token reactions (the target sheen).
+  - `Engine.OnTokenChanged(base)` is the hook for per-token reactions: target and focus
+    changes, and a new pet (`UNIT_PET` for the player). Every one resets that frame's cast
+    state (`Castbar.TokenChanged`); the target's also refreshes its auras and plays the sheen.
   - group-wide events (`RAID_TARGET_UPDATE`, `PARTY_LEADER_CHANGED`, `PARTY_LOOT_METHOD_CHANGED`,
     `GROUP_ROSTER_UPDATE`) repaint one channel on every frame: `Engine.RepaintChannel`.
 - **`Frames.lua`**: text formats are a fixed set named after the owner's SUF tags (`Frames.TEXT`:
@@ -119,7 +121,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 - **`Frames.lua`** (frames): `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button.
-- **`Castbar.lua`**: the player and target cast bars (#72 moved them out of `Frames.lua`):
+- **`Castbar.lua`**: the player, target, focus and pet cast bars (#72 moved them out of
+  `Frames.lua`; pet and focus came in #76, each a 16 px pill (`LAYOUT.castH`): the pet's under
+  its body, the focus's **above** it (`castAbove`: under it would cover the ToT row). They detach
+  like the others and never get a latency block):
   the inside player row and the target's pill (`Castbar.Build`, `Castbar.CastingRows`), and the
   `cast` channel's painter. It paints through `Frames.attempt`, and Frames resolves it at build
   time.

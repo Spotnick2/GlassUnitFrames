@@ -48,13 +48,16 @@ np.buttons.reset._scripts.OnClick(np.buttons.reset)
 np.buttons.lock._scripts.OnClick(np.buttons.lock)
 -- The options panel's Unlock button (it closes the Settings window).
 local sp = CreateFrame("Frame", "SettingsPanel", UIParent)
-rawset(sp, "Close", function(self) self._closed = true end)   -- SettingsPanel.Close (a mixin method, in the dump's _G walk)
+rawset(sp, "Close", function(self, skip) self._closed = true; self._skipBack = skip end)   -- SettingsPanel.Close (a mixin method, in the dump's _G walk)
 local optPanel = GlassUF.Options._test.panel
 optPanel._scripts.OnShow(optPanel)
 for _, w in ipairs(WoW.frames) do
     if w._type == "Button" and w._text == "Unlock frames" then w._scripts.OnClick(w) end
 end
 check(sp._closed, "Unlock frames closes the Settings window through its own Close")
+-- Close(true): no transition back to the Game Menu, whose Esc handler calls the
+-- protected SpellStopCasting from our call (ADDON_ACTION_FORBIDDEN in game).
+eq(sp._skipBack, true, "Close(true): skip the Game Menu transition")
 GlassUF.Movers.Lock()
 SlashCmdList.GLASSUNITFRAMES("font friz")
 SlashCmdList.GLASSUNITFRAMES("reset")
