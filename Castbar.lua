@@ -330,6 +330,7 @@ local PILL_H = 20
 Castbar.DETACHED = { player = { x = 0, y = -47, w = 340, h = 20 },
                      target = { x = 0, y = -23, w = 340, h = 20 } }
 Castbar.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, w = { 80, 800 }, h = { 12, 40 } }
+local OTHER = { x = 0, y = -100, w = 240, h = 18 }   -- a bar with no defaults of its own
 Castbar.bars = {}   -- unit -> the bar's state (c)
 
 local function inLimits(v, k)
@@ -348,7 +349,7 @@ end
 
 -- x, y, w, h (each valid, else its default) and whether it's detached.
 local function geometry(unit)
-    local d, e = Castbar.DETACHED[unit], saved(unit) or {}
+    local d, e = Castbar.DETACHED[unit] or OTHER, saved(unit) or {}
     local function pick(k)
         if inLimits(e[k], k) then return e[k] end
         return d[k]
@@ -418,7 +419,8 @@ function Castbar.SetDetached(unit, on)
     entry(unit).detached = on and true or nil
     prune(unit)
     Castbar.Place(c)
-    Engine.RepaintChannel("cast")   -- the ms text follows the mode mid-cast
+    -- The ms text follows the mode mid-cast: this bar's frame only.
+    Engine.RepaintChannel("cast", function(f) return f.unit == unit end)
     return true
 end
 
@@ -463,9 +465,10 @@ function Castbar.SetSize(unit, w, h)
         local lim = Castbar.LIMITS[k]
         return math.max(lim[1], math.min(lim[2], math.floor(v + 0.5)))
     end
-    local cw, ch = Castbar.SizeOf(unit)
+    -- Only the dimension given is saved: the other keeps following its default.
     local e = entry(unit)
-    e.w, e.h = clamp(w, "w") or cw, clamp(h, "h") or ch
+    e.w, e.h = clamp(w, "w") or e.w, clamp(h, "h") or e.h
+    prune(unit)
     Castbar.Place(c)
     return true
 end
@@ -479,6 +482,13 @@ function Castbar.ResetPosition(unit)
     prune(unit)
     Castbar.Place(c)
     return true
+end
+
+-- Every bar back at its default spot and size ("Reset frame positions"); a
+-- detached bar stays detached. Also re-places a bar a dropped drag left at an
+-- unsaved spot.
+function Castbar.ResetPositions()
+    for unit in pairs(Castbar.bars) do Castbar.ResetPosition(unit) end
 end
 
 -- The unlock-mode source for a detached bar (Movers.lua: id, label, frame,

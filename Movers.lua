@@ -423,6 +423,7 @@ local function makePanel()
     xl:SetPoint("TOPLEFT", p, "TOPLEFT", 10, -42)
     xl:SetText("X")
     p.x = makeEdit(p, function(v)
+        if not sources[selected] then return end
         local _, y = sources[selected].position()
         if y then place(selected, v, y, false, mirrorOf(selected)) end
     end)
@@ -431,6 +432,7 @@ local function makePanel()
     yl:SetPoint("LEFT", p.x, "RIGHT", 10, 0)
     yl:SetText("Y")
     p.y = makeEdit(p, function(v)
+        if not sources[selected] then return end
         local x = sources[selected].position()
         if x then place(selected, x, v, false, mirrorOf(selected)) end
     end)
@@ -488,11 +490,16 @@ end
 local function makeDialog()
     local d = CreateFrame("Frame", nil, UIParent)
     d:SetFrameStrata("DIALOG")
-    d:SetFrameLevel(100)
+    d:SetFrameLevel(90)   -- under the nudge panel (100), over the movers (10)
     d:SetSize(460, 66)
     d:SetPoint("TOP", UIParent, "TOP", 0, -40)
     d:SetClampedToScreen(true)
     d:EnableMouse(true)
+    -- Draggable (not saved), so a frame placed under it can still be reached.
+    d:SetMovable(true)
+    d:RegisterForDrag("LeftButton")
+    d:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    d:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
     local g = GlassUF.Glass.Apply(d, "small")
     local text = g.top:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     text:SetPoint("TOPLEFT", d, "TOPLEFT", 12, -10)
@@ -581,7 +588,10 @@ function syncCast()
             if movers[id] then movers[id]:Hide() end
             if selected == id then
                 selected = nil
-                if panel then panel:Hide() end
+                if panel then
+                    for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h }) do e:ClearFocus() end
+                    panel:Hide()
+                end
             end
         end
     end

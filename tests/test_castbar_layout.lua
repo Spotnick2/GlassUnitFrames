@@ -159,6 +159,51 @@ WoW.combat = false
 WoW.units.player.casting = nil
 WoW.fire("UNIT_SPELLCAST_STOP", "player"); WoW.tick()
 
+-- Review fixes (/code-review, #75).
+-- Detaching repaints only that bar's frame: a target mid-cast keeps its token.
+WoW.units.target.casting = { name = "Fireball" }
+WoW.fire("UNIT_SPELLCAST_START", "target"); WoW.tick()
+local ttok = tc.token
+S.SetCastDetached("player", true); WoW.tick()
+eq(tc.token, ttok, "detaching the player's bar leaves the target's alone")
+WoW.units.target.casting = nil
+WoW.fire("UNIT_SPELLCAST_STOP", "target"); WoW.tick()
+-- Typing only W keeps H on its default (a later default change still reaches it).
+Castbar.SetSize("player", 300, nil)
+eq(GlassUnitFramesDB.castBars.player.h, nil, "only the dimension given is saved")
+-- "Reset frame positions" mid-drag: the bar goes back to its default spot and
+-- size, not to the unsaved spot the dropped drag left it at.
+check(M.Unlock(), "unlocked again")
+local mc2 = M._test.movers["cast:player"]
+mc2._center = { 683 + 50, 384 - 150 }
+mc2._scripts.OnDragStart(mc2); mc2._scripts.OnUpdate(mc2)
+SlashCmdList.GLASSUNITFRAMES("reset")
+mc2._scripts.OnDragStop(mc2)
+p = pc.host._points[1]
+check(p[4] == 0 and p[5] == -47, "/glass reset mid-drag: the bar at its default spot")
+eq(pc.host._width, 340, "and its default size")
+check(Castbar.IsDetached("player"), "still detached")
+-- Attach with an X typed but not committed: its Enter does nothing (no error).
+mc2._scripts.OnMouseUp(mc2)
+local np3 = M._test.panel()
+np3.x:SetFocus(); np3.x:SetText("12")
+np3.buttons.attach._scripts.OnClick(np3.buttons.attach)
+check(not np3.x:HasFocus(), "attaching drops the pending edit")
+local ok3 = pcall(np3.x._scripts.OnEnterPressed, np3.x)
+check(ok3, "a late Enter on the gone bar's X doesn't throw")
+-- The dialog: under the nudge panel, and movable out of the way.
+local dlg = M._test.dialog()
+check(dlg:GetFrameLevel() < np3:GetFrameLevel(), "the dialog under the nudge panel")
+check(dlg._scripts.OnDragStart ~= nil, "the dialog can be dragged aside")
+M.Lock()
+-- A bar on a unit with no defaults of its own (focus, later) builds and detaches.
+local fb = button("focus")
+local okb, fc = pcall(Castbar.Build, fb, fb.body, GlassUF.Frames.LAYOUT.focus)
+check(okb, "a cast bar on a unit without defaults builds")
+check(okb and Castbar.SetDetached("focus", true), "and detaches")
+Castbar.SetDetached("focus", false)
+Castbar.bars.focus = nil
+
 -- Saved entries are validated field by field: junk falls back to defaults,
 -- and the build goes on.
 local saved = GlassUnitFramesDB

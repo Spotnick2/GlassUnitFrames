@@ -284,6 +284,7 @@ function Settings_.ResetPositions()
     whenOutOfCombat("reset", function()
         GlassUF.Movers.CancelDrag()   -- a drag in flight would re-save over the reset
         Frames.ResetPositions()
+        GlassUF.Castbar.ResetPositions()   -- detached cast bars' spots and sizes (#74)
         GlassUF.Movers.Refresh()      -- the open nudge panel shows the new numbers
         say("positions reset")
     end)

@@ -130,7 +130,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - **Detached:** its own pill, CENTER on the screen centre. Defaults follow the owner's Quartz
       layout: player 340×20 at (0, −47), target at (0, −23).
     - Saved in `db.castBars[unit] = { detached, x, y, w, h }`, each field validated against
-      `Castbar.LIMITS` (junk falls back to its default), pruned when empty.
+      `Castbar.LIMITS` (junk falls back to its default), pruned when empty. Only what the
+      player set is saved (typing W leaves H on its default). "Reset frame positions"
+      (`/glass reset`) also resets every bar's spot and size (`Castbar.ResetPositions`); it
+      stays detached. A unit without `DETACHED` defaults gets a generic one.
     - `Castbar.Place(c)` lays a bar out for its mode and reconciles the rows. Levels are fixed at
       build: host H, pill H (rims H + 10), bar H + 2, text H + 11.
     - Detach and attach work **in combat**: a cast host is never protected (measured with
@@ -206,7 +209,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   button** (a drag combat interrupts can't be stopped; there is no shift-drag any more). Clicking
   a mover opens the nudge panel (X/Y offsets, arrows 1 / Shift 10, reset this frame, lock; W/H
   and Attach for a cast bar). While unlocked, a glass **unlock dialog** at the top centre
-  (Quartz's idea) holds Lock and the switches.
+  (Quartz's idea) holds Lock and the switches. It sits under the nudge panel and over the
+  movers, and can be dragged aside (not saved).
   Unlock and nudges are refused in combat; a combat start locks. While dragging, a frame's
   edges/centre **align** to other frames' (and the screen centre) within 8 units with a yellow guide
   line, else its centre snaps to a 16-unit **grid** drawn over the screen; the frame's own

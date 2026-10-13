@@ -6,12 +6,13 @@
   cast bar or your target's. A detached bar becomes a glass bar of its own. Its default spot is
   just under the middle of the screen (340×20), with the target's just above it. Unlock the
   frames to drag it, type its position, or change its width and height. **Attach** puts it back
-  on its frame. Detaching and attaching work in combat too.
+  on its frame. Detaching and attaching work in combat too. **Reset frame positions** also puts
+  detached bars back at their default spot and size.
 - A detached player cast bar shows your **latency in ms** above the end of the bar (it can be
   turned off).
 - **Unlock dialog.** While the frames are unlocked, a glass panel at the top of the screen says
   so. It has a **Lock** button and the snap-to-grid, align and mirror switches, which used to sit
-  in each frame's small panel.
+  in each frame's small panel. Drag it aside if it covers a frame.
 - Your cast bar now shows a red **latency block** at its end: roughly the last part of the cast
   that is too late to cancel, measured from your own key presses (median of your last few
   casts). Channels show it at the end they drain toward.
