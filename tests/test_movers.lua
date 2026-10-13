@@ -150,7 +150,7 @@ mtg._scripts.OnDragStart(mtg); mtg._scripts.OnUpdate(mtg); mtg._scripts.OnDragSt
 eq(GlassUnitFramesDB.pos.target[4], 301, "Alt: no snapping")
 WoW.alt = false
 -- The switches: saved only when off, the grid hides with its switch.
-local np2 = M._test.panel()
+local np2 = M._test.dialog()   -- the switches live on the unlock dialog (#74)
 np2.snapGrid:SetChecked(false); np2.snapGrid._scripts.OnClick(np2.snapGrid)
 eq(GlassUnitFramesDB.snapGrid, false, "grid off: saved")
 check(not M._test.overlay().grid._shown, "grid off: grid hidden")
@@ -191,9 +191,9 @@ eq(GlassUnitFramesDB.snapAlign, nil, "on again: nothing saved")
 -- The panel (created earlier, reused) follows a slash change.
 SlashCmdList.GLASSUNITFRAMES("snap grid off")
 M.Lock(); M.Unlock()
-check(not M._test.panel().snapGrid:GetChecked(), "grid switch unticked after /glass snap grid off")
+check(not M._test.dialog().snapGrid:GetChecked(), "grid switch unticked after /glass snap grid off")
 SlashCmdList.GLASSUNITFRAMES("snap grid on")
-check(M._test.panel().snapGrid:GetChecked(), "and ticked again after on")
+check(M._test.dialog().snapGrid:GetChecked(), "and ticked again after on")
 M.Lock()
 check(not M._test.overlay()._shown, "lock hides the overlay")
 WoW.alt = true
@@ -283,6 +283,7 @@ M._test.nudge(1, 0)
 eq(GlassUnitFramesDB.pos.player[4], -249, "player nudged right")
 eq(GlassUnitFramesDB.pos.target[4], 249, "target moved left: still a mirror image")
 local npm = M._test.panel()
+local dlg = M._test.dialog()
 npm.y:SetText("-60"); npm.y._scripts.OnEnterPressed(npm.y)
 eq(GlassUnitFramesDB.pos.target[5], -60, "typed Y mirrors")
 -- Reset one: both back to their (mirrored) defaults.
@@ -312,11 +313,11 @@ WoW.alt = false
 -- The switch: off moves one alone; saved only when off; the panel follows.
 SlashCmdList.GLASSUNITFRAMES("mirror off")
 eq(GlassUnitFramesDB.mirror, false, "mirror off: saved")
-check(not npm.mirror:GetChecked(), "the panel's switch follows")
+check(not dlg.mirror:GetChecked(), "the dialog's switch follows")
 M._test.nudge(1, 0)
 eq(GlassUnitFramesDB.pos.target, nil, "mirror off: the target stays put")
-npm.mirror:SetChecked(true); npm.mirror._scripts.OnClick(npm.mirror)
-eq(GlassUnitFramesDB.mirror, nil, "on again from the panel: nothing saved")
+dlg.mirror:SetChecked(true); dlg.mirror._scripts.OnClick(dlg.mirror)
+eq(GlassUnitFramesDB.mirror, nil, "on again from the dialog: nothing saved")
 M.Lock()
 GlassUnitFramesDB = nil
 

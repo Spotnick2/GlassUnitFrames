@@ -14,8 +14,12 @@
 --
 -- Clicking a mover selects it and opens a small nudge panel: X/Y in the
 -- frame's own offsets (from its leader, or from the screen centre), arrow
--- buttons (1 unit, Shift 10), reset this frame, lock. Out of combat only: a
--- combat start locks everything; unlock and nudges are refused in combat.
+-- buttons (1 unit, Shift 10), Center X (the exact horizontal middle of what
+-- it's placed on, alone: never mirrored), reset this frame, lock; for a
+-- detached cast bar (#74) also W/H, scale and Attach. While unlocked, a glass dialog at the top centre
+-- (Quartz's idea) says so, with Lock and the snapping / mirroring switches.
+-- Out of combat only: a combat start locks everything; unlock and nudges are
+-- refused in combat.
 
 GlassUF = GlassUF or {}
 local Movers = {}
@@ -28,8 +32,41 @@ local NAMES = { player = "Player", target = "Target", pet = "Pet", targettarget 
 local TINT = { 0.30, 0.65, 1.00, 0.35 }
 
 Movers.unlocked = false
-local movers, selected, dragging = {}, nil, nil
-local panel
+local movers, selected, dragging = {}, nil, nil   -- keyed by source id; selected is an id
+local panel, dialog
+
+-- What a mover moves: a "source", one per draggable thing, keyed by an id (a
+-- unit's id is its unit name). Movers reach positions only through it:
+--   label, frame() (what the mover covers), rel() (the name and frame its
+--   offsets are from), position() (x, y or nil), set(x, y, live) (ok, x, y;
+--   out of combat), save(x, y) (the table only: safe in combat), reset(),
+--   follows(id) (is it carried by that source?).
+local sources = {}
+
+-- Is `unit` carried by `leader` (anchored to it, directly or through a chain)?
+local function followsFrom(unit, leader)
+    local L = Frames.LAYOUT[unit]
+    while L and L.anchorTo do
+        if L.anchorTo == leader then return true end
+        L = Frames.LAYOUT[L.anchorTo]
+    end
+    return false
+end
+
+-- The detached cast bars (#74) are sources too, "cast:<unit>", from
+-- Castbar.MoverSource (which adds size, setSize and attach).
+local function unitSource(unit)
+    return {
+        id = unit, label = NAMES[unit] or unit,
+        frame = function() return Frames.byUnit[unit] end,
+        rel = function() return Frames.AnchorOf(unit) end,
+        position = function() return Frames.PositionOf(unit) end,
+        set = function(x, y, live) return Frames.SetPosition(unit, x, y, live) end,
+        save = function(x, y) return Frames.SavePosition(unit, x, y) end,
+        reset = function() return Frames.ResetPosition(unit) end,
+        follows = function(leader) return followsFrom(unit, leader) end,
+    }
+end
 
 -- Snapping while dragging: align a frame's edges and centre to other frames'
 -- (and the screen centre) within SNAP_DIST, with a guide line showing each
@@ -62,16 +99,17 @@ local function mirrorOf(unit)
     return other
 end
 
--- Place `unit` and, if given, its mirror `other` at -x (the one mirror rule);
--- `live` = a drag in flight (not saved yet). Returns ok and the offsets
--- applied to `unit`.
-local function place(unit, x, y, live, other)
-    local ok, ax, ay = Frames.SetPosition(unit, x, y, live)
+-- Place source `id` and, if given, its mirror `other` at -x (the one mirror
+-- rule); `live` = a drag in flight (not saved yet). Returns ok and the
+-- offsets applied to `id`.
+local function place(id, x, y, live, other)
+    local ok, ax, ay = sources[id].set(x, y, live)
     if not ok then return false end
-    if other then Frames.SetPosition(other, -ax, ay, live) end
+    if other then sources[other].set(-ax, ay, live) end
     return true, ax, ay
 end
 local overlay   -- the grid and the guide lines, full screen, under the movers
+local syncCast  -- defined below (needs endDrag and the movers)
 
 local function relName(rel)
     if rel == "UIParent" then return "the screen centre" end
@@ -82,7 +120,7 @@ end
 local snappedCenter, showGuide   -- defined below (need the snapping helpers)
 
 local function offsetsFromMover(m)
-    local _, relFrame = Frames.AnchorOf(m.unit)   -- what SetPosition places it on
+    local _, relFrame = sources[m.id].rel()   -- what set() places it on
     local mx, my = snappedCenter(m)
     -- Not `relFrame and relFrame:GetCenter()`: `and` keeps only the first return.
     local rx, ry
@@ -92,12 +130,25 @@ local function offsetsFromMover(m)
 end
 
 local function refreshPanel()
-    if not (panel and selected) then return end
-    local x, y = Frames.PositionOf(selected)
-    panel.title:SetText(NAMES[selected] or selected)
-    panel.sub:SetText("offsets from " .. relName((Frames.AnchorOf(selected))))
+    if not (panel and selected and sources[selected]) then return end
+    local src = sources[selected]
+    local x, y = src.position()
+    panel.title:SetText(src.label)
+    panel.sub:SetText("offsets from " .. relName((src.rel())))
     if not panel.x:HasFocus() then panel.x:SetText(x and string.format("%g", x) or "?") end
     if not panel.y:HasFocus() then panel.y:SetText(y and string.format("%g", y) or "?") end
+    -- A detached cast bar also has a size and an Attach.
+    local sized = src.size ~= nil
+    panel:SetHeight(sized and 126 or 100)
+    for _, r in ipairs(panel.sizeRow) do r:SetShown(sized) end
+    panel.buttons.attach:SetShown(src.attach ~= nil)
+    if sized then
+        local w, h = src.size()
+        if not panel.w:HasFocus() then panel.w:SetText(w and string.format("%g", w) or "?") end
+        if not panel.h:HasFocus() then panel.h:SetText(h and string.format("%g", h) or "?") end
+        local sc = src.scale and src.scale()
+        if not panel.s:HasFocus() then panel.s:SetText(sc and string.format("%g", sc) or "?") end
+    end
 end
 
 -- Finish a drag in flight: the last position the frame took is saved. Safe
@@ -114,48 +165,44 @@ local function endDrag(save)
     if save and m.lastX then
         if InCombatLockdown() then
             -- Only the table (never a protected frame under lockdown).
-            Frames.SavePosition(m.unit, m.lastX, m.lastY)
-            if m.partner then Frames.SavePosition(m.partner, -m.lastX, m.lastY) end
+            sources[m.id].save(m.lastX, m.lastY)
+            if m.partner then sources[m.partner].save(-m.lastX, m.lastY) end
         else
-            place(m.unit, m.lastX, m.lastY, false, m.partner)
+            place(m.id, m.lastX, m.lastY, false, m.partner)
         end
     end
     m.lastX, m.lastY, m.lines, m.partner = nil, nil, nil, nil
     m:ClearAllPoints()
-    m:SetAllPoints(Frames.byUnit[m.unit])
+    m:SetAllPoints(sources[m.id].frame())
     showGuide("vguide", nil)
     showGuide("hguide", nil)
 end
 
 local function finishDrag() endDrag(true) end
 
--- Is `unit` carried by `leader` (anchored to it, directly or through a chain)?
-local function followsFrom(unit, leader)
-    local L = Frames.LAYOUT[unit]
-    while L and L.anchorTo do
-        if L.anchorTo == leader then return true end
-        L = Frames.LAYOUT[L.anchorTo]
-    end
-    return false
-end
-
--- The lines a dragged frame may align to on one axis: every other frame's
--- two edges and centre (not the frame itself, nor what moves with it), plus
+-- The lines a dragged frame may align to on one axis: every other source's
+-- two edges and centre (not the source itself, nor what moves with it), plus
 -- the screen centre.
-local function alignLines(unit, axis)
+local function alignLines(id, axis)
     local lines = {}
     local ucx, ucy = UIParent:GetCenter()
     -- Not `axis == "x" and ucx or ucy`: a nil ucx would hand x the y centre.
     local centre
     if axis == "x" then centre = ucx else centre = ucy end
     if type(centre) == "number" then lines[#lines + 1] = centre end
-    local m = movers[unit]
+    local m = movers[id]
     local partner = m and m.partner
-    for u, b in pairs(Frames.byUnit) do
-        if u ~= unit and not followsFrom(u, unit) and u ~= partner and not (partner and followsFrom(u, partner)) then
+    for sid, src in pairs(sources) do
+        local b = src.frame()
+        if b and sid ~= id and not src.follows(id) and sid ~= partner and not (partner and src.follows(partner)) then
             local lo, hi
             if axis == "x" then lo, hi = b:GetLeft(), b:GetRight() else lo, hi = b:GetBottom(), b:GetTop() end
-            if type(lo) == "number" and type(hi) == "number" then
+            -- A scaled frame (a detached cast bar) reports its rect in its own
+            -- units: bring it to UIParent's, where the drag happens.
+            local e, u = b:GetEffectiveScale(), UIParent:GetEffectiveScale()
+            if type(lo) == "number" and type(hi) == "number" and type(e) == "number" and type(u) == "number" and u > 0 then
+                local k = e / u   -- exactly 1 for an unscaled frame
+                lo, hi = lo * k, hi * k
                 lines[#lines + 1] = lo
                 lines[#lines + 1] = hi
                 lines[#lines + 1] = (lo + hi) / 2
@@ -216,7 +263,7 @@ function snappedCenter(m)
         if Movers.snapAlign and type(w) == "number" and type(h) == "number" then
             -- Nothing the lines depend on moves during a drag (the dragged
             -- frame's own group is excluded): build them once per drag.
-            m.lines = m.lines or { x = alignLines(m.unit, "x"), y = alignLines(m.unit, "y") }
+            m.lines = m.lines or { x = alignLines(m.id, "x"), y = alignLines(m.id, "y") }
             nx, gx = alignAxis(mx, w / 2, m.lines.x)
             ny, gy = alignAxis(my, h / 2, m.lines.y)
         end
@@ -238,33 +285,36 @@ local function follow(m)
     -- Skip when nothing moved: every SetPoint re-lays out the whole group.
     local rx, ry = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
     if rx == m.lastX and ry == m.lastY then return end
-    local ok, ax, ay = place(m.unit, x, y, true, m.partner)
+    local ok, ax, ay = place(m.id, x, y, true, m.partner)
     if ok then m.lastX, m.lastY = ax, ay end
 end
 
-local function select_(unit)
+local function select_(id)
     -- Switching frames discards a coordinate typed but not committed: its
     -- Enter would otherwise land on the NEW frame (Codex, #52).
-    if panel and unit ~= selected then
+    if panel and id ~= selected then
         panel.x:ClearFocus()
         panel.y:ClearFocus()
+        panel.w:ClearFocus()
+        panel.h:ClearFocus()
+        panel.s:ClearFocus()
     end
-    selected = unit
-    for u, m in pairs(movers) do m.edge:SetShown(u == unit) end
+    selected = id
+    for mid, m in pairs(movers) do m.edge:SetShown(mid == id) end
     if panel then
         panel:ClearAllPoints()
-        panel:SetPoint("BOTTOM", movers[unit], "TOP", 0, 8)
+        panel:SetPoint("BOTTOM", movers[id], "TOP", 0, 8)
         panel:Show()
         refreshPanel()
     end
 end
 
-local function makeMover(unit, b)
+local function makeMover(src)
     local m = CreateFrame("Frame", nil, UIParent)
-    m.unit = unit
+    m.id = src.id
     m:SetFrameStrata("DIALOG")
     m:SetFrameLevel(MOVER_LEVEL)   -- above the grid and guides
-    m:SetAllPoints(b)
+    m:SetAllPoints(src.frame())
     m:EnableMouse(true)
     m:SetMovable(true)
     m:SetClampedToScreen(true)
@@ -280,13 +330,13 @@ local function makeMover(unit, b)
     m.edge = edge
     local fs = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fs:SetPoint("CENTER", m, "CENTER")
-    fs:SetText(NAMES[unit] or unit)
+    fs:SetText(src.label)
     m:SetScript("OnDragStart", function(self)
         if InCombatLockdown() then return end
-        select_(self.unit)
+        select_(self.id)
         -- Mirror or not is decided now (Alt held = alone) and holds for the
         -- whole drag, so what's seen is what's saved.
-        self.partner = (not IsAltKeyDown()) and mirrorOf(self.unit) or nil
+        self.partner = (not IsAltKeyDown()) and mirrorOf(self.id) or nil
         self:StartMoving()
         dragging = self
         self:SetScript("OnUpdate", follow)
@@ -297,7 +347,7 @@ local function makeMover(unit, b)
         finishDrag()
         refreshPanel()
     end)
-    m:SetScript("OnMouseUp", function(self) select_(self.unit) end)
+    m:SetScript("OnMouseUp", function(self) select_(self.id) end)
     m:Hide()
     return m
 end
@@ -306,7 +356,7 @@ end
 local function nudge(dx, dy)
     if not selected or InCombatLockdown() then return end
     local step = IsShiftKeyDown() and 10 or 1
-    local x, y = Frames.PositionOf(selected)
+    local x, y = sources[selected].position()
     if not x then return end   -- can't tell where it is: never invent a position
     if place(selected, x + dx * step, y + dy * step, false, mirrorOf(selected)) then refreshPanel() end
 end
@@ -346,11 +396,29 @@ local function makeButton(parent, text, w, onClick)
     return b
 end
 
+-- A check button with a label, for the dialog's switches.
+local function makeToggle(parent, text, checked, onClick)
+    local cb, templated = API.SafeFrame("CheckButton", parent, "UICheckButtonTemplate", "text")
+    cb:SetSize(20, 20)
+    if not templated then
+        cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
+        cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
+        cb:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    end
+    local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+    fs:SetText(text)
+    cb.label = fs
+    cb:SetChecked(checked)
+    cb:SetScript("OnClick", function(self) onClick(self:GetChecked() and true or false) end)
+    return cb
+end
+
 local function makePanel()
     local p = CreateFrame("Frame", nil, UIParent)
     p:SetFrameStrata("DIALOG")
     p:SetFrameLevel(100)
-    p:SetSize(250, 140)
+    p:SetSize(290, 100)
     p:SetClampedToScreen(true)
     p:EnableMouse(true)
     local bg = p:CreateTexture(nil, "BACKGROUND")
@@ -364,7 +432,8 @@ local function makePanel()
     xl:SetPoint("TOPLEFT", p, "TOPLEFT", 10, -42)
     xl:SetText("X")
     p.x = makeEdit(p, function(v)
-        local _, y = Frames.PositionOf(selected)
+        if not sources[selected] then return end
+        local _, y = sources[selected].position()
         if y then place(selected, v, y, false, mirrorOf(selected)) end
     end)
     p.x:SetPoint("LEFT", xl, "RIGHT", 8, 0)
@@ -372,10 +441,49 @@ local function makePanel()
     yl:SetPoint("LEFT", p.x, "RIGHT", 10, 0)
     yl:SetText("Y")
     p.y = makeEdit(p, function(v)
-        local x = Frames.PositionOf(selected)
+        if not sources[selected] then return end
+        local x = sources[selected].position()
         if x then place(selected, x, v, false, mirrorOf(selected)) end
     end)
     p.y:SetPoint("LEFT", yl, "RIGHT", 8, 0)
+    -- The exact horizontal middle of what it's placed on (the screen, or its
+    -- leader), y kept. Alone: a mirrored partner isn't dragged to the middle too.
+    p.buttons = {}
+    p.buttons.center = makeButton(p, "Center X", 64, function()
+        local src = selected and sources[selected]
+        if not src or InCombatLockdown() then return end
+        local _, y = src.position()
+        if y then place(selected, 0, y, false, nil) end
+        refreshPanel()
+    end)
+    p.buttons.center:SetPoint("LEFT", p.y, "RIGHT", 8, 0)
+    -- Width / height: detached cast bars only (refreshPanel shows the row).
+    local wl = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    wl:SetPoint("TOPLEFT", p, "TOPLEFT", 10, -68)
+    wl:SetText("W")
+    p.w = makeEdit(p, function(v)
+        local src = sources[selected]
+        if src and src.setSize then src.setSize(v, nil) end
+    end)
+    p.w:SetPoint("LEFT", wl, "RIGHT", 6, 0)
+    local hl = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    hl:SetPoint("LEFT", p.w, "RIGHT", 10, 0)
+    hl:SetText("H")
+    p.h = makeEdit(p, function(v)
+        local src = sources[selected]
+        if src and src.setSize then src.setSize(nil, v) end
+    end)
+    p.h:SetPoint("LEFT", hl, "RIGHT", 8, 0)
+    local sl = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    sl:SetPoint("LEFT", p.h, "RIGHT", 10, 0)
+    sl:SetText("Scale")
+    p.s = makeEdit(p, function(v)
+        local src = sources[selected]
+        if src and src.setScale then src.setScale(v) end
+    end)
+    p.s:SetWidth(44)
+    p.s:SetPoint("LEFT", sl, "RIGHT", 6, 0)
+    p.sizeRow = { wl, p.w, hl, p.h, sl, p.s }
     -- Arrows: 1 unit, Shift 10. Plain characters (every font has them).
     local left  = makeButton(p, "<", 24, function() nudge(-1, 0) end)
     local right = makeButton(p, ">", 24, function() nudge(1, 0) end)
@@ -387,38 +495,57 @@ local function makePanel()
     down:SetPoint("LEFT", up, "RIGHT", 2, 0)
     local reset = makeButton(p, "Reset", 52, function()
         local other = selected and mirrorOf(selected)   -- before the reset changes it
-        if selected and Frames.ResetPosition(selected) then
-            if other then Frames.ResetPosition(other) end
+        if selected and sources[selected].reset() then
+            if other then sources[other].reset() end
             refreshPanel()
         end
     end)
     reset:SetPoint("LEFT", down, "RIGHT", 8, 0)
     local lock = makeButton(p, "Lock", 44, function() Movers.Lock() end)
-    lock:SetPoint("LEFT", reset, "RIGHT", 4, 0)
-    p.buttons = { left = left, right = right, up = up, down = down, reset = reset, lock = lock }
-    -- Snapping switches (Alt while dragging places freely).
-    local function toggle(text, key, x, y, setter)
-        local cb, templated = API.SafeFrame("CheckButton", p, "UICheckButtonTemplate", "text")
-        cb:SetSize(20, 20)
-        if not templated then
-            cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
-            cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
-            cb:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
-        end
-        cb:SetPoint("TOPLEFT", p, "TOPLEFT", x, y)
-        local fs = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
-        fs:SetText(text)
-        cb:SetChecked(Movers[key])
-        cb:SetScript("OnClick", function(self) setter(key, self:GetChecked() and true or false) end)
-        return cb
-    end
-    local function snap(key, on) GlassUF.Settings.SetSnap(key, on) end
-    p.snapGrid = toggle("Snap to grid", "snapGrid", 8, -68, snap)
-    p.snapAlign = toggle("Align to frames", "snapAlign", 120, -68, snap)
-    p.mirror = toggle("Mirror player / target", "mirror", 8, -88, function(_, on) GlassUF.Settings.SetMirror(on) end)
+    lock:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -8, 8)
+    -- Attach: a detached cast bar back on its frame (its mover goes away).
+    local attach = makeButton(p, "Attach", 56, function()
+        local src = selected and sources[selected]
+        if src and src.attach then src.attach() end
+    end)
+    attach:SetPoint("RIGHT", lock, "LEFT", -4, 0)
+    p.buttons.left, p.buttons.right, p.buttons.up, p.buttons.down = left, right, up, down
+    p.buttons.reset, p.buttons.lock, p.buttons.attach = reset, lock, attach
     p:Hide()
     return p
+end
+
+-- The unlock dialog (#74, Quartz's idea): a glass panel at the top centre
+-- while unlocked, with Lock and the snapping / mirroring switches.
+local function makeDialog()
+    local d = CreateFrame("Frame", nil, UIParent)
+    d:SetFrameStrata("DIALOG")
+    d:SetFrameLevel(90)   -- under the nudge panel (100), over the movers (10)
+    d:SetSize(460, 66)
+    d:SetPoint("TOP", UIParent, "TOP", 0, -40)
+    d:SetClampedToScreen(true)
+    d:EnableMouse(true)
+    -- Draggable (not saved), so a frame placed under it can still be reached.
+    d:SetMovable(true)
+    d:RegisterForDrag("LeftButton")
+    d:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    d:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+    local g = GlassUF.Glass.Apply(d, "small")
+    local text = g.top:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    text:SetPoint("TOPLEFT", d, "TOPLEFT", 12, -10)
+    text:SetText("Frames unlocked. Drag to move, click one to nudge. Alt: no snapping.")
+    d.text = text
+    d.lock = makeButton(d, "Lock", 60, function() Movers.Lock() end)
+    d.lock:SetPoint("BOTTOMRIGHT", d, "BOTTOMRIGHT", -10, 9)
+    local function snap(key, on) GlassUF.Settings.SetSnap(key, on) end
+    d.snapGrid = makeToggle(d, "Snap to grid", Movers.snapGrid, function(on) snap("snapGrid", on) end)
+    d.snapGrid:SetPoint("BOTTOMLEFT", d, "BOTTOMLEFT", 10, 9)
+    d.snapAlign = makeToggle(d, "Align to frames", Movers.snapAlign, function(on) snap("snapAlign", on) end)
+    d.snapAlign:SetPoint("LEFT", d.snapGrid, "RIGHT", 82, 0)
+    d.mirror = makeToggle(d, "Mirror player / target", Movers.mirror, function(on) GlassUF.Settings.SetMirror(on) end)
+    d.mirror:SetPoint("LEFT", d.snapAlign, "RIGHT", 92, 0)
+    d:Hide()
+    return d
 end
 
 -- Full-screen overlay: the grid (every GRID units from the screen centre,
@@ -477,20 +604,59 @@ local function showGrid()
     if overlay then overlay.grid:SetShown(Movers.snapGrid) end
 end
 
+-- The detached cast bars' sources (#74): one per detached bar, gone (with its
+-- mover, its drag and its selection) once the bar is attached.
+function syncCast()
+    local Castbar = GlassUF.Castbar
+    for unit in pairs(Castbar.bars) do
+        local id = "cast:" .. unit
+        if Castbar.IsDetached(unit) then
+            sources[id] = sources[id] or Castbar.MoverSource(unit)
+        elseif sources[id] then
+            if dragging and dragging.id == id then endDrag(false) end
+            sources[id] = nil
+            if movers[id] then movers[id]:Hide() end
+            if selected == id then
+                selected = nil
+                if panel then
+                    for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h, panel.s }) do e:ClearFocus() end
+                    panel:Hide()
+                end
+            end
+        end
+    end
+end
+
+-- A cast bar was detached or attached: while unlocked, its mover follows.
+function Movers.SyncCastBars()
+    if not Movers.unlocked then return end
+    syncCast()
+    for id, src in pairs(sources) do
+        movers[id] = movers[id] or makeMover(src)
+        movers[id]:Show()
+    end
+end
+
 -- Show the movers. Refused in combat (returns false, "combat").
 function Movers.Unlock()
     if InCombatLockdown() then return false, "combat" end
     if not next(Frames.byUnit) then return false, "not built" end
     panel = panel or makePanel()
+    dialog = dialog or makeDialog()
     overlay = overlay or makeOverlay()
     drawGrid(overlay)
     overlay:Show()
     showGrid()
     Frames.NormalizeSaves()   -- older saves rewritten from the live rects, once
-    for unit, b in pairs(Frames.byUnit) do
-        movers[unit] = movers[unit] or makeMover(unit, b)
-        movers[unit]:Show()
+    for unit in pairs(Frames.byUnit) do
+        sources[unit] = sources[unit] or unitSource(unit)
     end
+    syncCast()
+    for id, src in pairs(sources) do
+        movers[id] = movers[id] or makeMover(src)
+        movers[id]:Show()
+    end
+    dialog:Show()
     Movers.unlocked = true
     select_("target")
     return true
@@ -501,6 +667,7 @@ function Movers.Lock()
     finishDrag()
     for _, m in pairs(movers) do m:Hide() end
     if panel then panel:Hide() end
+    if dialog then dialog:Hide() end
     if overlay then overlay:Hide() end
     selected = nil
     Movers.unlocked = false
@@ -517,9 +684,9 @@ function Movers.Refresh() refreshPanel() end
 function Movers.SetSnap(key, on)
     if key ~= "snapGrid" and key ~= "snapAlign" then return false end
     Movers[key] = on and true or false
-    -- The panel is reused across unlocks: keep its switch in step with a
+    -- The dialog is reused across unlocks: keep its switch in step with a
     -- /glass snap change (Codex, #55).
-    if panel and panel[key] then panel[key]:SetChecked(Movers[key]) end
+    if dialog and dialog[key] then dialog[key]:SetChecked(Movers[key]) end
     showGrid()
     return true
 end
@@ -534,7 +701,7 @@ end
 -- Mirroring on or off (GlassUF.Settings.SetMirror saves it).
 function Movers.SetMirror(on)
     Movers.mirror = on and true or false
-    if panel and panel.mirror then panel.mirror:SetChecked(Movers.mirror) end
+    if dialog and dialog.mirror then dialog.mirror:SetChecked(Movers.mirror) end
 end
 
 -- Combat started: lock (a protected frame can't move under lockdown).
@@ -542,6 +709,7 @@ function Movers.OnCombat()
     if Movers.unlocked then Movers.Lock() end
 end
 
-Movers._test = { movers = movers, panel = function() return panel end,
+Movers._test = { movers = movers, panel = function() return panel end, dialog = function() return dialog end,
+                 sources = sources,
                  overlay = function() return overlay end, alignAxis = alignAxis, alignLines = alignLines,
                  selected = function() return selected end, nudge = nudge }

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Detachable cast bars.** Cast bar options now have their own page: Options > AddOns > Glass
+  Unit Frames > **Cast bars**. Detach your own cast bar or your target's, and it becomes a glass
+  bar of its own. Its default spot is just under the middle of the screen (340×20), with the
+  target's just above it. **Scale** it (0.5–2) and **center it horizontally** from that page.
+  Unlock the frames to drag it, type its position, width, height or scale, or click **Center X**
+  (also there for every frame). **Attach** puts it back
+  on its frame. Detaching and attaching work in combat too. **Reset frame positions** also puts
+  detached bars back at their default spot and size.
+- A detached player cast bar shows your **latency in ms** above the end of the bar (it can be
+  turned off).
+- **Unlock dialog.** While the frames are unlocked, a glass panel at the top of the screen says
+  so. It has a **Lock** button and the snap-to-grid, align and mirror switches, which used to sit
+  in each frame's small panel. Drag it aside if it covers a frame.
 - Your cast bar now shows a red **latency block** at its end: roughly the last part of the cast
   that is too late to cancel, measured from your own key presses (median of your last few
   casts). Channels show it at the end they drain toward.

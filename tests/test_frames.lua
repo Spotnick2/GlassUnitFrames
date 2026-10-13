@@ -55,7 +55,9 @@ eq(GlassUF.Frames.LAYOUT.pet.point[4], GlassUF.Frames.LAYOUT.player.point[4], "p
 do
     local pl = button("player")
     local c = pl.cast
-    eq(c.host:GetParent(), pl.body, "player cast row lives inside the body")
+    eq(c.host:GetParent(), pl, "the cast host is a child of the button (it hides with it)")
+    eq(c.host._points[1][2], pl.body, "docked: the player cast row lives inside the body")
+    check(not c.skin._shown, "docked inside: no glass pill of its own")
     eq(pl.health._height, 34, "idle: full-height health bar")
     WoW.units.player.casting = { name = "Shadow Bolt" }
     WoW.fire("UNIT_SPELLCAST_START", "player"); WoW.tick()

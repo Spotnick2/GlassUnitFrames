@@ -284,6 +284,7 @@ function Settings_.ResetPositions()
     whenOutOfCombat("reset", function()
         GlassUF.Movers.CancelDrag()   -- a drag in flight would re-save over the reset
         Frames.ResetPositions()
+        GlassUF.Castbar.ResetPositions()   -- detached cast bars' spots and sizes (#74)
         GlassUF.Movers.Refresh()      -- the open nudge panel shows the new numbers
         say("positions reset")
     end)
@@ -315,8 +316,33 @@ function Settings_.SetAggroRed(on)
     if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
 end
 
--- The player cast bar's extras (#72): "latency" (the block) and "pushback"
--- (the +0.4 before the time). Saved only when off.
+-- Detach a cast bar from its frame (or attach it back), #74: saved in
+-- db.castBars[unit].detached. Allowed in combat (the cast hosts are never
+-- protected); while unlocked, its mover appears or goes.
+function Settings_.SetCastDetached(unit, on)
+    if not GlassUF.Castbar.SetDetached(unit, on) then return false end
+    GlassUF.Movers.SyncCastBars()
+    return true
+end
+
+-- A cast bar's scale (#74), shown while it's detached; saved in
+-- db.castBars[unit].scale. Out of unlock mode too.
+function Settings_.SetCastScale(unit, s)
+    local ok = GlassUF.Castbar.SetScale(unit, s)
+    if ok then GlassUF.Movers.Refresh() end
+    return ok
+end
+
+-- A detached cast bar in the exact horizontal middle of the screen.
+function Settings_.CenterCast(unit)
+    local ok = GlassUF.Castbar.CenterX(unit)
+    if ok then GlassUF.Movers.Refresh() end
+    return ok
+end
+
+-- The player cast bar's extras (#72): "latency" (the block), "latencyText"
+-- (its ms figure, on a detached bar) and "pushback" (the +0.4 before the
+-- time). Saved only when off.
 function Settings_.SetCastOption(key, on)
     local Castbar = GlassUF.Castbar
     if not Castbar.SetOption(key, on) then return false end

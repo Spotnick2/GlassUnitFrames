@@ -60,6 +60,21 @@ SlashCmdList.GLASSUNITFRAMES("font friz")
 SlashCmdList.GLASSUNITFRAMES("reset")
 -- Build the options panel so its widget methods are checked too.
 GlassUF.Options._test.panel._scripts.OnShow(GlassUF.Options._test.panel)
+-- And the Cast bars sub-page (#74), with a detached, scaled, centred bar and
+-- its nudge panel's W/H / Scale / Center X.
+local castPage = GlassUF.Options._test.castPage
+castPage._scripts.OnShow(castPage)
+GlassUF.Settings.SetCastDetached("player", true)
+GlassUF.Settings.SetCastScale("player", 1.25)
+GlassUF.Settings.CenterCast("player")
+castPage._scripts.OnShow(castPage)
+GlassUF.Movers.Unlock()
+local mcast = GlassUF.Movers._test.movers["cast:player"]
+mcast._scripts.OnMouseUp(mcast)
+local cnp = GlassUF.Movers._test.panel()
+cnp.buttons.center._scripts.OnClick(cnp.buttons.center)
+GlassUF.Movers.Lock()
+GlassUF.Settings.SetCastDetached("player", false)
 -- The client builds aura buttons and calls initializeFrame: exercise it.
 for key, c in pairs(button("target").auraByKey) do
     c._groups["glass_" .. key].spec.initializeFrame(CreateFrame("Button", nil, c))
