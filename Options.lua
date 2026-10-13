@@ -264,9 +264,13 @@ function Options.ResetLook() GlassUF.Settings.ResetLook() end
 function Options.Unlock()
     if GlassUF.Settings.Unlock() then
         -- Close through the panel's own Close (it commits or prompts for
-        -- other pages' changes), not a bare hide.
+        -- other pages' changes), not a bare hide. Close(true) skips the
+        -- transition back to the Game Menu: plain Close() reopens it from our
+        -- (tainted) call, and its Esc handler's protected SpellStopCasting is
+        -- then blamed on us (ADDON_ACTION_FORBIDDEN, measured in game by
+        -- GlassRaidFrames and by the owner here).
         local sp = rawget(_G, "SettingsPanel")
-        if sp and type(sp.Close) == "function" then pcall(sp.Close, sp)
+        if sp and type(sp.Close) == "function" then pcall(sp.Close, sp, true)
         elseif sp and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, sp) end
     end
 end
@@ -368,21 +372,23 @@ local function buildCast()
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
     local left, right = column(16, -72, castPage), column(380, -72, castPage)
 
-    for _, o in ipairs({ { "player", "Your cast bar" }, { "target", "Your target's cast bar" } }) do
-        local unit = o[1]
+    -- Player, target and pet on the left; focus, then the extras, on the right.
+    for _, o in ipairs({ { "player", "Your cast bar", left }, { "target", "Your target's cast bar", left },
+                         { "pet", "Your pet's cast bar", left }, { "focus", "Your focus's cast bar", right } }) do
+        local unit, col = o[1], o[3]
         if Castbar.bars[unit] then
-            header(left, o[2])
-            controls["castDetach_" .. unit] = checkbox(left, "Detached",
+            header(col, o[2])
+            controls["castDetach_" .. unit] = checkbox(col, "Detached",
                 function() return Castbar.IsDetached(unit) end,
                 function(v)
                     S.SetCastDetached(unit, v)
                     controls.refreshAll()   -- Center follows the mode on this page (Codex, #75)
                 end)
-            controls["castScale_" .. unit] = slider(left, { label = "Scale (detached)", min = 0.5, max = 2,
+            controls["castScale_" .. unit] = slider(col, { label = "Scale (detached)", min = 0.5, max = 2,
                 get = function() return Castbar.ScaleOf(unit) end,
                 set = function(v) S.SetCastScale(unit, v) end })
             local center = button(castPage, "Center horizontally", 190, function() S.CenterCast(unit) end)
-            place(left, center, 30, 4)
+            place(col, center, 30, 4)
             controls["castCenter_" .. unit] = center
             -- Centring moves a detached bar only.
             controls[#controls + 1] = function() center:SetEnabled(Castbar.IsDetached(unit)) end

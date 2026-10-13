@@ -196,13 +196,58 @@ local dlg = M._test.dialog()
 check(dlg:GetFrameLevel() < np3:GetFrameLevel(), "the dialog under the nudge panel")
 check(dlg._scripts.OnDragStart ~= nil, "the dialog can be dragged aside")
 M.Lock()
--- A bar on a unit with no defaults of its own (focus, later) builds and detaches.
-local fb = button("focus")
-local okb, fc = pcall(Castbar.Build, fb, fb.body, GlassUF.Frames.LAYOUT.focus)
+-- A bar on a unit with no defaults of its own builds and detaches.
+local fb = button("targettarget")
+local okb = pcall(Castbar.Build, fb, fb.body, GlassUF.Frames.LAYOUT.targettarget)
 check(okb, "a cast bar on a unit without defaults builds")
-check(okb and Castbar.SetDetached("focus", true), "and detaches")
-Castbar.SetDetached("focus", false)
-Castbar.bars.focus = nil
+check(okb and Castbar.SetDetached("targettarget", true), "and detaches")
+Castbar.SetDetached("targettarget", false)
+Castbar.bars.targettarget = nil
+
+-- Pet and focus (#76): thin pills, the pet's under its body, the focus's
+-- above it (under it would cover the ToT row); never a latency block.
+local petc, focc = button("pet").cast, button("focus").cast
+check(petc and focc, "pet and focus have cast bars")
+eq(petc.host:GetParent(), button("pet"), "the pet's host is its button's child")
+local pp, fp = petc.host._points[1], focc.host._points[1]
+check(pp[1] == "TOP" and pp[2] == button("pet").body and pp[3] == "BOTTOM", "pet: under its body")
+check(fp[1] == "BOTTOM" and fp[2] == button("focus").body and fp[3] == "TOP", "focus: above its body")
+eq(petc.host._height, 16, "a 16 px pill")
+check(petc.lag == nil and focc.lag == nil, "no latency block (other units' timing is never read)")
+-- Their casts paint like the target's.
+WoW.units.focus.casting = { name = "Heal", remaining = 2 }
+WoW.fire("UNIT_SPELLCAST_START", "focus", "Cast-3-1-1-1-2054-F1", 2054); WoW.tick()
+check(focc.host._shown and textOf(focc.spell) == "Heal", "the focus's cast shows")
+eq(focc.latestGUID, "Cast-3-1-1-1-2054-F1", "its newest guid")
+-- A focus change forgets the old focus's cast state; the target's is untouched.
+local tGuid = tc.latestGUID
+WoW.fire("PLAYER_FOCUS_CHANGED"); WoW.tick()
+eq(focc.latestGUID, nil, "a focus change forgets the old focus's guid")
+eq(tc.latestGUID, tGuid, "the target's cast state is untouched")
+WoW.units.focus.casting = nil
+WoW.fire("UNIT_SPELLCAST_STOP", "focus"); WoW.tick()
+-- A new pet (UNIT_PET) does the same for the pet's bar.
+WoW.units.pet.casting = { name = "Firebolt", remaining = 1 }
+WoW.fire("UNIT_SPELLCAST_START", "pet", "Cast-3-1-1-1-3110-P1", 3110); WoW.tick()
+eq(petc.latestGUID, "Cast-3-1-1-1-3110-P1", "the pet's newest guid")
+WoW.fire("UNIT_PET", "player"); WoW.tick()
+eq(petc.latestGUID, nil, "a new pet forgets the old pet's guid")
+WoW.units.pet.casting = nil
+WoW.fire("UNIT_SPELLCAST_STOP", "pet"); WoW.tick()
+-- Detachable: their own defaults, their own movers.
+S.SetCastDetached("pet", true)
+pp = petc.host._points[1]
+check(pp[2] == UIParent and pp[4] == 0 and pp[5] == -71, "pet detached: under the player's bar (0, -71)")
+check(petc.host._width == 220 and petc.host._height == 16, "220 x 16")
+S.SetCastDetached("focus", true)
+fp = focc.host._points[1]
+check(fp[2] == UIParent and fp[4] == 0 and fp[5] == 1, "focus detached: above the target's bar (0, 1)")
+check(M.Unlock(), "unlocked")
+check(M._test.movers["cast:pet"]._shown and M._test.movers["cast:focus"]._shown, "movers for both")
+eq(M._test.sources["cast:pet"].label, "Pet cast bar", "labelled")
+M.Lock()
+S.SetCastDetached("pet", false); S.SetCastDetached("focus", false)
+eq(petc.host._points[1][2], button("pet").body, "attached: back under the pet")
 
 -- Saved entries are validated field by field: junk falls back to defaults,
 -- and the build goes on.
@@ -305,6 +350,8 @@ cb:SetChecked(false); cb._scripts.OnClick(cb)
 eq(tcenter._enabled, false, "attached on the same page: Center disabled at once")
 cb:SetChecked(true); cb._scripts.OnClick(cb)
 check(O._test.controls.castDetach_player:GetChecked(), "the player's box shows its saved state")
+check(O._test.controls.castDetach_pet and O._test.controls.castDetach_focus, "pet and focus rows on the page (#76)")
+eq(O._test.controls.castDetach_focus:GetParent(), cp, "on the same sub-page")
 local sl = O._test.controls.castScale_player
 eq(sl._value, 1.25, "the scale slider shows the bar's scale")
 sl._scripts.OnValueChanged(sl, 1.5)

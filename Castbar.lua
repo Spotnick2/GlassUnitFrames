@@ -330,7 +330,11 @@ end
 -- the target's just above it.
 local PILL_H = 20
 Castbar.DETACHED = { player = { x = 0, y = -47, w = 340, h = 20, scale = 1 },
-                     target = { x = 0, y = -23, w = 340, h = 20, scale = 1 } }
+                     target = { x = 0, y = -23, w = 340, h = 20, scale = 1 },
+                     -- #76: focus above the target's bar, the pet's under the player's
+                     -- (thinner, as Quartz's pet bar).
+                     focus  = { x = 0, y = 1, w = 340, h = 16, scale = 1 },
+                     pet    = { x = 0, y = -71, w = 220, h = 16, scale = 1 } }
 Castbar.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, w = { 80, 800 }, h = { 12, 40 },
                    scale = { 0.5, 2 } }
 local OTHER = { x = 0, y = -100, w = 240, h = 18, scale = 1 }   -- a bar with no defaults of its own
@@ -398,11 +402,16 @@ function Castbar.Place(c)
             host:SetSize(w, h)
             host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
         else
-            h = PILL_H
+            h = c.L.castH or PILL_H
             host:SetScale(1)
             host:SetSize(c.L.w, h)
-            -- Under the aura rows when the frame has them (target), else right under the body.
-            host:SetPoint("TOP", c.body, "BOTTOM", 0, c.L.auras and (GlassUF.Auras.Bottom() - 6) or -6)
+            if c.L.castAbove then
+                -- Above the body (focus): 10 up, clear of the leader crown on its top edge.
+                host:SetPoint("BOTTOM", c.body, "TOP", 0, 10)
+            else
+                -- Under the aura rows when the frame has them (target), else right under the body.
+                host:SetPoint("TOP", c.body, "BOTTOM", 0, c.L.auras and (GlassUF.Auras.Bottom() - 6) or -6)
+            end
         end
         local inset = Glass.Inset("small")
         bar:SetHeight(math.max(4, h - 2 * inset))
@@ -525,7 +534,7 @@ end
 
 -- The unlock-mode source for a detached bar (Movers.lua: id, label, frame,
 -- rel, position, set, save, reset, follows; plus size, setSize and attach).
-local LABELS = { player = "Player cast bar", target = "Target cast bar" }
+local LABELS = { player = "Player cast bar", target = "Target cast bar", focus = "Focus cast bar", pet = "Pet cast bar" }
 function Castbar.MoverSource(unit)
     local c = Castbar.bars[unit]
     if not c then return nil end
@@ -565,7 +574,7 @@ function Castbar.Build(b, body, L)
     local txt = CreateFrame("Frame", nil, host)
     txt:SetAllPoints(bar)
     txt:SetFrameLevel(level + 11)
-    local fontSize = c.inside and 10 or 11
+    local fontSize = (c.inside or (L.castH or PILL_H) < PILL_H) and 10 or 11   -- the thinner bars: 10
     local spell = Glass.Font(txt, fontSize, "LEFT")
     spell:SetPoint("LEFT", bar, "LEFT", 6, 0)
     local time = Glass.Font(txt, fontSize, "RIGHT")
