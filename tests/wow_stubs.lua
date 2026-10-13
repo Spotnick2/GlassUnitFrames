@@ -74,6 +74,7 @@ end
 
 function WoW.reset()
     WoW.frames = {}
+    WoW.fontStrings = {}
     WoW.blocked = {}
     WoW.chat = {}
     WoW.addonVersion = "dev"
@@ -310,7 +311,11 @@ end
 -- Regions.
 function Methods.CreateTexture(w) local t = newWidget("Texture", w); return t end
 function Methods.CreateMaskTexture(w) local t = newWidget("MaskTexture", w); return t end
-function Methods.CreateFontString(w) local t = newWidget("FontString", w); return t end
+function Methods.CreateFontString(w)
+    local t = newWidget("FontString", w)
+    table.insert(WoW.fontStrings, t)   -- a test can find a page's texts
+    return t
+end
 function Methods.CreateAnimationGroup(w)
     local ag = newWidget("AnimationGroup", w)
     ag._plays = 0
@@ -335,6 +340,13 @@ function Methods.SetTextureSliceMargins(t, l, tp, r, b) t._slice = { l, tp, r, b
 -- with any secret argument, keep the arguments unformatted instead of calling
 -- string.format (which would throw on the proxy).
 function Methods.SetText(fs, text) fs._text = text end
+-- A rough wrap: about 7 units a character, 14 a line, at the string's width.
+function Methods.GetStringHeight(fs)
+    local w, text = fs._width, fs._text
+    if type(text) ~= "string" or text == "" then return 0 end
+    if not w or w <= 0 then return 14 end
+    return math.ceil(#text * 7 / w) * 14
+end
 function Methods.SetChecked(cb, v) cb._checked = v and true or false end
 function Methods.GetChecked(cb) return cb._checked == true end
 function Methods.LockHighlight(b) b._highlightLocked = true end
