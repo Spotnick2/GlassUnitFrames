@@ -371,9 +371,15 @@ local function show3D(f)
     f.model:Show()
 end
 
+-- The client's 2D portrait is a disc in a square: crop to the square inside
+-- the circle, so it fills the tile like the 3D one (#84). Set after every
+-- SetPortraitTexture, in case it resets the coordinates.
+local CROP = 0.15
+
 local function show2D(f, u)
     f.model:ClearModel()
     if attempt("portrait 2D", SetPortraitTexture, f.portrait2D, u) then
+        f.portrait2D:SetTexCoord(CROP, 1 - CROP, CROP, 1 - CROP)
         f.model:Hide()
         f.portrait2D:Show()
     end
