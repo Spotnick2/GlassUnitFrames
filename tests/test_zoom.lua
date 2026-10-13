@@ -267,6 +267,24 @@ for _, rb in ipairs(C.zoomRole) do
 end
 eq(Zoom.role, nil, "back to global")
 check(textOf(C.zoomEditing):find("global"), "editing the global settings")
+-- Notes take the height they wrap to: none runs into the next (#96).
+local notes = {}
+for _, w in ipairs(WoW.fontStrings) do
+    if w._parent == zp and type(w._text) == "string" and w._points[1] then
+        notes[#notes + 1] = w
+    end
+end
+local overlaps = 0
+for _, a in ipairs(notes) do
+    for _, b in ipairs(notes) do
+        local pa, pb = a._points[1], b._points[1]
+        if a ~= b and pa[4] == pb[4] and pa[5] > pb[5] and pa[5] - a:GetStringHeight() < pb[5] then
+            overlaps = overlaps + 1
+        end
+    end
+end
+check(#notes > 5, "the page's texts are found")
+eq(overlaps, 0, "no wrapped note overlaps the one under it")
 zp._shown = false
 
 -- A role's disabled override survives a reset, and later on/off edits (Codex, #90).
