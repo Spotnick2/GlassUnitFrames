@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **A clean glass look to try.** Options > AddOns > Glass Unit Frames > Look > Glass: **Clean**
+  (or `/glass look clean`), then `/reload`. It gives thin square rims, no grain, and softer gloss
+  and shading. Classic stays the default.
 - **One cast bar for a whole craft batch.** Smelting 50 ores now shows a single bar for the batch,
   counting down to when the last one lands. The estimate corrects itself at every craft. The latency
   block and pushback text are hidden on it. Prefer one bar per craft? Untick "One bar for a whole

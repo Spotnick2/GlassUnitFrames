@@ -9,7 +9,9 @@ local say = API.Print
 -- Live material tweaks (Glass.TUNABLES): /glass <key> <value>, saved only
 -- once set, so a new default in Glass.STYLE still reaches everyone who never
 -- touched it.
-local TWEAKS = Glass.TUNABLES
+-- The material knobs of the instance in use (Glass forwards to it, #102): read
+-- when used, never kept from file load.
+local function tweaks() return Glass.TUNABLES end
 local function rangeText(t) return string.format("%g-%g", t.min, t.max) end
 
 local DEFAULTS = { font = "arial", hideBlizzard = true }
@@ -24,7 +26,7 @@ local function ensureDefaults()
     end
     if type(db.pos) ~= "table" then db.pos = {} end
     if not Glass.FONTS[db.font] then db.font = DEFAULTS.font end
-    for _, t in ipairs(TWEAKS) do
+    for _, t in ipairs(tweaks()) do
         if db[t.key] ~= nil and not t.set(db[t.key]) then db[t.key] = nil end
     end
     return db
@@ -204,6 +206,7 @@ end
 local HELP = {
     "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
+    "look classic|clean  - the glass: classic, or LibGlass's clean preset (after /reload, saved)",
     "level power|name|portrait  - where the target's level goes (saved)",
     "happiness left|right|under  - hunter pet happiness: left of the pet's portrait, right of the frame, or under the portrait (saved)",
     "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
@@ -232,6 +235,14 @@ end
 function Settings_.SetMark(pos)
     if not Frames.SetMarkPosition(pos) then return false end
     GlassUnitFramesDB.mark = pos
+    return true
+end
+
+-- The glass look (#102): "clean" saved, classic the default (not saved).
+-- Takes effect after /reload: LibGlass builds a look into each surface.
+function Settings_.SetLook(look)
+    if not GlassUF.LOOKS[look] then return false end
+    GlassUnitFramesDB.look = look ~= "classic" and look or nil
     return true
 end
 
@@ -406,8 +417,9 @@ function Settings_.SetHideBlizzard(hide)
     if not hide then GlassUnitFramesDB.hideBlizzardCast = nil end
 end
 
-local tweakByKey = {}
-for _, t in ipairs(TWEAKS) do tweakByKey[t.key] = t end
+local function tweakByKey(key)
+    for _, t in ipairs(tweaks()) do if t.key == key then return t end end
+end
 
 local function slash(msg)
     local cmd, arg = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
@@ -448,8 +460,14 @@ local function slash(msg)
         else
             say("mark name|top|right (now " .. Frames.markPos .. ")")
         end
-    elseif tweakByKey[cmd] then
-        local t = tweakByKey[cmd]
+    elseif cmd == "look" then
+        if Settings_.SetLook(arg) then
+            say("look " .. arg .. ": takes effect after /reload")
+        else
+            say("look classic|clean (now " .. GlassUF.look .. ")")
+        end
+    elseif tweakByKey(cmd) then
+        local t = tweakByKey(cmd)
         local a = tonumber(arg)
         if Settings_.SetTunable(t, a) then
             say(t.key .. " " .. arg)
@@ -499,7 +517,7 @@ local function slash(msg)
         frameReport(rawArg, "frame")
     else
         for _, line in ipairs(HELP) do say("/glass " .. line) end
-        for _, t in ipairs(TWEAKS) do say(string.format("/glass %s %s  - %s (saved)", t.key, rangeText(t), t.help)) end
+        for _, t in ipairs(tweaks()) do say(string.format("/glass %s %s  - %s (saved)", t.key, rangeText(t), t.help)) end
     end
 end
 
@@ -510,6 +528,8 @@ local boot = CreateFrame("Frame")
 boot:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then return end
+        -- The look first: the knobs, the font and every surface belong to its instance.
+        if type(GlassUnitFramesDB) == "table" and GlassUnitFramesDB.look == "clean" then GlassUF.UseLook("clean") end
         local db = ensureDefaults()
         Glass.SetFont(db.font)
         -- Secure frames cannot be set up under lockdown. Loading normally runs

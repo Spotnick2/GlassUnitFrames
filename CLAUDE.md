@@ -68,9 +68,13 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     frame rather than throwing, so `proof` names a field the template would make.
 
   It also holds `MEASURED_ON_BUILD`.
-- **`Glass.lua`**: one line that matters, `GlassUF.Glass = LibStub("LibGlass-1.0"):New()`: this
-  addon's instance of the embedded material (see below). Every call site dot-calls it
-  (`Glass.Apply`, `Glass.Bar`, `Glass.MEDIA`, ...).
+- **`Glass.lua`**: `GlassUF.Glass`, this addon's instance of the embedded material (see below).
+  Every call site dot-calls it (`Glass.Apply`, `Glass.Bar`, `Glass.MEDIA`, ...).
+  - It's a **forwarding handle** (#102) to the instance in use. `GlassUF.UseLook("clean")` picks
+    LibGlass r6's clean preset at ADDON_LOADED, before anything is built, from `db.look` (classic
+    is the default and isn't saved; `/glass look`, an options radio, after `/reload`).
+  - The instance's functions are closures bound to it, so forwarding is enough.
+  - Never keep `Glass.TUNABLES` / `STYLE` from file load: read them when used.
 - **`Engine.lua`**: who gets painted and when:
   - one tracker per unit (`RegisterUnitEvent`);
   - events grouped into channels (name, color, health, heal, power, portrait, indicators,
@@ -388,7 +392,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `look` (#102, "clean" or nil), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
