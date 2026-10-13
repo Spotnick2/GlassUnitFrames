@@ -107,8 +107,12 @@ WoW.fire("PLAYER_SWING_RANGE_UPDATE", 0, true, true)
 eq(MH.bar:GetAlpha(), 1, "back in reach")
 WoW.fire("PLAYER_SWING_RANGE_UPDATE", 0, false, false)
 eq(MH.bar:GetAlpha(), 1, "not checking range: never dimmed")
+WoW.fire("PLAYER_SWING_RANGE_UPDATE", 0, false, true)
 WoW.fire("PLAYER_SWING_RANGE_UPDATE", 0, WoW.Secret("inRange"), true)
-eq(MH.bar:GetAlpha(), 1, "a secret verdict: unknown, not dimmed")
+eq(MH.bar:GetAlpha(), 1, "a secret verdict after an out-of-reach one: unknown, not dimmed (Codex, #88)")
+WoW.fire("PLAYER_SWING_RANGE_UPDATE", 0, false, true)
+WoW.fire("PLAYER_SWING_RANGE_UPDATE", 0, false, WoW.Secret("checks"))
+eq(MH.bar:GetAlpha(), 1, "a secret checksRange too")
 local before = #WoW.rangeChecks
 WoW.swingInRange[0] = false
 WoW.fire("PLAYER_TARGET_CHANGED")
@@ -277,6 +281,13 @@ WoW.cvarRefused = true
 bz:SetChecked(true); bz._scripts.OnClick(bz)
 check(not bz:GetChecked(), "a refused write snaps back to the real value")
 WoW.cvarRefused = nil
+-- With the glass rows off, the open page still follows Blizzard's option (Codex, #88).
+check(S.SetSwingTimer(false), "glass rows off")
+C_CVar.SetCVar("showSwingTimer", "1")
+check(bz:GetChecked(), "an outside change still shows with the glass rows off")
+C_CVar.SetCVar("showSwingTimer", "0")
+check(not bz:GetChecked(), "and back")
+check(S.SetSwingTimer(true), "glass rows on again")
 for _, k in ipairs({ "swingMH", "swingOH", "swingRanged" }) do
     check(C.castSwatches[k] ~= nil, "a colour swatch: " .. k)
 end

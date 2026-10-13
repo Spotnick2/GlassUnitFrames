@@ -534,13 +534,17 @@ local function buildCast()
         syncBlizz()   -- a refused write snaps back
     end)
     controls[#controls + 1] = function() syncBlizz() end
-    Swing.OnBlizzardOption = function()
-        if castPage:IsShown() then syncBlizz() end
-    end
+    -- The page's own watcher, whatever the glass rows do (they unregister
+    -- their events when turned off: Codex, #88).
     local combatWatch = CreateFrame("Frame")
-    GlassUF.API.RegisterEvents(combatWatch, { "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" })
-    combatWatch:SetScript("OnEvent", function(_, event)
-        if castPage:IsShown() then syncBlizz(event == "PLAYER_REGEN_DISABLED") end
+    GlassUF.API.RegisterEvents(combatWatch, { "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "CVAR_UPDATE" })
+    combatWatch:SetScript("OnEvent", function(_, event, name)
+        if not castPage:IsShown() then return end
+        if event == "CVAR_UPDATE" then
+            if not GlassUF.API.IsSecret(name) and name == "showSwingTimer" then syncBlizz() end
+        else
+            syncBlizz(event == "PLAYER_REGEN_DISABLED")
+        end
     end)
     controls.combatWatch = combatWatch
     local SWING_SWATCHES = { { "swingMH", "Main hand" }, { "swingOH", "Off hand" }, { "swingRanged", "Ranged" } }

@@ -166,10 +166,11 @@ local function onEvent(_, event, a1, a2, a3)
         local row = byType[a2]
         if row and type(a1) == "number" and a1 > 0 and a1 < math.huge then start(row, a1) end
     elseif event == "PLAYER_SWING_RANGE_UPDATE" then
-        -- a1 = type, a2 = isInRange, a3 = checksRange; unknown = not dimmed.
-        if not (plain(a1) and plain(a2) and plain(a3)) then return end
+        -- a1 = type, a2 = isInRange, a3 = checksRange; unknown = not dimmed
+        -- (an unreadable verdict clears an earlier dimming: Codex, #88).
+        if not plain(a1) then return end
         local row = byType[a1]
-        if row then setOutOfRange(row, a3 == true and a2 == false) end
+        if row then setOutOfRange(row, plain(a2) and plain(a3) and a3 == true and a2 == false) end
     elseif event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
         for _, row in ipairs(c.rows) do
             if row.visible then
@@ -183,7 +184,6 @@ local function onEvent(_, event, a1, a2, a3)
             for _, row in ipairs(c.rows) do
                 if row.visible then enableRange(row.type) end
             end
-            if Swing.OnBlizzardOption then Swing.OnBlizzardOption() end
         end
     elseif event == "WEAPON_SLOT_CHANGED" or event == "PLAYER_DEAD" then
         idleAll()
