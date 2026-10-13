@@ -345,7 +345,7 @@ local function pick(unit)
         if rb.value == unit then rb._scripts.OnClick(rb) end
     end
 end
-eq(#C.castBarRow, 4, "Settings for: You, Target, Focus, Pet")
+eq(#C.castBarRow, 5, "Settings for: You, Target, Focus, Pet, Swing (#87)")
 local cb = C.castDetach
 eq(cb:GetParent(), cp, "on the sub-page")
 pick("target")

@@ -93,6 +93,9 @@ function WoW.reset()
     WoW.settings = {}
     WoW.atlases = { ["UI-HUD-UnitFrame-Player-Rest-Flipbook"] = true }
     WoW.loadedAddOns = {}
+    WoW.rangeChecks = {}      -- C_SwingTimer.EnableRangeCheck calls, in order: { type, enable }
+    WoW.swingInRange = {}     -- swing type -> IsTargetWithinSwingRange's answer (nil = unknown)
+    WoW.cvars = { showSwingTimer = "1" }
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
 end
@@ -402,6 +405,7 @@ SlashCmdList = {}
 Enum = {
     LuaCurveType = { Linear = 0 },
     StatusBarTimerDirection = { ElapsedTime = 0, RemainingTime = 1 },
+    PlayerSwingType = { MainHand = 0, OffHand = 1, Ranged = 2 },
     UITextureSliceMode = { Stretched = 0, Tiled = 1 },
 }
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
@@ -461,6 +465,39 @@ function WoW.SetEditMode(open)
 end
 
 C_Timer = { After = function(s, fn) table.insert(WoW.timers, fn) end }
+
+-- C_DurationUtil.CreateDuration() -> LuaDurationObject (dump 70338): the
+-- methods the addon uses. A test reads _start / _dur.
+C_DurationUtil = { CreateDuration = function()
+    local d = {}
+    function d:SetTimeFromStart(startTime, duration) self._start, self._dur = startTime, duration end
+    function d:GetRemainingDuration() return math.max(0, (self._start or 0) + (self._dur or 0) - WoW.now) end
+    function d:GetTotalDuration() return self._dur or 0 end
+    return d
+end }
+
+-- The swing timer API (dump 70338): EnableRangeCheck(swingType, enable),
+-- IsTargetWithinSwingRange(swingType) -> optional isInRange.
+C_SwingTimer = {
+    EnableRangeCheck = function(t, on) table.insert(WoW.rangeChecks, { t, on }) end,
+    IsTargetWithinSwingRange = function(t) return WoW.swingInRange[t] end,
+}
+
+-- CVars (dump 70338): GetCVarBool(name) -> optional bool; SetCVar(name, value)
+-- -> success, firing CVAR_UPDATE(name, value) as the client does.
+C_CVar = {
+    GetCVarBool = function(name)
+        local v = WoW.cvars[name]
+        if v == nil then return nil end
+        return v == "1"
+    end,
+    SetCVar = function(name, value)
+        if WoW.cvarRefused then return false end
+        WoW.cvars[name] = value
+        WoW.fire("CVAR_UPDATE", name, value)
+        return true
+    end,
+}
 function WoW.flushTimers()
     local run = WoW.timers
     WoW.timers = {}

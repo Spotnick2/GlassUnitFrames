@@ -340,6 +340,17 @@ function Settings_.SetCastSize(unit, w, h)
     return ok
 end
 
+-- The glass swing timer rows (#87): db.swingTimer = false when off.
+function Settings_.SetSwingTimer(on)
+    if not GlassUF.Swing.SetEnabled(on) then return false end
+    if on then GlassUnitFramesDB.swingTimer = nil else GlassUnitFramesDB.swingTimer = false end
+    return true
+end
+
+-- Blizzard's own swing bars: its "Enable Swing Timer" option (the
+-- showSwingTimer CVar). Only ever from a click, out of combat.
+function Settings_.SetBlizzardSwing(on) return GlassUF.Swing.SetBlizzardShown(on) end
+
 -- A cast bar's spell icon: "left", "right" or "none" (saved only when not its default).
 function Settings_.SetCastIcon(unit, side) return GlassUF.Castbar.SetIconSide(unit, side) end
 

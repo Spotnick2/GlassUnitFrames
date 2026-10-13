@@ -209,7 +209,8 @@ local function checkbox(col, text, get, set)
 end
 
 -- Hand-built slider: label and value on one line, the track under it.
--- t = { label, min, max, step (default 0.05), get(), set(v), fmt (default "%.2f") }.
+-- t = { label, min, max, step (default 0.05), get(), set(v), fmt (default "%.2f"),
+-- range() (optional: min, max now, read on every refresh) }.
 local SLIDER_W = 240
 local function slider(col, t)
     local parent, step = col.parent, t.step or 0.05
@@ -237,6 +238,7 @@ local function slider(col, t)
         t.set(v)
     end)
     controls[#controls + 1] = function()
+        if t.range then s:SetMinMaxValues(t.range()) end
         local v = t.get()
         s:SetValue(v)
         value:SetText(string.format(t.fmt or "%.2f", v))
@@ -460,16 +462,18 @@ local function buildCast()
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
     local left, right = column(16, -64, castPage), column(380, -64, castPage)
 
+    controls.castSwatches = {}
     -- Per bar: pick one, then its controls.
     header(left, "Bar")
     local BARS = {}
-    for _, o in ipairs({ { "player", "You" }, { "target", "Target" }, { "focus", "Focus" }, { "pet", "Pet" } }) do
+    for _, o in ipairs({ { "player", "You" }, { "target", "Target" }, { "focus", "Focus" }, { "pet", "Pet" },
+                         { "swing", "Swing" } }) do
         if Castbar.bars[o[1]] then BARS[#BARS + 1] = o end
     end
     controls.castBarRow = radioRow(left, "Settings for", BARS,
         function() return castUnit end,
         function(unit) castUnit = unit end,
-        84, { 0, 52, 116, 176 })
+        84, { 0, 48, 110, 166, 214 })
     controls.castDetach = checkbox(left, "Detached",
         function() return Castbar.IsDetached(castUnit) end,
         function(v)
@@ -480,10 +484,19 @@ local function buildCast()
         function() return Castbar.IconSide(castUnit) end,
         function(side) S.SetCastIcon(castUnit, side) end,
         84, { 0, 60, 128 })
+    -- The swing rows have no spell icon.
+    controls[#controls + 1] = function()
+        for _, rb in ipairs(controls.castIcon) do rb:SetEnabled(castUnit ~= "swing") end
+    end
     controls.castWidth = slider(left, { label = "Width (detached)", min = 80, max = 800, step = 1, fmt = "%d",
         get = function() return (Castbar.SizeOf(castUnit)) end,
         set = function(v) S.SetCastSize(castUnit, v, nil) end })
     controls.castHeight = slider(left, { label = "Height (detached)", min = 12, max = 40, step = 1, fmt = "%d",
+        -- A swing row is thin: its own limits (one row's height).
+        range = function()
+            local lim = (Castbar.LIMITS_FOR[castUnit] or {}).h or Castbar.LIMITS.h
+            return lim[1], lim[2]
+        end,
         get = function() return select(2, Castbar.SizeOf(castUnit)) end,
         set = function(v) S.SetCastSize(castUnit, nil, v) end })
     controls.castScale = slider(left, { label = "Scale (detached)", min = 0.5, max = 2,
@@ -498,6 +511,46 @@ local function buildCast()
     header(left, "Positions")
     place(left, button(castPage, "Unlock frames", 190, Options.Unlock), 30, 4)
     note(left, "Drag a detached bar; its panel sets X / Y, size and scale, or Attach.", 340)
+
+    -- The swing timer (#87): ours, and Blizzard's own option (a CVar, clicked only).
+    local Swing = GlassUF.Swing
+    header(left, "Swing timer")
+    controls.swingTimer = checkbox(left, "Glass swing timer (main hand, off hand, ranged)",
+        function() return Swing.enabled end,
+        function(v) S.SetSwingTimer(v) end)
+    local blizz = checkButton("Show Blizzard's swing bars", false, castPage)
+    place(left, blizz, 28, 4)
+    controls.blizzardSwing = blizz
+    -- Its value and state follow the client while the page is open: the CVar
+    -- can change elsewhere, and it can't be set in combat (InCombatLockdown is
+    -- still false inside PLAYER_REGEN_DISABLED, so the event says which).
+    local function syncBlizz(inCombat)
+        if inCombat == nil then inCombat = InCombatLockdown() end
+        blizz:SetChecked(Swing.BlizzardShown())
+        blizz:SetEnabled(not inCombat)
+    end
+    blizz:SetScript("OnClick", function(self)
+        if not InCombatLockdown() then S.SetBlizzardSwing(self:GetChecked() and true or false) end
+        syncBlizz()   -- a refused write snaps back
+    end)
+    controls[#controls + 1] = function() syncBlizz() end
+    Swing.OnBlizzardOption = function()
+        if castPage:IsShown() then syncBlizz() end
+    end
+    local combatWatch = CreateFrame("Frame")
+    GlassUF.API.RegisterEvents(combatWatch, { "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" })
+    combatWatch:SetScript("OnEvent", function(_, event)
+        if castPage:IsShown() then syncBlizz(event == "PLAYER_REGEN_DISABLED") end
+    end)
+    controls.combatWatch = combatWatch
+    local SWING_SWATCHES = { { "swingMH", "Main hand" }, { "swingOH", "Off hand" }, { "swingRanged", "Ranged" } }
+    for i, o in ipairs(SWING_SWATCHES) do
+        local sw = swatch(castPage, o[2], o[1])
+        local x = (i % 2 == 1) and 4 or 144
+        sw:SetPoint("TOPLEFT", castPage, "TOPLEFT", left.x + x, left.y)
+        if i % 2 == 0 or i == #SWING_SWATCHES then left.y = left.y - 26 end
+        controls.castSwatches[o[1]] = sw
+    end
 
     -- Every bar.
     header(right, "Text")
@@ -516,7 +569,6 @@ local function buildCast()
     local SWATCHES = { { "spell", "Spell text" }, { "time", "Time text" }, { "cast", "Casting" },
                        { "channel", "Channeling" }, { "complete", "Complete" }, { "failed", "Failed" },
                        { "spark", "Spark", true }, { "background", "Background", true } }
-    controls.castSwatches = {}
     for i, o in ipairs(SWATCHES) do
         local sw = swatch(castPage, o[2], o[1], o[3])
         -- Two per row.

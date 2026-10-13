@@ -1272,4 +1272,6 @@ function Frames.Build(db)
         end
     end
     for _, unit in ipairs(Frames.ORDER) do build(unit) end
+    -- The swing rows (#87): in the player's frame, after its cast bar.
+    if Frames.byUnit.player then attempt("build swing", GlassUF.Swing.Build, Frames.byUnit.player, db) end
 end

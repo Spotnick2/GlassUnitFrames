@@ -43,7 +43,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 ## Layout
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -218,6 +218,38 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **Options:** `latency`, `latencyText`, `pushback`, `targetName`, `totalTime`, `complete`
     (`Castbar.SetOption`, saved only when off).
   - Measuring tool: `Tools/CastProbe`.
+- **`Swing.lua`** (#87): the player's swing timer.
+  - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
+    type)`. It's plain in combat, and it still arrives with Blizzard's "Enable Swing Timer" off
+    (both measured).
+  - **GUF never touches Blizzard's swing frames** (Edit Mode managed frames). The player turns them
+    off with Blizzard's option, which the Cast bars page mirrors as a checkbox: `showSwingTimer`,
+    set only by a click, out of combat, synced on `CVAR_UPDATE` and combat changes.
+  - **Visibility:** a row appears on its first swing and stays until combat ends, then hides once
+    its swing is over. A swing is the proof its weapon exists, so the attack speeds (secret in
+    combat) are never read. Combat state for visibility is `UnitAffectingCombat` /
+    `PLAYER_IN_COMBAT_CHANGED`. A weapon swap or death idles the rows; out of combat, they go at
+    once.
+  - **Fill:** a `C_DurationUtil` duration on `SetTimerDuration`. Idle is a finished duration
+    counting down. One 20 Hz ticker runs only while a swing is in flight.
+  - **Range:** out of reach dims a row to 0.4.
+    - GUF only ever calls `EnableRangeCheck(type, true)`: on a row's first show, on target change,
+      on world entry, and on `CVAR_UPDATE` of `showSwingTimer`.
+    - A Blizzard `false` is answered on the next frame (a post-hook, coalesced per type, and only
+      while the rows are on and that row shows).
+  - **Docked (default):** 3 px rows with 1 px gaps inside the player frame, under the power bar, or
+    under the docked cast row while it shows.
+    - **`Frames.ReflowRows(b)` owns the body's rows**: Castbar sets `b.castShown`, Swing sets
+      `b.swingCount`.
+    - Health gives the room, never under 12 px; below that, power gives the rest, down to 6.
+  - **Detached:** a glass pill of stacked rows, through Castbar's detach machinery as the bar
+    `swing`.
+    - `Castbar.bars.swing` places itself (`c.place`) and paints its own colours (`c.paintColors`).
+    - Saved in `db.castBars.swing`; `h` is one row, 2–20 (`Castbar.LIMITS_FOR`).
+    - The mover is `cast:swing`. While unlocked, the pill shows every row.
+    - Time text shows on rows at least 8 px tall.
+  - **Colours:** `castColors` keys `swingMH`, `swingOH`, `swingRanged`. The option is
+    `db.swingTimer` (saved only when off).
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
   (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
   `Blizzard_AuraContainer`). The client picks, sorts and draws the auras, so secret aura data
@@ -298,7 +330,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete` (saved only when off), `castBars[unit]` (#74), `castColors[key]`, `castPrecision` (#78), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
