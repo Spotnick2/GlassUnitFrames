@@ -588,7 +588,7 @@ local function buildCast()
 
     header(right, "Your cast bar")
     local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "latencyText", "Latency in ms" },
-                           { "pushback", "Pushback before the time" } }
+                           { "pushback", "Pushback before the time" }, { "craftCount", "Craft count (3/5)" } }
     for _, o in ipairs(CAST_OPTIONS) do
         local key = o[1]
         controls["cast_" .. key] = checkbox(right, o[2],

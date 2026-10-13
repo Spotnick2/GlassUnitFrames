@@ -33,9 +33,10 @@ local LAG = { 0.95, 0.20, 0.18, 0.55 }
 
 -- Options (the Cast bars page): all on by default, saved only when off.
 Castbar.options = { latency = true, latencyText = true, pushback = true,
-                    targetName = true, totalTime = true, complete = true }
+                    targetName = true, totalTime = true, complete = true, craftCount = true }
 Castbar.DB_KEYS = { latency = "castLatency", latencyText = "castLatencyText", pushback = "castPushback",
-                    targetName = "castTargetName", totalTime = "castTotalTime", complete = "castComplete" }
+                    targetName = "castTargetName", totalTime = "castTotalTime", complete = "castComplete",
+                    craftCount = "castCraftCount" }
 
 -- Colours, every bar (#78). Plain numbers only: they go to SetStatusBarColor
 -- on glass bars, whose LibGlass hook compares them. `background` nil = the
@@ -184,6 +185,44 @@ end
 -- payload to the painter, which calls this first: one ordered path).
 -- Payload after the unit: SENT (target, castGUID, spellID); the others
 -- (castGUID, spellID, ...).
+-- A batch craft (#91): the client counts it. At each craft's START,
+-- C_TradeSkillUI.GetRemainingRecasts() is the casts left after this one
+-- (measured: 4, 3, 2, 1, 0 for a batch of 5, plain), and UnitCastingInfo's
+-- 6th return (isTradeskill) is plain true. Nil = not a craft, or unreadable.
+local function craftRemaining()
+    local ok, isTrade = pcall(function() return select(6, UnitCastingInfo("player")) end)
+    if not ok or API.IsSecret(isTrade) or isTrade ~= true then return nil end
+    local ts = rawget(_G, "C_TradeSkillUI")
+    if not (ts and ts.GetRemainingRecasts) then return nil end
+    local okR, r = pcall(ts.GetRemainingRecasts)
+    if not okR or not plainNumber(r) or r < 0 or r ~= math.floor(r) or r > 10000 then return nil end
+    return r
+end
+
+-- A craft's START: the same batch when it is the same recipe and the count went
+-- down by exactly one, else a new batch. Anything else clears it.
+local function trackCraft(c, guid, spellID)
+    local left = craftRemaining()
+    if left == nil then
+        c.craft = nil
+        return
+    end
+    local k = c.craft
+    if k and spellID ~= nil and k.spellID == spellID and left == k.left - 1 then
+        k.left, k.guid = left, guid
+    else
+        c.craft = { spellID = spellID, total = left + 1, left = left, guid = guid }
+    end
+end
+
+-- Blizzard's craft loop stopped (UPDATE_TRADESKILL_CAST_STOPPED, a world event
+-- Engine hands over): the batch is over. Scrapping (true) is left alone.
+Engine.OnTradeskillStopped = function(isScrapping)
+    if API.IsSecret(isScrapping) or isScrapping ~= false then return end
+    local c = Castbar.bars.player
+    if c then c.craft = nil end
+end
+
 local function trackPlayer(c, event, ...)
     if event == "UNIT_SPELLCAST_SENT" then
         -- An instant the server turns down after SENT has no START: its
@@ -215,18 +254,37 @@ local function trackPlayer(c, event, ...)
         c.succeededGUID = plainGUID((...))
         return
     end
+    -- A craft that is followed by another in its batch doesn't flash
+    -- "complete" (the next starts ~0.1 s later: measured). Set per STOP.
+    c.craftHold = nil
     if CAST_STOP[event] then
         -- The newest cast is over: its pushback mustn't reach a cast painted
         -- later without a START (a full repaint). A late STOP of an older
         -- cast leaves the live one's alone.
         local guid = plainGUID((...))
         if guid == nil or guid == c.latestGUID then c.delay, c.chanEnd = nil, nil end
+        -- The batch's craft (its own guid; a late STOP of an older one does
+        -- nothing): the stored count from its START decides, never a fresh read.
+        local k = c.craft
+        if k and (guid == nil or guid == k.guid) then
+            if k.left > 0 then c.craftHold = true else c.craft = nil end
+        end
+    elseif CAST_FAIL[event] then
+        -- A cancelled craft ends its batch; a failure of anything else doesn't.
+        local guid = plainGUID((...))
+        local k = c.craft
+        if k and (guid == nil or guid == k.guid) then c.craft = nil end
     elseif CAST_START[event] then
         c.delay = nil
         c.chanEnd = event == "UNIT_SPELLCAST_CHANNEL_START" and channelEnd() or nil
         -- SENT and START share a frame (measured): the target is this cast's.
         local guid = plainGUID((...))
         c.castTarget = (guid ~= nil and guid == c.sentGUID) and c.sentTarget or nil
+        if event == "UNIT_SPELLCAST_CHANNEL_START" then
+            c.craft = nil
+        else
+            trackCraft(c, guid, plainNumber((select(2, ...))))
+        end
     elseif event == "UNIT_SPELLCAST_DELAYED" then
         -- Cumulative and plain for the player (measured: 1000, 1800, 2400 ms,
         -- the start moving by the same amount): assigned, never added up.
@@ -314,12 +372,17 @@ local function showCast(f, c, d, channel)
     c.bar:SetStatusBarColor(col[1], col[2], col[3])
     c.duration, c.channel = d, channel
     local info = channel and UnitChannelInfo or UnitCastingInfo
-    local target = Castbar.options.targetName and c.castTarget
+    -- A craft never shows a target; a batch shows its count (#91).
+    local craft = not channel and c.craft
+    local target = Castbar.options.targetName and not craft and c.castTarget
+    local count = craft and craft.total > 1 and Castbar.options.craftCount and craft
     if not attempt("cast name", function()
         -- The name goes to the client as is (other units' may be secret).
         local name = (info(f.unit))
-        -- target is only ever set on the player's bar, whose name is plain.
+        -- target and count are only ever set on the player's bar, whose name is plain.
         if target and type(name) == "string" then c.spell:SetFormattedText("%s -> %s", name, target)
+        elseif count and type(name) == "string" then
+            c.spell:SetFormattedText("%s (%d/%d)", name, count.total - count.left, count.total)
         else c.spell:SetText(name) end
     end) then c.spell:SetText("") end
     -- The icon: the texture goes straight to the client (never read in Lua).
@@ -418,7 +481,8 @@ Engine.SetPainter("cast", function(f, event, ...)
         -- fails as it lands never gets one). Other units have no SUCCEEDED
         -- for us: their STOP, as Quartz does.
         if f.unit == "player" and guid ~= nil and c.succeededGUID ~= guid then failed = true end
-        if newest and not failed then flash(c, nil, nil, "complete") end
+        -- A craft with more of its batch to come: no flash (#91).
+        if newest and not failed and not c.craftHold then flash(c, nil, nil, "complete") end
     elseif event ~= nil and not CAST_STOP[event] then
         API.Fail("cast duration", "no DurationObject on " .. event)
     end

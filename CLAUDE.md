@@ -215,8 +215,22 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     even when the newest guid is unknown. A target change (`Engine.OnTokenChanged` →
     `Castbar.TokenChanged`) forgets the newest guid and hides the old unit's icon (a later FAILED
     with no START would flash it); an ordinary full repaint doesn't.
-  - **Options:** `latency`, `latencyText`, `pushback`, `targetName`, `totalTime`, `complete`
-    (`Castbar.SetOption`, saved only when off).
+  - **Batch craft count** (#91): `Name (3/5)` on the player's bar.
+    - **Source:** the client's own batch state. At each craft's START,
+      `C_TradeSkillUI.GetRemainingRecasts()` is the casts left after it (measured 4, 3, 2, 1, 0 for
+      a batch of 5, plain), and `UnitCastingInfo`'s **6th** return (`isTradeskill`) is plain
+      true.
+    - **Batch identity:** a batch continues only with the same recipe and a count exactly one lower;
+      anything else starts a new one (`c.craft = { spellID, total, left, guid }`).
+    - **End:** a matched FAILED / INTERRUPTED; a non-craft START or a CHANNEL_START; the matched
+      craft's STOP with `left == 0`; or `UPDATE_TRADESKILL_CAST_STOPPED(false)`, a world event
+      Engine hands to `Engine.OnTradeskillStopped`. Scrapping (`true`) is left alone.
+    - **Late events:** an older craft's late STOP or INTERRUPTED and an unrelated FAILED never end
+      it.
+    - **Flash and target:** crafts with more of their batch to come don't flash "complete" (the next
+      starts about 0.1 s later), and a craft never shows "-> target".
+  - **Options:** `latency`, `latencyText`, `pushback`, `targetName`, `totalTime`, `complete`,
+    `craftCount` (`Castbar.SetOption`, saved only when off).
   - Measuring tool: `Tools/CastProbe`.
 - **`Swing.lua`** (#87): the player's swing timer.
   - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
@@ -358,7 +372,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
