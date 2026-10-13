@@ -154,10 +154,10 @@ end
 
 -- Mutually exclusive choices as radio buttons: { {value, text}, ... }.
 local function radios(col, title, options, get, set)
-    if title then place(col, label(content, title), 22, 4) end
+    if title then place(col, label(col.parent, title), 22, 4) end
     local group = {}
     for _, o in ipairs(options) do
-        local rb = checkButton(o[2], true)
+        local rb = checkButton(o[2], true, col.parent)
         rb.value = o[1]
         -- Re-sync the whole group either way: a refused choice snaps back.
         rb:SetScript("OnClick", function()
@@ -178,12 +178,12 @@ end
 -- grids: one row per frame). `offsets[i]` is radio i's x after the label, so a
 -- long option ("cur/max") gets the room it needs.
 local function radioRow(col, rowLabel, options, get, set, labelWidth, offsets)
-    local fs = label(content, rowLabel)
+    local fs = label(col.parent, rowLabel)
     fs:SetWidth(labelWidth)
     place(col, fs, 0, 4)
     local group = {}
     for i, o in ipairs(options) do
-        local rb = checkButton(o[2], true)
+        local rb = checkButton(o[2], true, col.parent)
         rb.value = o[1]
         rb:SetScript("OnClick", function()
             set(o[1])
@@ -209,7 +209,7 @@ local function checkbox(col, text, get, set)
 end
 
 -- Hand-built slider: label and value on one line, the track under it.
--- t = { label, min, max, step (default 0.05), get(), set(v) }.
+-- t = { label, min, max, step (default 0.05), get(), set(v), fmt (default "%.2f") }.
 local SLIDER_W = 240
 local function slider(col, t)
     local parent, step = col.parent, t.step or 0.05
@@ -232,14 +232,14 @@ local function slider(col, t)
     place(col, s, 26, 8)
     s:SetScript("OnValueChanged", function(self, v)
         v = math.floor(v / step + 0.5) * step
-        value:SetText(string.format("%.2f", v))
+        value:SetText(string.format(t.fmt or "%.2f", v))
         if refreshing then return end
         t.set(v)
     end)
     controls[#controls + 1] = function()
         local v = t.get()
         s:SetValue(v)
-        value:SetText(string.format("%.2f", v))
+        value:SetText(string.format(t.fmt or "%.2f", v))
     end
     return s
 end
@@ -363,40 +363,143 @@ local castPage = CreateFrame("Frame", "GlassUnitFramesCastOptions")
 castPage.name = "Cast bars"
 castPage:Hide()   -- or the first visit shows it blank (porting guide)
 
+-- Colour swatches open the client's colour picker (ColorPickerFrame, in the
+-- 70338 dump; DinoUF opens it the same way on Forever), above the Settings
+-- window (HIGH strata). Cancel puts the colour back as it was, default or set.
+local function openPicker(key, hasAlpha)
+    local cp = rawget(_G, "ColorPickerFrame")
+    if not (cp and type(cp.SetupColorPickerAndShow) == "function") then
+        GlassUF.API.Fail("colour picker", "no ColorPickerFrame:SetupColorPickerAndShow")
+        return false
+    end
+    local Castbar, S = GlassUF.Castbar, GlassUF.Settings
+    local cur = Castbar.colors[key] or Glass.STYLE.tint
+    local r0, g0, b0, a0 = cur[1], cur[2], cur[3], cur[4] or 1
+    local wasSet = type(db().castColors) == "table" and db().castColors[key] ~= nil
+    local function apply()
+        local r, g, b = cp:GetColorRGB()
+        local a = 1
+        if hasAlpha then a = (cp.GetColorAlpha and cp:GetColorAlpha()) or a0 end
+        S.SetCastColor(key, r, g, b, a)
+        controls.refreshAll()
+    end
+    pcall(cp.SetFrameStrata, cp, "FULLSCREEN_DIALOG")
+    local ok = pcall(cp.SetupColorPickerAndShow, cp, {
+        r = r0, g = g0, b = b0, opacity = a0, hasOpacity = hasAlpha and true or false,
+        swatchFunc = apply, opacityFunc = apply,
+        cancelFunc = function()
+            if wasSet then S.SetCastColor(key, r0, g0, b0, a0) else S.SetCastColor(key, nil) end
+            controls.refreshAll()
+        end,
+    })
+    return ok
+end
+
+-- A colour swatch (a framed square) and its label.
+local function swatch(parent, text, key, hasAlpha)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(18, 18)
+    local edge = b:CreateTexture(nil, "BACKGROUND")
+    edge:SetAllPoints(b)
+    edge:SetColorTexture(0.8, 0.8, 0.8, 1)
+    local fill = b:CreateTexture(nil, "ARTWORK")
+    fill:SetPoint("TOPLEFT", b, "TOPLEFT", 2, -2)
+    fill:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -2, 2)
+    b.fill = fill
+    local fs = label(parent, text)
+    fs:SetPoint("LEFT", b, "RIGHT", 6, 0)
+    b:SetScript("OnClick", function() openPicker(key, hasAlpha) end)
+    controls[#controls + 1] = function()
+        local c = GlassUF.Castbar.colors[key] or Glass.STYLE.tint
+        fill:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
+    end
+    return b
+end
+
+-- Which bar the per-bar controls act on (the "Settings for" row).
+local castUnit = "player"
+
 local function buildCast()
     local Castbar, S = GlassUF.Castbar, GlassUF.Settings
     local title = label(castPage, "Cast bars", "GameFontNormalHuge")
     title:SetPoint("TOPLEFT", castPage, "TOPLEFT", 16, -16)
-    local sub = label(castPage, "Detach a bar to give it its own glass bar on the screen. Unlock to drag it or set its size.",
+    local sub = label(castPage, "Detach a bar to give it its own glass bar on the screen. Unlock to drag it.",
         "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
-    local left, right = column(16, -72, castPage), column(380, -72, castPage)
+    local left, right = column(16, -64, castPage), column(380, -64, castPage)
 
-    -- Player, target and pet on the left; focus, then the extras, on the right.
-    for _, o in ipairs({ { "player", "Your cast bar", left }, { "target", "Your target's cast bar", left },
-                         { "pet", "Your pet's cast bar", left }, { "focus", "Your focus's cast bar", right } }) do
-        local unit, col = o[1], o[3]
-        if Castbar.bars[unit] then
-            header(col, o[2])
-            controls["castDetach_" .. unit] = checkbox(col, "Detached",
-                function() return Castbar.IsDetached(unit) end,
-                function(v)
-                    S.SetCastDetached(unit, v)
-                    controls.refreshAll()   -- Center follows the mode on this page (Codex, #75)
-                end)
-            controls["castScale_" .. unit] = slider(col, { label = "Scale (detached)", min = 0.5, max = 2,
-                get = function() return Castbar.ScaleOf(unit) end,
-                set = function(v) S.SetCastScale(unit, v) end })
-            local center = button(castPage, "Center horizontally", 190, function() S.CenterCast(unit) end)
-            place(col, center, 30, 4)
-            controls["castCenter_" .. unit] = center
-            -- Centring moves a detached bar only.
-            controls[#controls + 1] = function() center:SetEnabled(Castbar.IsDetached(unit)) end
-        end
+    -- Per bar: pick one, then its controls.
+    header(left, "Bar")
+    local BARS = {}
+    for _, o in ipairs({ { "player", "You" }, { "target", "Target" }, { "focus", "Focus" }, { "pet", "Pet" } }) do
+        if Castbar.bars[o[1]] then BARS[#BARS + 1] = o end
+    end
+    controls.castBarRow = radioRow(left, "Settings for", BARS,
+        function() return castUnit end,
+        function(unit) castUnit = unit end,
+        84, { 0, 52, 116, 176 })
+    controls.castDetach = checkbox(left, "Detached",
+        function() return Castbar.IsDetached(castUnit) end,
+        function(v)
+            S.SetCastDetached(castUnit, v)
+            controls.refreshAll()   -- Center follows the mode on this page (Codex, #75)
+        end)
+    controls.castIcon = radioRow(left, "Spell icon", { { "left", "Left" }, { "right", "Right" }, { "none", "None" } },
+        function() return Castbar.IconSide(castUnit) end,
+        function(side) S.SetCastIcon(castUnit, side) end,
+        84, { 0, 60, 128 })
+    controls.castWidth = slider(left, { label = "Width (detached)", min = 80, max = 800, step = 5, fmt = "%d",
+        get = function() return (Castbar.SizeOf(castUnit)) end,
+        set = function(v) S.SetCastSize(castUnit, v, nil) end })
+    controls.castHeight = slider(left, { label = "Height (detached)", min = 12, max = 40, step = 1, fmt = "%d",
+        get = function() return select(2, Castbar.SizeOf(castUnit)) end,
+        set = function(v) S.SetCastSize(castUnit, nil, v) end })
+    controls.castScale = slider(left, { label = "Scale (detached)", min = 0.5, max = 2,
+        get = function() return Castbar.ScaleOf(castUnit) end,
+        set = function(v) S.SetCastScale(castUnit, v) end })
+    local center = button(castPage, "Center horizontally", 190, function() S.CenterCast(castUnit) end)
+    place(left, center, 30, 4)
+    controls.castCenter = center
+    -- Centring moves a detached bar only.
+    controls[#controls + 1] = function() center:SetEnabled(Castbar.IsDetached(castUnit)) end
+
+    header(left, "Positions")
+    place(left, button(castPage, "Unlock frames", 190, Options.Unlock), 30, 4)
+    note(left, "Drag a detached bar; its panel sets X / Y, size and scale, or Attach.", 340)
+
+    -- Every bar.
+    header(right, "Text")
+    controls.castPrecision = slider(right, { label = "Cast time precision", min = 0, max = 3, step = 1, fmt = "%d",
+        get = function() return Castbar.precision end,
+        set = function(v) S.SetCastPrecision(v) end })
+    for _, o in ipairs({ { "totalTime", "Remaining / total time" }, { "targetName", "Spell -> target on your bar" },
+                         { "complete", "Flash when a cast completes" } }) do
+        local key = o[1]
+        controls["cast_" .. key] = checkbox(right, o[2],
+            function() return Castbar.options[key] end,
+            function(v) S.SetCastOption(key, v) end)
     end
 
-    header(right, "Your cast bar's extras")
-    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "latencyText", "Latency in ms (detached bar)" },
+    header(right, "Colours")
+    local SWATCHES = { { "spell", "Spell text" }, { "time", "Time text" }, { "cast", "Casting" },
+                       { "channel", "Channeling" }, { "complete", "Complete" }, { "failed", "Failed" },
+                       { "spark", "Spark", true }, { "background", "Background", true } }
+    controls.castSwatches = {}
+    for i, o in ipairs(SWATCHES) do
+        local sw = swatch(castPage, o[2], o[1], o[3])
+        -- Two per row.
+        local x = (i % 2 == 1) and 4 or 144
+        sw:SetPoint("TOPLEFT", castPage, "TOPLEFT", right.x + x, right.y)
+        if i % 2 == 0 or i == #SWATCHES then right.y = right.y - 26 end
+        controls.castSwatches[o[1]] = sw
+    end
+    place(right, button(castPage, "Reset colours", 140, function()
+        S.ResetCastColors()
+        controls.refreshAll()
+    end), 30, 4)
+
+    header(right, "Your cast bar")
+    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "latencyText", "Latency in ms" },
                            { "pushback", "Pushback before the time" } }
     for _, o in ipairs(CAST_OPTIONS) do
         local key = o[1]
@@ -404,13 +507,6 @@ local function buildCast()
             function() return Castbar.options[key] end,
             function(v) S.SetCastOption(key, v) end)
     end
-    note(right, "The block estimates the tail you can't cancel:", 270)
-    note(right, "key press to cast start.", 270)
-
-    header(right, "Positions")
-    place(right, button(castPage, "Unlock frames", 190, Options.Unlock), 30, 4)
-    note(right, "Drag a detached bar; its panel sets", 270)
-    note(right, "X / Y, width, height and scale, or Attach.", 270)
 end
 
 castPage:SetScript("OnShow", function(self)

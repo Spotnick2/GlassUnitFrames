@@ -10,6 +10,19 @@
   (also there for every frame). **Attach** puts it back
   on its frame. Detaching and attaching work in combat too. **Reset frame positions** also puts
   detached bars back at their default spot and size.
+- **Quartz's look and options for the cast bars** (Options > AddOns > Glass Unit Frames > Cast
+  bars):
+  - the **spell icon**, on the left of your bar and the right of your target's (or none);
+  - **"Spell -> Target"** on your bar;
+  - **"remaining / total"** time, with a **precision** slider;
+  - a **spark** on the moving edge;
+  - a short **green flash** when a cast completes;
+  - the latency **ms** inside the red block;
+  - **width and height** sliders;
+  - **colours** for the spell text, time text, casting, channeling, complete, failed, spark and
+    background (the client's colour picker).
+
+  The page now has a "Settings for" row to pick which bar you're setting up.
 - **Pet and focus cast bars.** Your pet's casts show in a thin glass bar under the pet frame,
   your focus's in one above the focus frame. Both can be detached, scaled and centred like the
   others.

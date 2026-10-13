@@ -150,6 +150,26 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       CastProbe `hier`, #74).
     - In unlock mode a detached bar is a mover source `cast:<unit>` (`Castbar.MoverSource`: W/H,
       Attach).
+  - **Quartz's look and options** (#78), on every bar unless noted:
+    - **Spell icon** at either end, as tall as the bar, which is shortened to make room
+      (`placeBar`). Yours and the pet's are on the left, the target's and the focus's on the right
+      (the mirrored pair), and it can be set to "none" (`castBars[unit].icon`, saved only when not
+      the default). The texture goes from `UnitCastingInfo` / `UnitChannelInfo` straight to
+      `SetTexture` (never read in Lua).
+    - **`Spell -> Target`** on the player's bar only, from SENT's target name (plain for the
+      player), matched to the START by castGUID. Never for a self-cast.
+    - **`remaining / total`** (`GetRemainingDuration`, `GetTotalDuration` straight to
+      `SetFormattedText`: secret-safe). The precision is 0–3 decimals; the formats are built once
+      per change (`FMT`).
+    - **Spark:** a 2 px ADD line anchored to the fill texture's moving edge (no Lua geometry).
+    - **Complete flash:** a short full bar in the complete colour when a **cast** (not a channel)
+      STOPs without failing. The first INTERRUPTED / FAILED arrives with the cast still live, so
+      it marks the newest cast failed (`c.failedGUID`), and its STOP then doesn't flash green.
+    - **Colours** (`db.castColors[key] = { r, g, b, a }`, validated, saved only when set): spell
+      text, time text, casting, channeling, complete, failed, spark, and background. The
+      background is the pill's own glass tint, through LibGlass's `SetSurfaceTint(g, ...)`;
+      `SetSurfaceTint(g)` gives the built tint back. **No border colour:** LibGlass has no
+      per-surface rim setter, so it waits on LibGlass.
   - On the **player's** bar (#72):
   - **Latency block:** a red overlay (`Frames.OverlayBar`) over the end the cast heads for:
     reverse fill for casts, normal for channels. It estimates the tail you probably can't
@@ -163,8 +183,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       queuing by "an end event in the SENT frame": an unrelated SUCCEEDED (Auto Shot) would drop
       real samples.
     - Shown: the median of the last 7 samples; `GetNetStats` (`~`) before the first. The `ms`
-      figure sits just above the block's end, **only on a detached bar** (the docked row is
-      14 px).
+      figure sits **inside the block, at its bottom corner** (Quartz) on a bar at least 16 tall,
+      just above a smaller detached bar, and never on the docked 14 px row.
     - `Frames.OverlayBar` places only its clip frame: the caller anchors the bar it returns.
   - **Pushback:** `+0.4` / `-0.4` before the time. It's **assigned** from the cumulative
     `delayTimeMs` (the 11th return of `UnitCastingInfo`), or from how far a channel's end moved.
@@ -176,7 +196,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     `Cast-2-0-0-0-…` guid, never SENT) no longer flashes. A flashed guid never flashes again,
     even when the newest guid is unknown. A target change (`Engine.OnTokenChanged` →
     `Castbar.TokenChanged`) forgets the newest guid; an ordinary full repaint doesn't.
-  - **Options:** `latency`, `latencyText`, `pushback` (`Castbar.SetOption`).
+  - **Options:** `latency`, `latencyText`, `pushback`, `targetName`, `totalTime`, `complete`
+    (`Castbar.SetOption`, saved only when off).
   - Measuring tool: `Tools/CastProbe`.
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
   (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
@@ -258,7 +279,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback` (saved only when off), `castBars[unit]` (#74), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete` (saved only when off), `castBars[unit]` (#74), `castColors[key]`, `castPrecision` (#78), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
@@ -275,9 +296,13 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   `refreshing` guard keeps that from saving). Every control goes through **`GlassUF.Settings`**,
   the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
   `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`,
-  `SetCastOption`, `SetCastDetached`, `SetCastScale`, `CenterCast`). The cast bars have their
-  own **sub-page**, "Cast bars" (`RegisterCanvasLayoutSubcategory`, right after the main page,
-  hidden at creation). The column helpers take the page they lay out on (`column(x, y, parent)`),
+  `SetCastOption`, `SetCastDetached`, `SetCastScale`, `CenterCast`, `SetCastSize`, `SetCastIcon`,
+  `SetCastColor`, `ResetCastColors`, `SetCastPrecision`). The cast bars have their
+  own **sub-page**, "Cast bars": one set of per-bar controls behind a "Settings for" picker
+  (Detached, icon side, width, height, scale, Center), and the shared text, colour and extras
+  sections. Colour swatches open `ColorPickerFrame:SetupColorPickerAndShow` (DinoUF's way on
+  Forever) above the Settings window. The page is registered with
+  `RegisterCanvasLayoutSubcategory`, right after the main page, and hidden at creation. The column helpers take the page they lay out on (`column(x, y, parent)`),
   and `slider` takes `{ label, min, max, step, get, set }` (`tunableSlider` for the material
   knobs).
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe;

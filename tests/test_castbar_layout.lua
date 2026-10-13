@@ -336,29 +336,44 @@ check(subs[1] and subs[1].frame == cp and subs[1].parent == WoW.settings.canvas,
 eq(subs[1] and subs[1].name, "Cast bars", "named Cast bars")
 check(not cp._shown, "hidden at creation (else blank on the first visit)")
 O._test.panel._scripts.OnShow(O._test.panel)
-check(O._test.controls.castDetach_target == nil, "the main page no longer builds the cast controls")
+check(O._test.controls.castDetach == nil, "the main page no longer builds the cast controls")
 cp._scripts.OnShow(cp)
-local cb = O._test.controls.castDetach_target
-check(cb ~= nil, "a Detach box for the target's bar")
+local C = O._test.controls
+-- One set of per-bar controls, for the bar picked in "Settings for" (#78).
+local function pick(unit)
+    for _, rb in ipairs(C.castBarRow) do
+        if rb.value == unit then rb._scripts.OnClick(rb) end
+    end
+end
+eq(#C.castBarRow, 4, "Settings for: You, Target, Focus, Pet")
+local cb = C.castDetach
 eq(cb:GetParent(), cp, "on the sub-page")
-local tcenter = O._test.controls.castCenter_target
-eq(tcenter._enabled, false, "docked: Center horizontally disabled")
+pick("target")
+eq(cb:GetChecked(), false, "the target's bar: docked")
+eq(C.castCenter._enabled, false, "docked: Center horizontally disabled")
 cb:SetChecked(true); cb._scripts.OnClick(cb)
-check(GlassUF.Castbar.IsDetached("target"), "ticking it detaches the bar")
-eq(tcenter._enabled, true, "detached on the same page: Center enabled at once")
+check(GlassUF.Castbar.IsDetached("target"), "ticking it detaches the target's bar")
+eq(C.castCenter._enabled, true, "detached on the same page: Center enabled at once")
 cb:SetChecked(false); cb._scripts.OnClick(cb)
-eq(tcenter._enabled, false, "attached on the same page: Center disabled at once")
+eq(C.castCenter._enabled, false, "attached on the same page: Center disabled at once")
 cb:SetChecked(true); cb._scripts.OnClick(cb)
-check(O._test.controls.castDetach_player:GetChecked(), "the player's box shows its saved state")
-check(O._test.controls.castDetach_pet and O._test.controls.castDetach_focus, "pet and focus rows on the page (#76)")
-eq(O._test.controls.castDetach_focus:GetParent(), cp, "on the same sub-page")
-local sl = O._test.controls.castScale_player
-eq(sl._value, 1.25, "the scale slider shows the bar's scale")
+pick("player")
+check(cb:GetChecked(), "picking You shows the player's saved state")
+local sl = C.castScale
+eq(sl._value, 1.25, "the scale slider shows the picked bar's scale")
 sl._scripts.OnValueChanged(sl, 1.5)
 eq(GlassUF.Castbar.ScaleOf("player"), 1.5, "the slider sets it")
+-- Width and height sliders (the owner's ask), not just scale.
+C.castWidth._scripts.OnValueChanged(C.castWidth, 402)
+eq((GlassUF.Castbar.SizeOf("player")), 400, "the width slider, in steps of 5")
+C.castHeight._scripts.OnValueChanged(C.castHeight, 26)
+eq(select(2, GlassUF.Castbar.SizeOf("player")), 26, "the height slider")
+eq(pc.host._height, 26, "the bar follows")
+pick("pet")
+eq(C.castWidth._value, 220, "picking Pet shows the pet's width")
 Castbar.SetPosition("player", 40, -60)
-local cbtn = O._test.controls.castCenter_player
-cbtn._scripts.OnClick(cbtn)
+pick("player")
+C.castCenter._scripts.OnClick(C.castCenter)
 eq(GlassUnitFramesDB.castBars.player.x, 0, "Center horizontally from the page")
 
 eq(next(GlassUF.paintFailures), nil, "no paint failures")

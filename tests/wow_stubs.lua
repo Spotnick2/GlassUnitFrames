@@ -351,6 +351,8 @@ function Methods.SetStatusBarTexture(b, file)
 end
 function Methods.GetStatusBarTexture(b) return b._fill end
 function Methods.SetStatusBarColor(b, r, g, bl) b._color = { r, g, bl } end
+function Methods.SetTextColor(fs, r, g, b, a) fs._textColor = { r, g, b, a } end
+function Methods.GetTextColor(fs) local c = fs._textColor or { 1, 1, 1, 1 }; return c[1], c[2], c[3], c[4] end
 function Methods.SetTimerDuration(b, d, interp, dir) b._timer = { duration = d, interp = interp, dir = dir } end
 
 -- PlayerModel (and the aura container: both take a unit).

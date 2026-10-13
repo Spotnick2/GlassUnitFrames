@@ -333,6 +333,23 @@ function Settings_.SetCastScale(unit, s)
     return ok
 end
 
+-- A cast bar's detached size (#78): w or h may be nil (that one unchanged).
+function Settings_.SetCastSize(unit, w, h)
+    local ok = GlassUF.Castbar.SetSize(unit, w, h)
+    if ok then GlassUF.Movers.Refresh() end
+    return ok
+end
+
+-- A cast bar's spell icon: "left", "right" or "none" (saved only when not its default).
+function Settings_.SetCastIcon(unit, side) return GlassUF.Castbar.SetIconSide(unit, side) end
+
+-- The cast bars' colours (db.castColors[key] = { r, g, b, a }); nil r = default.
+function Settings_.SetCastColor(key, r, g, b, a) return GlassUF.Castbar.SetColor(key, r, g, b, a) end
+function Settings_.ResetCastColors() GlassUF.Castbar.ResetColors() end
+
+-- Cast time precision, 0..3 decimals (db.castPrecision, saved only when not 1).
+function Settings_.SetCastPrecision(p) return GlassUF.Castbar.SetPrecision(p) end
+
 -- A detached cast bar in the exact horizontal middle of the screen.
 function Settings_.CenterCast(unit)
     local ok = GlassUF.Castbar.CenterX(unit)
