@@ -345,6 +345,11 @@ local function flash(c, text, guid, kind)
     local col = Castbar.colors[kind or "failed"]
     c.bar:SetStatusBarColor(col[1], col[2], col[3])
     if text then c.spell:SetText(text) end
+    -- The icon still shows the last cast shown: wrong for a failure of
+    -- another cast (an instant refused after SENT, no START). Codex, #79.
+    if kind ~= "complete" and guid ~= nil and c.latestGUID ~= nil and guid ~= c.latestGUID then
+        c.icon:Hide()
+    end
     c.time:SetText("")
     c.host:Show()
     C_Timer.After(0.5, function()
