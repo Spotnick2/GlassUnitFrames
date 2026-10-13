@@ -20,8 +20,8 @@ local CAST, CHANNEL, FAILED = { 0.95, 0.74, 0.22 }, { 0.40, 0.80, 1.00 }, { 0.85
 local LAG = { 0.95, 0.20, 0.18, 0.55 }
 
 -- Options (/glass options, Cast bar): all on by default, saved only when off.
-Castbar.options = { latency = true, latencyText = true, pushback = true }
-Castbar.DB_KEYS = { latency = "castLatency", latencyText = "castLatencyText", pushback = "castPushback" }
+Castbar.options = { latency = true, pushback = true }
+Castbar.DB_KEYS = { latency = "castLatency", pushback = "castPushback" }
 
 function Castbar.Configure(db)
     for key, dbKey in pairs(Castbar.DB_KEYS) do
@@ -34,8 +34,6 @@ local CAST_FAIL = { UNIT_SPELLCAST_FAILED = "Failed", UNIT_SPELLCAST_INTERRUPTED
 local CAST_START = { UNIT_SPELLCAST_START = true, UNIT_SPELLCAST_CHANNEL_START = true }
 -- The player-only events (Engine.PLAYER_CAST_EVENTS): state, never a repaint.
 local TRACK_ONLY = { UNIT_SPELLCAST_SENT = true, UNIT_SPELLCAST_SUCCEEDED = true }
--- A cast ending, for the queued-cast test below.
-local CAST_END = { UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_SUCCEEDED = true, UNIT_SPELLCAST_CHANNEL_STOP = true }
 
 -- Plain values only: a secret, or the wrong type, reads as nil.
 local function plainNumber(v)
@@ -59,14 +57,17 @@ end
 --     latest CAST_CHANGED(false) no older than STALE seconds; every SENT
 --     consumes the stamp, kept or not.
 --   - A queued cast arrives in the frame its predecessor ended
---     (SUCCEEDED/STOP(prev) -> CAST_CHANGED -> SENT -> START): no sample.
+--     (SUCCEEDED/STOP(prev) -> CAST_CHANGED(false) -> SENT -> START, every
+--     time in the traces), so its sample is 0: a same-frame sample is
+--     dropped. (Not "an end event in the SENT frame": an unrelated SUCCEEDED,
+--     Auto Shot say, would drop real samples.)
 --   - Shown: the median of the last SAMPLES samples, which shrugs off a key
 --     press that waited out a global cooldown. Before any sample, GetNetStats
 --     (shown with a ~, since it leaves the server's share out).
 --------------------------------------------------------------------------------
 
 local SAMPLES, STALE = 7, 1
-local lat = { samples = {} }   -- also: stamp, endAt, endGUID
+local lat = { samples = {} }   -- also: stamp
 
 Engine.OnCastChanged = function(cancelled)
     if API.IsSecret(cancelled) or cancelled ~= false then return end
@@ -113,19 +114,22 @@ end
 -- Payload after the unit: SENT (target, castGUID, spellID); the others
 -- (castGUID, spellID, ...).
 local function trackPlayer(c, event, ...)
-    local now = GetTime()
     if event == "UNIT_SPELLCAST_SENT" then
-        local guid = plainGUID((select(2, ...)))
-        local stamp = lat.stamp
+        -- An instant the server turns down after SENT has no START: its
+        -- FAILED may still flash (mayFlash).
+        c.sentGUID = plainGUID((select(2, ...)))
+        local now, stamp = GetTime(), lat.stamp
         lat.stamp = nil
-        local queued = lat.endAt == now and (guid == nil or lat.endGUID ~= guid)
-        if stamp and now - stamp <= STALE and not queued then addSample(now - stamp) end
+        if stamp and now > stamp and now - stamp <= STALE then addSample(now - stamp) end
         return
     end
-    if CAST_END[event] then
-        lat.endAt, lat.endGUID = now, plainGUID((...))
-    end
-    if CAST_START[event] then
+    if CAST_STOP[event] then
+        -- The newest cast is over: its pushback mustn't reach a cast painted
+        -- later without a START (a full repaint). A late STOP of an older
+        -- cast leaves the live one's alone.
+        local guid = plainGUID((...))
+        if guid == nil or guid == c.latestGUID then c.delay, c.chanEnd = nil, nil end
+    elseif CAST_START[event] then
         c.delay = nil
         c.chanEnd = event == "UNIT_SPELLCAST_CHANNEL_START" and channelEnd() or nil
     elseif event == "UNIT_SPELLCAST_DELAYED" then
@@ -154,7 +158,6 @@ end
 local function hideLag(c)
     if c.lag then
         c.lag:Hide()
-        c.lagText:SetText("")
     end
 end
 
@@ -162,7 +165,7 @@ end
 -- right for a cast (it fills), the left for a channel (it drains).
 local function paintLag(c, d, channel)
     if not c.lag then return end
-    local est, approx = Castbar.Latency()
+    local est = Castbar.Latency()
     local total
     if est and Castbar.options.latency then
         local ok, hasSecret = pcall(d.HasSecretValues, d)
@@ -179,12 +182,6 @@ local function paintLag(c, d, channel)
     c.lag:SetReverseFill(not channel)
     c.lag:SetValue(math.max(0, math.min(1, est / total)))
     c.lag:Show()
-    -- Too small to read on the 14 px player row: only on taller bars.
-    if Castbar.options.latencyText and (c.bar:GetHeight() or 0) >= 18 then
-        c.lagText:SetFormattedText(approx and "~%dms" or "%dms", math.floor(est * 1000 + 0.5))
-    else
-        c.lagText:SetText("")
-    end
 end
 
 local function showCast(f, c, d, channel)
@@ -231,11 +228,13 @@ end
 -- May a FAILED/INTERRUPTED for `guid` start a flash? The client repeats an
 -- interrupt after the STOP (3 times ~0.1 s later, or twice in the same frame;
 -- measured), and the first INTERRUPTED still has the cast live, so the flash
--- starts on a repeat. Only the newest cast's guid may flash, and only once. A
--- guid we can't read (secret, absent) keeps the old behaviour: flash.
+-- starts on a repeat. Only the newest cast's guid (or the player's last SENT,
+-- for an instant refused after it) may flash, and only once. A guid we can't
+-- read (secret, absent) keeps the old behaviour: flash.
 local function mayFlash(c, guid)
     if guid == nil or c.latestGUID == nil then return true end
-    if guid ~= c.latestGUID then return false end   -- an older cast, or a rejected attempt
+    -- An older cast, or a rejected attempt (a client-side guid, never SENT).
+    if guid ~= c.latestGUID and guid ~= c.sentGUID then return false end
     return c.flashedGUID ~= guid
 end
 
@@ -248,6 +247,9 @@ Engine.SetPainter("cast", function(f, event, ...)
     if not c then return end
     if event and f.unit == "player" then trackPlayer(c, event, ...) end
     if TRACK_ONLY[event] then return end
+    -- A full repaint of another unit may mean a new unit behind the token (a
+    -- target change): the old one's guids would keep the new one from flashing.
+    if event == nil and f.unit ~= "player" then c.latestGUID, c.flashedGUID = nil, nil end
     if CAST_START[event] then c.latestGUID = plainGUID((...)) end
 
     local d, channel = currentCast(f.unit)
@@ -342,29 +344,30 @@ function Castbar.Build(b, body, L)
 
     local c = { host = host, bar = bar, spell = spell, time = time, token = 0 }
     -- The player's latency block (#72): the bar's own geometry, over its
-    -- fill, under its glass overlay. Its ms text sits just above the bar.
+    -- fill, under its glass overlay. OverlayBar places only its clip frame.
     if b.unit == "player" then
         c.lag = Frames.OverlayBar(bar, LAG, 2, false)
+        c.lag:SetAllPoints(bar)
         c.lag:Hide()
-        c.lagText = Glass.Font(textLayer, 8, "RIGHT")
-        c.lagText:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", -2, 1)
+    end
+    -- The time text, built once: the OnUpdate runs 20 times a second.
+    local function paintTime()
+        local d, delay = c.duration, Castbar.options.pushback and c.delay
+        if delay and delay > 0 then
+            -- Pushback in red before the time: + on a cast (it ends later),
+            -- - on a channel (it ends sooner).
+            local fmt = c.channel and "|cffff4040-%.1f|r %.1fs" or "|cffff4040+%.1f|r %.1fs"
+            c.time:SetFormattedText(fmt, delay, d:GetRemainingDuration())
+        else
+            c.time:SetFormattedText("%.1fs", d:GetRemainingDuration())
+        end
     end
     host.acc = 0
     host:SetScript("OnUpdate", function(self, elapsed)
         self.acc = self.acc + elapsed
         if self.acc < 0.05 then return end
         self.acc = 0
-        local d = c.duration
-        if not d then return end
-        local delay = Castbar.options.pushback and c.delay
-        if delay and delay > 0 then
-            -- Pushback in red before the time: + on a cast (it ends later),
-            -- - on a channel (it ends sooner).
-            local fmt = c.channel and "|cffff4040-%.1f|r %.1fs" or "|cffff4040+%.1f|r %.1fs"
-            attempt("cast time", function() c.time:SetFormattedText(fmt, delay, d:GetRemainingDuration()) end)
-        else
-            attempt("cast time", function() c.time:SetFormattedText("%.1fs", d:GetRemainingDuration()) end)
-        end
+        if c.duration then attempt("cast time", paintTime) end
     end)
     return c
 end

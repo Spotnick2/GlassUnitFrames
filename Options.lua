@@ -312,8 +312,7 @@ local function build()
     note(right, "While they fight you or your group.", 270)
 
     header(right, "Cast bar")
-    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "latencyText", "Latency in ms (taller bars)" },
-                           { "pushback", "Pushback before the time" } }
+    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "pushback", "Pushback before the time" } }
     for _, o in ipairs(CAST_OPTIONS) do
         local key = o[1]
         controls["cast_" .. key] = checkbox(right, o[2],

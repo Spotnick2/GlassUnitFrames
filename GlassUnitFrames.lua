@@ -315,8 +315,8 @@ function Settings_.SetAggroRed(on)
     if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
 end
 
--- The player cast bar's extras (#72): "latency" (the block), "latencyText"
--- (its ms text) and "pushback" (the +0.4 before the time). Saved only when off.
+-- The player cast bar's extras (#72): "latency" (the block) and "pushback"
+-- (the +0.4 before the time). Saved only when off.
 function Settings_.SetCastOption(key, on)
     local Castbar = GlassUF.Castbar
     if not Castbar.SetOption(key, on) then return false end

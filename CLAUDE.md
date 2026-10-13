@@ -130,18 +130,23 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       `CURRENT_SPELL_CAST_CHANGED(false)` to SENT has a median of 139 ms, where `GetNetStats`
       says 33 ms.
     - A sample is taken at every player SENT. The stamp is consumed by every SENT. A sample is
-      rejected when stale (over 1 s), and when queued (SENT in the same frame as a STOP /
-      SUCCEEDED / CHANNEL_STOP of another guid).
-    - Shown: the median of the last 7 samples; `GetNetStats` (`~`) before the first.
-    - The `ms` text shows only on bars at least 18 tall.
+      rejected when stale (over 1 s), and when it's 0 (same frame): a queued cast's handoff
+      frame always fires `CAST_CHANGED(false)` just before its SENT (measured). Don't detect
+      queuing by "an end event in the SENT frame": an unrelated SUCCEEDED (Auto Shot) would drop
+      real samples.
+    - Shown: the median of the last 7 samples; `GetNetStats` before the first. No `ms` text
+      yet: the docked row is 14 px (it comes back with the detached bar, PR 2).
+    - `Frames.OverlayBar` places only its clip frame: the caller anchors the bar it returns.
   - **Pushback:** `+0.4` / `-0.4` before the time. It's **assigned** from the cumulative
     `delayTimeMs` (the 11th return of `UnitCastingInfo`), or from how far a channel's end moved.
-    It resets on START.
+    It resets on START, and on the STOP of the newest cast.
   - **The interrupt flash:** the client repeats INTERRUPTED after the STOP. A FAILED or
-    INTERRUPTED flashes only for the newest cast's guid (`latestGUID`), and only once
-    (`flashedGUID`). An unreadable guid keeps the old behaviour, and a rejected attempt
-    (client-side `Cast-2-0-0-0-…` guid) no longer flashes.
-  - **Options:** `latency`, `latencyText`, `pushback` (`Castbar.SetOption`).
+    INTERRUPTED flashes only for the newest cast's guid (`latestGUID`, or the player's last
+    SENT `sentGUID`, for an instant refused after SENT), and only once (`flashedGUID`). An
+    unreadable guid keeps the old behaviour, and a rejected attempt (client-side
+    `Cast-2-0-0-0-…` guid, never SENT) no longer flashes. A full repaint of a non-player unit
+    (a target change) forgets both guids.
+  - **Options:** `latency`, `pushback` (`Castbar.SetOption`).
   - Measuring tool: `Tools/CastProbe`.
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
   (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
@@ -215,7 +220,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback` (saved only when off), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castPushback` (saved only when off), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;

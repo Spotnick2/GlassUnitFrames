@@ -12,6 +12,9 @@ local c = button("player").cast
 local tc = button("target").cast
 
 check(c.lag ~= nil, "the player's cast bar has a latency block")
+-- OverlayBar places only its clip frame: an unanchored block is 0x0 in game.
+check(c.lag._points[1] and c.lag._points[1][1] == "ALL" and c.lag._points[1][2] == c.bar,
+      "the block covers the cast bar")
 check(tc.lag == nil, "the target's has none (other units' timing is never read)")
 local trackers = GlassUF.Engine._test.trackers
 check(trackers.player.registered.UNIT_SPELLCAST_SENT, "SENT registered for the player")
@@ -68,11 +71,6 @@ eq(#lat.samples, 0, "no stamp: no sample")
 check(c.lag._shown, "block shown on START")
 check(near(c.lag._value, 0.033 / 2), "block = fallback / total")
 eq(c.lag._reverse, true, "a cast's block sits at the right (reverse fill)")
-eq(textOf(c.lagText), "", "no ms text on the 14 px row")
-c.bar:SetHeight(20)
-GlassUF.Engine.FullRepaint(button("player")); WoW.tick()
-eq(textOf(c.lagText), "~33ms", "the fallback's ms text carries a ~")
-c.bar:SetHeight(14)
 finish(g1)
 check(not c.lag._shown, "block hidden when the cast ends")
 advance(1)
@@ -88,16 +86,8 @@ est, approx = Castbar.Latency()
 check(near(est, 0.14) and approx == false, "the estimate is the sample, not approximate")
 check(near(c.lag._value, 0.07), "block = 0.14 / 2")
 
--- The ms text appears on a taller bar (the detached bar, later).
-c.bar:SetHeight(20)
-GlassUF.Engine.FullRepaint(button("player")); WoW.tick()
-eq(textOf(c.lagText), "140ms", "ms text on a bar at least 18 tall")
-c.bar:SetHeight(14)
-GlassUF.Engine.FullRepaint(button("player")); WoW.tick()
-eq(textOf(c.lagText), "", "no ms text back on the 14 px row")
-
 -- A queued cast: the previous one ends, and the next is SENT/STARTed in the
--- same frame. Its key-press stamp is a queue artefact: rejected.
+-- same frame, after the handoff's CAST_CHANGED(false): a 0 sample, rejected.
 keyPress()
 advance(0.3)
 finish(g2)
@@ -113,6 +103,18 @@ local g4 = newGUID()
 start(g4)
 eq(#lat.samples, 1, "a rejected SENT still consumed the stamp")
 finish(g4)
+advance(1)
+
+-- An unrelated SUCCEEDED in the SENT frame (Auto Shot) keeps a real sample.
+keyPress()
+advance(0.15)
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-3-6782-2991-248205-75-1", 75)
+local gw = newGUID()
+start(gw)
+eq(#lat.samples, 2, "a stray SUCCEEDED in the SENT frame doesn't reject the sample")
+check(near(lat.samples[2], 0.15), "the sample is the key press to SENT")
+finish(gw)
+table.remove(lat.samples)
 advance(1)
 
 -- A stale stamp (over 1 s old) is no sample.
@@ -198,6 +200,25 @@ eq(textOf(c.time), "1.2s", "no pushback text on the new cast")
 finish(gq)
 advance(1)
 
+-- A pushed-back cast's STOP forgets the pushback: a cast painted later
+-- without a START (a full repaint) shows none.
+local gr = newGUID()
+start(gr)
+WoW.units.player.casting.delayMs = 1000
+WoW.fire("UNIT_SPELLCAST_DELAYED", "player", gr, 2052)
+check(near(c.delay, 1.0), "pushed back")
+-- A late STOP of an older cast leaves it.
+WoW.fire("UNIT_SPELLCAST_STOP", "player", gq, 2052, "CastBar-1")
+check(near(c.delay, 1.0), "an older cast's late STOP keeps the live pushback")
+finish(gr)
+check(c.delay == nil, "the newest cast's STOP clears the pushback")
+casting(newGUID())
+GlassUF.Engine.FullRepaint(button("player")); WoW.tick(0.1)
+eq(textOf(c.time), "1.2s", "a cast seen only by a full repaint: no stale pushback")
+WoW.units.player.casting = nil
+WoW.fire("UNIT_SPELLCAST_STOP", "player")
+advance(1)
+
 -- The latency option off hides the block, mid-cast.
 local gl = newGUID()
 start(gl)
@@ -275,12 +296,32 @@ check(not c.host._shown, "a superseded cast's repeat can't flash")
 WoW.fire("UNIT_SPELLCAST_FAILED", "player", "Cast-2-0-0-0-17-0000000013", 17)
 check(not c.host._shown, "a rejected attempt doesn't flash")
 
+-- An instant the server refuses after SENT (no START) still flashes.
+local gi = newGUID()
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "Target", gi, 139)
+WoW.fire("UNIT_SPELLCAST_FAILED", "player", gi, 139)
+check(c.host._shown and textOf(c.spell) == "Failed", "a SENT instant's FAILED flashes")
+WoW.flushTimers()
+
 -- FAILED at the end of the newest cast still flashes (once).
 local gz = newGUID()
 start(gz)
 WoW.units.player.casting = nil
 WoW.fire("UNIT_SPELLCAST_FAILED", "player", gz, 2052, "CastBar-1")
 check(c.host._shown and textOf(c.spell) == "Failed", "the newest cast's FAILED flashes")
+WoW.flushTimers()
+
+-- The target: a new unit behind the token isn't held to the old one's guid.
+local t1, t2 = newGUID(), newGUID()
+WoW.units.target.casting = { name = "Fireball" }
+WoW.fire("UNIT_SPELLCAST_START", "target", t1, 133)
+eq(tc.latestGUID, t1, "the target's newest cast")
+WoW.SetUnit("target", { name = "Mage", reaction = 2, casting = { name = "Frostbolt" } })
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+WoW.units.target.casting = nil
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", t2, 116)
+check(tc.host._shown and textOf(tc.spell) == "Interrupted",
+      "a cast begun before the target change still flashes when kicked")
 WoW.flushTimers()
 
 eq(next(GlassUF.paintFailures), nil, "no paint failures")

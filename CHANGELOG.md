@@ -9,7 +9,8 @@
   when a hit shortens a channel.
 - The red "Interrupted" flash now shows once per cast. Repeated interrupt messages, and spells
   refused before they started, no longer flash it.
-- All three can be turned off in Options > AddOns > Glass Unit Frames > Cast bar.
+- The latency block and the pushback text can each be turned off in Options > AddOns > Glass
+  Unit Frames > Cast bar.
 - Under the hood: the glass look now comes from LibGlass, a small library shared by the Glass
   addons and included in the download (nothing extra to install). The frames look and behave
   exactly as before; a future fix to the glass reaches every Glass addon you use.
