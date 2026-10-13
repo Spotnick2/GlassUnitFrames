@@ -385,7 +385,7 @@ local function build()
         controls.fsrCombat = checkbox(right, "Only in combat",
             function() return GlassUF.FiveSecond.combatOnly end,
             GlassUF.Settings.SetFiveSecondCombatOnly)
-        note(right, "Red: 5 s after a spell that costs mana. Blue: the next mana tick (an estimate).", 270)
+        note(right, "A red line drains through the 5 s after a spell that costs mana, while regen is paused.", 270)
     end
 
     header(right, "Cast bars")

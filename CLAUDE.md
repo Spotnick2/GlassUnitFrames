@@ -308,8 +308,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **The strip:** 2 px red along the bottom of the player's power bar, or of the druid mana strip in
     a form (chosen by power token; `UNIT_DISPLAYPOWER` re-picks it). An `OverlayBar` inside the
     bar's rounded mask. It drains (`RemainingTime`) for the 5 s after a likely spend, then hides.
-  - **No tick timer.** Forever's regen is continuous (Retail's engine; `GetManaRegen` is a
-    per-second rate). The ~2 s `UNIT_POWER_UPDATE` cadence is the server's sync, not a tick.
+  - **No tick timer.** Forever's regen is continuous (measured, #108). While regenerating, about 7
+    `UNIT_POWER_FREQUENT` per second arrive: one per mana point at 6.5/s, 14–15 between two
+    `UNIT_POWER_UPDATE`s. None arrive inside the 5 s, and they restart about 5.0–5.2 s after the
+    last spend. The ~2 s UPDATE cadence is the server's sync, not a tick.
   - **Mana is secret** in and out of combat (measured), so it's never read. **A spend:** a player
     `UNIT_SPELLCAST_SUCCEEDED` whose `C_Spell.GetSpellPowerCost` (measured plain) has a mana
     entry with a cost or `costPerSec` > 0, or a secret amount. The whole traversal is under

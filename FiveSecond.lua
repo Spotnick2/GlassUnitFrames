@@ -8,9 +8,10 @@
 -- whose spell has a mana cost (C_Spell.GetSpellPowerCost, measured plain): a
 -- likely spend, not proof (a waived cost or a free proc can start it wrongly).
 -- Measured: no UNIT_POWER_UPDATE("MANA") came inside the 5 s after a spend;
--- the first came 5.2-6.3 s after it. No tick timer: regen on Forever looks
--- continuous (Retail's engine; GetManaRegen is a per-second rate), and the
--- ~2 s update cadence is the server's sync, not a tick (owner, #108).
+-- the first came 5.2-6.3 s after it. No tick timer: regen on Forever is
+-- continuous (measured, #108: about 7 UNIT_POWER_FREQUENT per second while
+-- regenerating, one per mana point at 6.5/s, and none inside the 5 s); the
+-- ~2 s UNIT_POWER_UPDATE cadence is the server's sync, not a tick.
 -- Full mana hides the strip through a client-computed alpha (API.ManaAlpha).
 --
 -- Its own event frame, so the timing follows the client's event order, not
