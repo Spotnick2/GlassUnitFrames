@@ -58,6 +58,36 @@ for _, rb in ipairs(row) do
     if rb.value == "classic" then check(rb:GetChecked(), "the radio shows Classic after the reset") end
 end
 
+-- The glass body (#101): clear by default, smoked after /reload; with either look.
+eq(GlassUF.body, "clear", "a clear body by default")
+check(S.SetGlassBody("smoked"), "smoked chosen")
+eq(GlassUnitFramesDB.glassBody, "smoked", "saved")
+check(not S.SetGlassBody("murky"), "an unknown body is refused")
+SlashCmdList.GLASSUNITFRAMES("body clear")
+eq(GlassUnitFramesDB.glassBody, nil, "/glass body clear: the default isn't saved")
+SlashCmdList.GLASSUNITFRAMES("body smoked")
+for _, rb in ipairs(O.controls.glassBody) do
+    if rb.value == "smoked" then O.controls.refreshAll(); check(rb:GetChecked(), "the Body radio shows Smoked") end
+end
+local savedBody = GlassUnitFramesDB
+savedBody.look = nil   -- smoked on its own, classic look
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon({ db = savedBody })
+eq(GlassUF.body, "smoked", "smoked after the reload")
+eq(GlassUF.look, "classic", "on the classic look")
+eq(GlassUF.Glass.STYLE.bodyAlpha, GlassUF.SMOKED, "the instance's body opacity")
+check(not GlassUF.Glass.STYLE.thinRim, "classic rims kept")
+-- Both together.
+savedBody.look = "clean"
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon({ db = savedBody })
+check(GlassUF.look == "clean" and GlassUF.body == "smoked", "clean and smoked together")
+check(GlassUF.Glass.STYLE.thinRim and GlassUF.Glass.STYLE.bodyAlpha == GlassUF.SMOKED, "one instance with both")
+-- Reset look puts both back.
+GlassUF.Options.ResetLook()
+eq(GlassUnitFramesDB.look, nil, "reset: classic")
+eq(GlassUnitFramesDB.glassBody, nil, "reset: clear")
+
 eq(next(GlassUF.paintFailures), nil, "no paint failures")
 GlassUnitFramesDB = nil
 done("test_look")
