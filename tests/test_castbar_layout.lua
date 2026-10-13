@@ -296,8 +296,14 @@ cp._scripts.OnShow(cp)
 local cb = O._test.controls.castDetach_target
 check(cb ~= nil, "a Detach box for the target's bar")
 eq(cb:GetParent(), cp, "on the sub-page")
+local tcenter = O._test.controls.castCenter_target
+eq(tcenter._enabled, false, "docked: Center horizontally disabled")
 cb:SetChecked(true); cb._scripts.OnClick(cb)
 check(GlassUF.Castbar.IsDetached("target"), "ticking it detaches the bar")
+eq(tcenter._enabled, true, "detached on the same page: Center enabled at once")
+cb:SetChecked(false); cb._scripts.OnClick(cb)
+eq(tcenter._enabled, false, "attached on the same page: Center disabled at once")
+cb:SetChecked(true); cb._scripts.OnClick(cb)
 check(O._test.controls.castDetach_player:GetChecked(), "the player's box shows its saved state")
 local sl = O._test.controls.castScale_player
 eq(sl._value, 1.25, "the scale slider shows the bar's scale")

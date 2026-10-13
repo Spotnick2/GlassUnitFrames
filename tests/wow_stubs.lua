@@ -213,6 +213,8 @@ function Methods.SetHeight(w, y) if guard(w, "SetHeight") then w._height = y end
 function Methods.GetWidth(w) return w._width end
 function Methods.GetHeight(w) return w._height end
 function Methods.EnableMouse(w, on) w._mouse = on and true or false end
+function Methods.SetEnabled(w, on) w._enabled = on and true or false end
+function Methods.IsEnabled(w) return w._enabled ~= false end
 function Methods.SetScale(w, sc) if guard(w, "SetScale") then w._scale = sc end end
 function Methods.GetScale(w) return w._scale or 1 end
 function Methods.GetFrameLevel(w) return w._level end

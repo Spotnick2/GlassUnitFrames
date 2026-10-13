@@ -374,7 +374,10 @@ local function buildCast()
             header(left, o[2])
             controls["castDetach_" .. unit] = checkbox(left, "Detached",
                 function() return Castbar.IsDetached(unit) end,
-                function(v) S.SetCastDetached(unit, v) end)
+                function(v)
+                    S.SetCastDetached(unit, v)
+                    controls.refreshAll()   -- Center follows the mode on this page (Codex, #75)
+                end)
             controls["castScale_" .. unit] = slider(left, { label = "Scale (detached)", min = 0.5, max = 2,
                 get = function() return Castbar.ScaleOf(unit) end,
                 set = function(v) S.SetCastScale(unit, v) end })
