@@ -1,5 +1,5 @@
--- Castbar.lua: the cast bars (player and target): the inside player row,
--- the target's pill, and the cast channel's painter. Frames.build calls
+-- Castbar.lua: the cast bars (player, target, focus, pet): the inside player
+-- row, the pills, and the cast channel's painter. Frames.build calls
 -- Castbar.CastingRows and Castbar.Build.
 --
 -- Secret-value rule as in Frames.lua: a cast's timing reaches the bar as a
@@ -16,6 +16,12 @@
 -- placed and sized in unlock mode (a mover source, "cast:<unit>"), saved in
 -- db.castBars[unit]. Nothing secure anchors to a host, and a host is never
 -- protected (measured in combat: move, scale, resize, hide, re-dock all ok).
+--
+-- Quartz's look and options (#78): a spell icon at either end, "Spell ->
+-- Target" on the player's bar (SENT's plain target name), "remaining / total",
+-- a spark on the fill's moving edge, a short "complete" flash when a cast
+-- finishes, the cast time precision, and colours for the texts, the fills,
+-- the spark and the pill's background (LibGlass's SetSurfaceTint).
 
 GlassUF = GlassUF or {}
 local API, Glass, Engine, Frames = GlassUF.API, GlassUF.Glass, GlassUF.Engine, GlassUF.Frames
@@ -23,17 +29,68 @@ local Castbar = {}
 GlassUF.Castbar = Castbar
 
 local attempt = Frames.attempt
-local CAST, CHANNEL, FAILED = { 0.95, 0.74, 0.22 }, { 0.40, 0.80, 1.00 }, { 0.85, 0.22, 0.22 }
 local LAG = { 0.95, 0.20, 0.18, 0.55 }
 
--- Options (/glass options, Cast bar): all on by default, saved only when off.
-Castbar.options = { latency = true, latencyText = true, pushback = true }
-Castbar.DB_KEYS = { latency = "castLatency", latencyText = "castLatencyText", pushback = "castPushback" }
+-- Options (the Cast bars page): all on by default, saved only when off.
+Castbar.options = { latency = true, latencyText = true, pushback = true,
+                    targetName = true, totalTime = true, complete = true }
+Castbar.DB_KEYS = { latency = "castLatency", latencyText = "castLatencyText", pushback = "castPushback",
+                    targetName = "castTargetName", totalTime = "castTotalTime", complete = "castComplete" }
+
+-- Colours, every bar (#78). Plain numbers only: they go to SetStatusBarColor
+-- on glass bars, whose LibGlass hook compares them. `background` nil = the
+-- pill's own glass tint (SetSurfaceTint(g) gives it back).
+Castbar.DEFAULT_COLORS = {
+    spell = { 1, 1, 1, 1 }, time = { 1, 1, 1, 1 },
+    cast = { 0.95, 0.74, 0.22, 1 }, channel = { 0.40, 0.80, 1.00, 1 },
+    complete = { 0.30, 0.85, 0.35, 1 }, failed = { 0.85, 0.22, 0.22, 1 },
+    spark = { 1, 1, 1, 0.8 },
+}
+Castbar.COLOR_KEYS = { "spell", "time", "cast", "channel", "complete", "failed", "spark", "background" }
+Castbar.colors = {}
+
+-- A saved colour we can use: four numbers in 0..1 (alpha may be missing).
+local function validColor(v)
+    if type(v) ~= "table" then return nil end
+    for i = 1, 3 do
+        local x = v[i]
+        if type(x) ~= "number" or API.IsSecret(x) or x ~= x or x < 0 or x > 1 then return nil end
+    end
+    local a = v[4]
+    if a == nil then a = 1 end
+    if type(a) ~= "number" or API.IsSecret(a) or a ~= a or a < 0 or a > 1 then return nil end
+    return { v[1], v[2], v[3], a }
+end
+
+-- The cast time precision (decimals), 0..3, Quartz's slider.
+Castbar.precision = 1
+
+-- The time text's formats, built once per precision / option change (the
+-- OnUpdate runs 20 times a second). Keyed by pushback sign .. "t" for total.
+local FMT = {}
+local function buildFormats()
+    local p = "%." .. Castbar.precision .. "f"
+    for _, sign in ipairs({ "", "+", "-" }) do
+        local pre = sign ~= "" and ("|cffff4040" .. sign .. "%.1f|r ") or ""
+        FMT[sign] = pre .. p .. "s"
+        FMT[sign .. "t"] = pre .. p .. " / " .. p
+    end
+end
+buildFormats()
 
 function Castbar.Configure(db)
     Castbar.db = db
     for key, dbKey in pairs(Castbar.DB_KEYS) do
         Castbar.options[key] = db[dbKey] ~= false
+    end
+    local p = db.castPrecision
+    if type(p) == "number" and not API.IsSecret(p) and p == math.floor(p) and p >= 0 and p <= 3 then
+        Castbar.precision = p
+    end
+    buildFormats()
+    local saved = type(db.castColors) == "table" and db.castColors or {}
+    for _, k in ipairs(Castbar.COLOR_KEYS) do
+        Castbar.colors[k] = validColor(saved[k]) or Castbar.DEFAULT_COLORS[k]
     end
 end
 
@@ -52,6 +109,8 @@ local function plainGUID(v)
     if API.IsSecret(v) or type(v) ~= "string" or v == "" then return nil end
     return v
 end
+local plainString = plainGUID   -- the same test: a plain, non-empty string
+local paintColors   -- one bar's colours (defined with the colour setters)
 
 --------------------------------------------------------------------------------
 -- Latency estimate (#72). On Forever the SENT and START of a hard cast arrive
@@ -75,6 +134,7 @@ end
 --------------------------------------------------------------------------------
 
 local SAMPLES, STALE = 7, 1
+local MS_INSIDE = 20   -- bar height from which the ms figure sits inside the block
 local lat = { samples = {} }   -- also: stamp
 
 Engine.OnCastChanged = function(cancelled)
@@ -126,9 +186,30 @@ local function trackPlayer(c, event, ...)
         -- An instant the server turns down after SENT has no START: its
         -- FAILED may still flash (mayFlash).
         c.sentGUID = plainGUID((select(2, ...)))
+        -- "Spell -> Target" (#78): SENT's target name, plain for the player
+        -- (CastProbe: "First Surname", as "Karuzo Macphisto"). Not for a
+        -- self-cast, matched against every form of our own name (the
+        -- display name's format is unmeasured; UnitName gives the first name
+        -- with the surname where the realm should be).
+        local target = plainString((...))
+        if target then
+            local first, surname = UnitName("player")
+            first, surname = plainString(first), plainString(surname)
+            if target == plainString(GetUnitName("player", false)) or target == first
+                or (first and surname and target == first .. " " .. surname) then
+                target = nil
+            end
+        end
+        c.sentTarget = target
         local now, stamp = GetTime(), lat.stamp
         lat.stamp = nil
         if stamp and now > stamp and now - stamp <= STALE then addSample(now - stamp) end
+        return
+    end
+    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+        -- The player's complete flash needs this cast's SUCCEEDED (it comes
+        -- before the STOP, in the same frame: measured).
+        c.succeededGUID = plainGUID((...))
         return
     end
     if CAST_STOP[event] then
@@ -140,6 +221,9 @@ local function trackPlayer(c, event, ...)
     elseif CAST_START[event] then
         c.delay = nil
         c.chanEnd = event == "UNIT_SPELLCAST_CHANNEL_START" and channelEnd() or nil
+        -- SENT and START share a frame (measured): the target is this cast's.
+        local guid = plainGUID((...))
+        c.castTarget = (guid ~= nil and guid == c.sentGUID) and c.sentTarget or nil
     elseif event == "UNIT_SPELLCAST_DELAYED" then
         -- Cumulative and plain for the player (measured: 1000, 1800, 2400 ms,
         -- the start moving by the same amount): assigned, never added up.
@@ -191,15 +275,20 @@ local function paintLag(c, d, channel)
     c.lag:SetReverseFill(not channel)
     c.lag:SetValue(math.max(0, math.min(1, est / total)))
     c.lag:Show()
-    -- The ms figure, just above the block's end: only on a detached bar (the
-    -- docked row is 14 px, too small to read it).
+    -- The ms figure: inside the block, at its bottom corner (Quartz), on a
+    -- bar at least 20 tall (under that it runs into the time text); just above
+    -- a smaller detached bar; never on the docked 14 px row.
     local lt = c.lagText
-    if Castbar.options.latencyText and c.detached then
+    local barH = c.bar:GetHeight() or 0
+    if Castbar.options.latencyText and (barH >= MS_INSIDE or c.detached) then
         lt:ClearAllPoints()
+        local inside = barH >= MS_INSIDE
         if channel then
-            lt:SetPoint("BOTTOMLEFT", c.host, "TOPLEFT", 2, 1)
+            if inside then lt:SetPoint("BOTTOMLEFT", c.bar, "BOTTOMLEFT", 2, 1)
+            else lt:SetPoint("BOTTOMLEFT", c.host, "TOPLEFT", 2, 1) end
         else
-            lt:SetPoint("BOTTOMRIGHT", c.host, "TOPRIGHT", -2, 1)
+            if inside then lt:SetPoint("BOTTOMRIGHT", c.bar, "BOTTOMRIGHT", -2, 1)
+            else lt:SetPoint("BOTTOMRIGHT", c.host, "TOPRIGHT", -2, 1) end
         end
         lt:SetFormattedText(approx and "~%dms" or "%dms", math.floor(est * 1000 + 0.5))
     else
@@ -218,26 +307,49 @@ local function showCast(f, c, d, channel)
     end
     -- Colour AFTER attaching the timer: attaching can reset the bar's visual
     -- state (DinoUF re-applies it afterwards too, modules/cast.lua).
-    local col = channel and CHANNEL or CAST
+    local col = Castbar.colors[channel and "channel" or "cast"]
     c.bar:SetStatusBarColor(col[1], col[2], col[3])
     c.duration, c.channel = d, channel
     local info = channel and UnitChannelInfo or UnitCastingInfo
-    if not attempt("cast name", function() c.spell:SetText((info(f.unit))) end) then c.spell:SetText("") end
+    local target = Castbar.options.targetName and c.castTarget
+    if not attempt("cast name", function()
+        -- The name goes to the client as is (other units' may be secret).
+        local name = (info(f.unit))
+        -- target is only ever set on the player's bar, whose name is plain.
+        if target and type(name) == "string" then c.spell:SetFormattedText("%s -> %s", name, target)
+        else c.spell:SetText(name) end
+    end) then c.spell:SetText("") end
+    -- The icon: the texture goes straight to the client (never read in Lua).
+    if c.iconSide ~= "none" then
+        local ok = attempt("cast icon", function() c.icon:SetTexture((select(3, info(f.unit)))) end)
+        c.icon:SetShown(ok)
+    end
+    c.spark:SetShown(Castbar.colors.spark[4] > 0)
     if not attempt("cast latency", paintLag, c, d, channel) then hideLag(c) end
     c.host:Show()
 end
 
-local function flash(c, text, guid)
+-- A short full bar: "failed" (Failed / Interrupted, text given, its guid
+-- remembered so the repeats don't restart it) or "complete" (the spell name
+-- kept, nothing remembered).
+local function flash(c, text, guid, kind)
     c.token = c.token + 1
     local token = c.token
     c.flashing = true
-    c.flashedGUID = guid
+    if kind ~= "complete" then c.flashedGUID = guid end
     c.duration = nil
     hideLag(c)
+    c.spark:Hide()
     c.bar:SetMinMaxValues(0, 1)
     c.bar:SetValue(1)
-    c.bar:SetStatusBarColor(FAILED[1], FAILED[2], FAILED[3])
-    c.spell:SetText(text)
+    local col = Castbar.colors[kind or "failed"]
+    c.bar:SetStatusBarColor(col[1], col[2], col[3])
+    if text then c.spell:SetText(text) end
+    -- The icon still shows the last cast shown: wrong for a failure of
+    -- another cast (an instant refused after SENT, no START). Codex, #79.
+    if kind ~= "complete" and guid ~= nil and c.latestGUID ~= nil and guid ~= c.latestGUID then
+        c.icon:Hide()
+    end
     c.time:SetText("")
     c.host:Show()
     C_Timer.After(0.5, function()
@@ -272,10 +384,19 @@ Engine.SetPainter("cast", function(f, event, ...)
     if not c then return end
     if event and f.unit == "player" then trackPlayer(c, event, ...) end
     if TRACK_ONLY[event] then return end
-    if CAST_START[event] then c.latestGUID = plainGUID((...)) end
+    if CAST_START[event] then
+        c.latestGUID = plainGUID((...))
+        c.failedGUID = nil
+    end
 
     local d, channel = currentCast(f.unit)
     if d then
+        -- The first INTERRUPTED comes with the cast still live (measured): mark
+        -- the newest cast failed, so its STOP is no "complete" flash.
+        if CAST_FAIL[event] then
+            local guid = plainGUID((...))
+            if guid == nil or c.latestGUID == nil or guid == c.latestGUID then c.failedGUID = guid or true end
+        end
         showCast(f, c, d, channel)
         return
     end
@@ -283,6 +404,18 @@ Engine.SetPainter("cast", function(f, event, ...)
     if CAST_FAIL[event] then
         local guid = plainGUID((...))
         if mayFlash(c, guid) then flash(c, CAST_FAIL[event], guid) end
+    elseif event == "UNIT_SPELLCAST_STOP" and c.duration and not c.channel and not c.flashing
+        and Castbar.options.complete then
+        -- A cast (not a channel) that ended without failing: Quartz's short
+        -- "complete" flash. Only the newest cast's STOP.
+        local guid = plainGUID((...))
+        local newest = guid == nil or c.latestGUID == nil or guid == c.latestGUID
+        local failed = c.failedGUID == true or (guid ~= nil and c.failedGUID == guid)
+        -- The player's own: only a cast whose SUCCEEDED we saw (a cast that
+        -- fails as it lands never gets one). Other units have no SUCCEEDED
+        -- for us: their STOP, as Quartz does.
+        if f.unit == "player" and guid ~= nil and c.succeededGUID ~= guid then failed = true end
+        if newest and not failed then flash(c, nil, nil, "complete") end
     elseif event ~= nil and not CAST_STOP[event] then
         API.Fail("cast duration", "no DurationObject on " .. event)
     end
@@ -380,6 +513,36 @@ local function prune(unit)
     if type(db.castBars) == "table" and next(db.castBars) == nil then db.castBars = nil end
 end
 
+-- The spell icon's side (#78): yours and the pet's on the left, the target's
+-- and the focus's on the right (Quartz's mirrored pair); "none" hides it.
+local ICON_SIDES = { left = true, right = true, none = true }
+local ICON_DEFAULT = { player = "left", pet = "left", target = "right", focus = "right" }
+function Castbar.IconSide(unit)
+    local e = saved(unit)
+    if e and ICON_SIDES[e.icon] then return e.icon end
+    return ICON_DEFAULT[unit] or "left"
+end
+
+-- The bar between its two anchors, and the icon (a square as tall as the bar)
+-- at one end, the bar shortened to make room.
+local function placeBar(c, barH, lRel, lPt, lx, rRel, rPt, rx, y)
+    local side = Castbar.IconSide(c.unit)
+    c.iconSide = side
+    local room = barH + 2
+    c.bar:SetHeight(barH)
+    c.bar:SetPoint("TOPLEFT", lRel, lPt, lx + (side == "left" and room or 0), y)
+    c.bar:SetPoint("TOPRIGHT", rRel, rPt, rx - (side == "right" and room or 0), y)
+    c.icon:ClearAllPoints()
+    c.icon:SetSize(barH, barH)
+    if side == "left" then
+        c.icon:SetPoint("TOPLEFT", lRel, lPt, lx, y)
+    elseif side == "right" then
+        c.icon:SetPoint("TOPRIGHT", rRel, rPt, rx, y)
+    else
+        c.icon:Hide()
+    end
+end
+
 -- Lay a bar out for its mode. Reconciles the player's rows explicitly: they
 -- shrink only while the bar is docked inside AND shown.
 function Castbar.Place(c)
@@ -392,9 +555,7 @@ function Castbar.Place(c)
         c.skin:Hide()
         host:SetScale(1)
         host:SetAllPoints(c.body)
-        bar:SetHeight(CAST_ROW)
-        bar:SetPoint("TOPLEFT", c.b.power, "BOTTOMLEFT", 0, -CAST_GAP)
-        bar:SetPoint("TOPRIGHT", c.b.power, "BOTTOMRIGHT", 0, -CAST_GAP)
+        placeBar(c, CAST_ROW, c.b.power, "BOTTOMLEFT", 0, c.b.power, "BOTTOMRIGHT", 0, -CAST_GAP)
     else
         c.skin:Show()
         if detached then
@@ -414,9 +575,7 @@ function Castbar.Place(c)
             end
         end
         local inset = Glass.Inset("small")
-        bar:SetHeight(math.max(4, h - 2 * inset))
-        bar:SetPoint("TOPLEFT", host, "TOPLEFT", inset, -inset)
-        bar:SetPoint("TOPRIGHT", host, "TOPRIGHT", -inset, -inset)
+        placeBar(c, math.max(4, h - 2 * inset), host, "TOPLEFT", inset, host, "TOPRIGHT", -inset, -inset)
     end
     if c.inside then layoutRows(c.b, not detached and host:IsShown()) end
     if c.lagText and not detached then c.lagText:SetText("") end
@@ -472,10 +631,11 @@ function Castbar.SizeOf(unit)
     return w, h
 end
 
--- Resize a detached bar, clamped to LIMITS (whole units).
+-- A bar's detached size, clamped to LIMITS (whole units). Allowed while
+-- docked too (the Cast bars page): it applies once the bar is detached.
 function Castbar.SetSize(unit, w, h)
     local c = Castbar.bars[unit]
-    if not (c and c.detached) then return false end
+    if not c then return false end
     local function clamp(v, k)
         if type(v) ~= "number" or v ~= v then return nil end
         local lim = Castbar.LIMITS[k]
@@ -504,6 +664,75 @@ function Castbar.SetScale(unit, s)
     entry(unit).scale = s
     Castbar.Place(c)
     return true, s
+end
+
+function Castbar.SetIconSide(unit, side)
+    local c = Castbar.bars[unit]
+    if not (c and ICON_SIDES[side]) then return false end
+    local e = entry(unit)
+    e.icon = side ~= (ICON_DEFAULT[unit] or "left") and side or nil
+    prune(unit)
+    Castbar.Place(c)
+    Engine.RepaintChannel("cast", function(f) return f.unit == unit end)
+    return true
+end
+
+-- One bar's colours: texts, spark, background (the fills on its next paint).
+function paintColors(c)
+    local col = Castbar.colors
+    if not col.spell then return end   -- not configured yet
+    c.spell:SetTextColor(col.spell[1], col.spell[2], col.spell[3], col.spell[4])
+    c.time:SetTextColor(col.time[1], col.time[2], col.time[3], col.time[4])
+    c.spark:SetVertexColor(col.spark[1], col.spark[2], col.spark[3], col.spark[4])
+    local bg = col.background
+    if bg then Glass.SetSurfaceTint(c.glass, bg[1], bg[2], bg[3], bg[4])
+    else Glass.SetSurfaceTint(c.glass) end
+end
+
+-- The colours on every bar now: texts, spark, background; the fills on the
+-- next paint (a repaint follows).
+local function applyColors()
+    for _, c in pairs(Castbar.bars) do paintColors(c) end
+    Engine.RepaintChannel("cast")
+end
+
+-- One colour: r, g, b, a (plain, 0..1), saved; nil r = back to the default.
+function Castbar.SetColor(key, r, g, b, a)
+    local known = false
+    for _, k in ipairs(Castbar.COLOR_KEYS) do if k == key then known = true end end
+    if not known then return false end
+    local db = Castbar.db
+    if r == nil then
+        Castbar.colors[key] = Castbar.DEFAULT_COLORS[key]
+        if type(db.castColors) == "table" then
+            db.castColors[key] = nil
+            if next(db.castColors) == nil then db.castColors = nil end
+        end
+    else
+        local v = validColor({ r, g, b, a })
+        if not v then return false end
+        Castbar.colors[key] = v
+        if type(db.castColors) ~= "table" then db.castColors = {} end
+        db.castColors[key] = v
+    end
+    applyColors()
+    return true
+end
+
+function Castbar.ResetColors()
+    for _, k in ipairs(Castbar.COLOR_KEYS) do Castbar.colors[k] = Castbar.DEFAULT_COLORS[k] end
+    Castbar.db.castColors = nil
+    applyColors()
+end
+
+-- Cast time precision, 0..3 decimals (saved only when not 1).
+function Castbar.SetPrecision(p)
+    if type(p) ~= "number" or p ~= p then return false end
+    p = math.max(0, math.min(3, math.floor(p + 0.5)))
+    Castbar.precision = p
+    Castbar.db.castPrecision = p ~= 1 and p or nil
+    buildFormats()
+    return true, p
 end
 
 -- A detached bar in the exact horizontal middle of the screen (its y kept).
@@ -568,7 +797,7 @@ function Castbar.Build(b, body, L)
     local skin = CreateFrame("Frame", nil, host)
     skin:SetAllPoints(host)
     skin:SetFrameLevel(level)
-    Glass.Apply(skin, "small")
+    c.glass = Glass.Apply(skin, "small")   -- SetSurfaceTint: the background colour
     local bar = Glass.Bar(host, CAST_ROW)
     bar:SetFrameLevel(level + 2)
     local txt = CreateFrame("Frame", nil, host)
@@ -581,6 +810,23 @@ function Castbar.Build(b, body, L)
     time:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
     spell:SetPoint("RIGHT", time, "LEFT", -6, 0)
     c.host, c.skin, c.bar, c.txt, c.spell, c.time = host, skin, bar, txt, spell, time
+    -- The spell icon, trimmed of its border; placed by placeBar.
+    c.icon = txt:CreateTexture(nil, "ARTWORK")
+    c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    c.icon:Hide()
+    -- The spark: a thin bright line just inside the fill's moving edge (the
+    -- client moves the edge; no Lua geometry), on the bar's glass overlay and
+    -- under its own rounded mask, so a full bar's spark stays inside the
+    -- bar's round end. Under the text.
+    local over = bar.overlay or bar
+    c.spark = over:CreateTexture(nil, "OVERLAY", nil, 3)
+    c.spark:SetColorTexture(1, 1, 1, 1)
+    c.spark:SetBlendMode("ADD")
+    c.spark:SetWidth(2)
+    c.spark:SetPoint("TOPRIGHT", bar:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+    c.spark:SetPoint("BOTTOMRIGHT", bar:GetStatusBarTexture(), "BOTTOMRIGHT", 0, 0)
+    c.spark:AddMaskTexture(Glass.Mask(over, "bar_mask", 8, 0, bar))
+    c.spark:Hide()
     host:Hide()
 
     -- The player's latency block (#72): the bar's own geometry, over its
@@ -595,16 +841,22 @@ function Castbar.Build(b, body, L)
         host:SetScript("OnShow", function() layoutRows(b, not c.detached) end)
         host:SetScript("OnHide", function() layoutRows(b, false) end)
     end
-    -- The time text, built once: the OnUpdate runs 20 times a second.
+    -- The time text, built once: the OnUpdate runs 20 times a second. Pushback
+    -- in red before it: + on a cast (it ends later), - on a channel (sooner).
+    -- "remaining / total" both go to the client as is (secret-safe).
     local function paintTime()
         local d, delay = c.duration, Castbar.options.pushback and c.delay
-        if delay and delay > 0 then
-            -- Pushback in red before the time: + on a cast (it ends later),
-            -- - on a channel (it ends sooner).
-            local fmt = c.channel and "|cffff4040-%.1f|r %.1fs" or "|cffff4040+%.1f|r %.1fs"
-            c.time:SetFormattedText(fmt, delay, d:GetRemainingDuration())
+        local sign = (delay and delay > 0) and (c.channel and "-" or "+") or ""
+        if Castbar.options.totalTime then
+            if sign ~= "" then
+                c.time:SetFormattedText(FMT[sign .. "t"], delay, d:GetRemainingDuration(), d:GetTotalDuration())
+            else
+                c.time:SetFormattedText(FMT.t, d:GetRemainingDuration(), d:GetTotalDuration())
+            end
+        elseif sign ~= "" then
+            c.time:SetFormattedText(FMT[sign], delay, d:GetRemainingDuration())
         else
-            c.time:SetFormattedText("%.1fs", d:GetRemainingDuration())
+            c.time:SetFormattedText(FMT[""], d:GetRemainingDuration())
         end
     end
     host.acc = 0
@@ -616,6 +868,7 @@ function Castbar.Build(b, body, L)
     end)
     Castbar.bars[b.unit] = c
     Castbar.Place(c)
+    paintColors(c)
     return c
 end
 
@@ -624,7 +877,11 @@ end
 -- full repaint: that would let an interrupt's repeats flash again.
 function Castbar.TokenChanged(c)
     c.flashing = false
-    c.latestGUID = nil
+    c.latestGUID, c.failedGUID = nil, nil
+    -- The old unit's spell icon: with no newest guid, a later FAILED (no
+    -- START) would flash it (Codex, #79). The repaint that follows (deferred)
+    -- shows the new unit's icon if it is casting.
+    c.icon:Hide()
 end
 
 -- Turn a cast option on or off; repaint so the change shows mid-cast.

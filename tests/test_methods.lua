@@ -78,6 +78,18 @@ local cnp = GlassUF.Movers._test.panel()
 cnp.buttons.center._scripts.OnClick(cnp.buttons.center)
 GlassUF.Movers.Lock()
 GlassUF.Settings.SetCastDetached("player", false)
+-- The Quartz look (#78): colours (texts, spark, background), icon, precision.
+GlassUF.Settings.SetCastColor("spell", 1, 0.8, 0, 1)
+GlassUF.Settings.SetCastColor("background", 0.1, 0.1, 0.2, 0.9)
+GlassUF.Settings.SetCastIcon("player", "right")
+GlassUF.Settings.SetCastPrecision(2)
+WoW.units.player.casting = { name = "Smite", remaining = 1, total = 2 }
+WoW.fire("UNIT_SPELLCAST_START", "player"); WoW.tick(0.1)
+WoW.units.player.casting = nil
+WoW.fire("UNIT_SPELLCAST_STOP", "player"); WoW.flushTimers()
+GlassUF.Settings.ResetCastColors()
+GlassUF.Settings.SetCastIcon("player", "left")
+GlassUF.Settings.SetCastPrecision(1)
 -- The client builds aura buttons and calls initializeFrame: exercise it.
 for key, c in pairs(button("target").auraByKey) do
     c._groups["glass_" .. key].spec.initializeFrame(CreateFrame("Button", nil, c))

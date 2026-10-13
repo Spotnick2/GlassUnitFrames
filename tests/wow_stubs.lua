@@ -224,6 +224,8 @@ function Methods.GetEffectiveScale() return 0.64 end
 -- Scripts and events.
 function Methods.SetScript(w, name, fn) w._scripts[name] = fn end
 function Methods.GetScript(w, name) return w._scripts[name] end
+function Methods.SetFrameStrata(w, st) w._strata = st end
+function Methods.GetFrameStrata(w) return w._strata or "MEDIUM" end
 function Methods.HookScript(w, name, fn)
     local old = w._scripts[name]
     w._scripts[name] = function(...) if old then old(...) end; fn(...) end
@@ -351,6 +353,8 @@ function Methods.SetStatusBarTexture(b, file)
 end
 function Methods.GetStatusBarTexture(b) return b._fill end
 function Methods.SetStatusBarColor(b, r, g, bl) b._color = { r, g, bl } end
+function Methods.SetTextColor(fs, r, g, b, a) fs._textColor = { r, g, b, a } end
+function Methods.GetTextColor(fs) local c = fs._textColor or { 1, 1, 1, 1 }; return c[1], c[2], c[3], c[4] end
 function Methods.SetTimerDuration(b, d, interp, dir) b._timer = { duration = d, interp = interp, dir = dir } end
 
 -- PlayerModel (and the aura container: both take a unit).
@@ -523,6 +527,15 @@ function AbbreviateNumbers(n)
     return tostring(n)
 end
 function GetUnitName(u) return unitField(u, "name") end
+-- Forever's UnitName: the first name, with the surname where the realm
+-- should be (CLAUDE.md); dump: UnitName(unit) -> unitName, unitServer.
+function UnitName(u)
+    local n = unitField(u, "name")
+    if type(n) ~= "string" then return n end
+    local first, rest = n:match("^(%S+)%s+(.+)$")
+    if first then return first, rest end
+    return n, nil
+end
 function UnitClass(u) return unitField(u, "name"), unitField(u, "class"), 1 end
 function UnitIsPlayer(u) return unitField(u, "player") end
 function UnitReaction(u) return unitField(u, "reaction") end
