@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Fixed: hovering a unit frame now shows the unit's tooltip.
+- Fixed: a portrait no longer stays empty for creatures the client has no 3D portrait model for
+  (an Earthborer, for one), or for a unit out of range. It shows the 2D portrait instead.
 - **Detachable cast bars.** Cast bar options now have their own page: Options > AddOns > Glass
   Unit Frames > **Cast bars**. Detach your own cast bar or your target's, and it becomes a glass
   bar of its own. Its default spot is just under the middle of the screen (340×20), with the

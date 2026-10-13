@@ -352,15 +352,51 @@ Engine.SetPainter("power", function(f)
 end)
 
 -- SUF's sequence (modules/portrait.lua): clear, set unit, zoom, reset position.
+-- Some units get no model at all (#82, measured: an Earthborer's
+-- GetModelFileID() was nil, visible, in range): one retry a moment later,
+-- then the client's 2D portrait in the tile instead of an empty square. An
+-- out-of-range unit gets the 2D portrait too. The next 3D load switches back.
+local PORTRAIT_RETRY = 0.3
+
+-- Does the model have a model file? Unreadable (or secret) counts as yes:
+-- never swap a working 3D portrait for a guess.
+local function hasModel(m)
+    local ok, id = pcall(m.GetModelFileID, m)
+    if not ok or API.IsSecret(id) then return true end
+    return id ~= nil and id ~= 0
+end
+
+local function show3D(f)
+    f.portrait2D:Hide()
+    f.model:Show()
+end
+
+local function show2D(f, u)
+    f.model:ClearModel()
+    if attempt("portrait 2D", SetPortraitTexture, f.portrait2D, u) then
+        f.model:Hide()
+        f.portrait2D:Show()
+    end
+end
+
 Engine.SetPainter("portrait", function(f)
     local m, u = f.model, f.unit
     if not (m and UnitExists(u)) then return end
-    if plain(UnitIsVisible, u) == false then m:ClearModel() return end
-    attempt("portrait", function()
+    f.portraitToken = (f.portraitToken or 0) + 1   -- a newer paint cancels a pending retry
+    if plain(UnitIsVisible, u) == false then show2D(f, u) return end
+    local function load()
         m:ClearModel()
         m:SetUnit(u)
         m:SetPortraitZoom(1)
         m:SetPosition(0, 0, 0)
+    end
+    if not attempt("portrait", load) then return end
+    if hasModel(m) then show3D(f) return end
+    local token = f.portraitToken
+    C_Timer.After(PORTRAIT_RETRY, function()
+        if f.portraitToken ~= token or not UnitExists(u) then return end
+        attempt("portrait", load)
+        if hasModel(m) then show3D(f) else show2D(f, u) end
     end)
 end)
 
@@ -1123,6 +1159,12 @@ local function build(unit)
         m:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", -mi, mi)
         m:SetFrameLevel(Glass.ContentLevel(tile))
         m:SetKeepModelOnHide(true)
+        -- The 2D fallback (#82): on the tile itself, under the model's frame,
+        -- shown only while the model is hidden.
+        local flat = tile:CreateTexture(nil, "ARTWORK")
+        flat:SetAllPoints(m)
+        flat:Hide()
+        b.portrait2D = flat
         b.tile = tile
         if b.levelText then
             -- The level can sit on the portrait: on the tile's own top layer,

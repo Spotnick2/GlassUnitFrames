@@ -124,6 +124,15 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   post-hooks call Blizzard's `UnitFrame_OnEnter` / `UnitFrame_OnLeave` (they read `self.unit`),
   never on a forbidden `GameTooltip`, under `pcall` (an error goes to `API.Fail("tooltip")`),
   as SUF and DinoUF do.
+- **Portraits** (`Frames.lua`): the 3D model via SUF's sequence (`ClearModel`, `SetUnit`,
+  `SetPortraitZoom(1)`, `SetPosition`).
+  - Some units get **no model at all**. Measured on 70338 (#82): an Earthborer's
+    `GetModelFileID()` was nil while it was visible and in range.
+  - A model without a file gets one retry 0.3 s later (`portraitToken`: a newer paint cancels
+    it), then the client's **2D portrait** (`SetPortraitTexture` on `b.portrait2D`, a tile
+    texture under the model's frame).
+  - An out-of-range unit gets the 2D portrait at once.
+  - An unreadable file id counts as a model: a working 3D portrait is never swapped for a guess.
 - **`Castbar.lua`**: the player, target, focus and pet cast bars (#72 moved them out of
   `Frames.lua`; pet and focus came in #76, each a 16 px pill (`LAYOUT.castH`): the pet's under
   its body, the focus's **above** it (`castAbove`: under it would cover the ToT row). They detach
