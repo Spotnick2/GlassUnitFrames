@@ -86,8 +86,11 @@ local function editEntry(bar)
     return t[bar]
 end
 
--- Empty entries and tables go, so the saved table stays sparse.
+-- Empty global entries and tables go, so the saved table stays sparse. A
+-- role's entry never goes: it is used whole, so even an empty one means
+-- "this role's own settings", not "fall back to global" (Codex, #90).
 local function prune(key, bar)
+    if key ~= "global" then return end
     local z = db.zoom
     if type(z) ~= "table" then return end
     local t = z[key]
@@ -204,7 +207,11 @@ end
 
 function Zoom.SetEnabled(bar, on)
     if not (db and Zoom.DEFAULTS[bar]) then return false end
-    editEntry(bar).on = on and true or nil
+    -- Global: off is the default (not saved). A role stores off explicitly.
+    -- (Not `global and nil or false`: that is always false.)
+    local off
+    if Zoom.EditedKey() ~= "global" then off = false end
+    editEntry(bar).on = on and true or off
     prune(Zoom.EditedKey(), bar)
     refresh(bar)
     return true
@@ -295,6 +302,12 @@ local function placeProxy(bar)
     end
     p:SetSize(w, h)
     put(p, e.x, e.y, e.scale)
+end
+
+-- A bar was placed (a resize, a reset): its outline, when shown, follows.
+function Zoom.Placed(bar)
+    local p = proxies[bar]
+    if p and p:IsShown() then placeProxy(bar) end
 end
 
 Zoom.proxiesShown = false

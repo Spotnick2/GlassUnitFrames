@@ -269,6 +269,43 @@ eq(Zoom.role, nil, "back to global")
 check(textOf(C.zoomEditing):find("global"), "editing the global settings")
 zp._shown = false
 
+-- A role's disabled override survives a reset, and later on/off edits (Codex, #90).
+check(S.SetZoom("target", true), "target zoom on, globally")
+check(S.SetZoomRole("healer"), "healer")
+check(S.SetZoom("target", false), "the healer turns it off")
+eq(GlassUnitFramesDB.zoom.healer.target.on, false, "stored as an explicit off")
+S.ResetPositions(); WoW.flushTimers()
+check(not Zoom.Enabled("target"), "reset keeps the healer's off (no fallback to global)")
+check(GlassUnitFramesDB.zoom.healer.target ~= nil, "the role entry stays")
+check(S.SetZoom("target", true) and S.SetZoom("target", false), "on and off again")
+check(not Zoom.Enabled("target"), "still the healer's own off")
+check(S.SetZoomRole(nil), "global")
+check(Zoom.Enabled("target"), "the global on is untouched")
+
+-- An emptied role entry is still the role's: a reset gives the defaults, not
+-- the global spot (Codex, #90).
+check(S.SetZoom("focus", false), "focus zoom off globally (so the copy below holds no on)")
+check(Zoom.SetSpot("focus", 30, -30), "a custom global focus spot")
+check(S.SetZoomRole("tank"), "tank")
+check(S.SetZoomScale("focus", 1.1), "the tank's own focus entry")
+eq(Zoom.Entry("focus").x, 30, "copied from global")
+S.ResetPositions(); WoW.flushTimers()
+eq(Zoom.Entry("focus").x, 0, "the tank's reset: the default spot, not the global 30")
+check(S.SetZoomRole(nil), "global")
+eq(Zoom.Entry("focus").x, 30, "the global spot untouched")
+Zoom.ResetSpot("focus")
+
+-- The combat outline follows a resize of its bar while unlocked (Codex, #90).
+check(M.Unlock(), "unlocked")
+local tpx = Zoom._test.proxies.target
+check(tpx and tpx._shown, "the target's combat outline")
+check(S.SetCastSize("target", 420, 30), "resized through the cast bar")
+eq(tpx:GetWidth(), 420, "the outline's width follows")
+eq(tpx:GetHeight(), 30, "and its height")
+Castbar.ResetPosition("target")
+eq(tpx:GetWidth(), 340, "a reset too")
+M.Lock()
+
 -- REGEN_ENABLED seen while lockdown is still reported: the bars still go home (review, #90).
 combat(true)
 check(pc.detached, "zoomed")

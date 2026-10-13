@@ -571,9 +571,15 @@ end
 
 -- Lay a bar out for its mode. Reconciles the player's rows explicitly: they
 -- shrink only while the bar is docked inside AND shown.
+local placeCast
+
 function Castbar.Place(c)
     GlassUF.Zoom.Cancel(c.unit)   -- any placement stops a glide: it snaps (#89)
-    if c.place then return c.place(c) end   -- the swing rows (#87)
+    if c.place then c.place(c) else placeCast(c) end   -- the swing rows place themselves (#87)
+    GlassUF.Zoom.Placed(c.unit)   -- its combat outline follows a new size (#89)
+end
+
+function placeCast(c)
     local x, y, w, h, detached, scale = Castbar.EffectiveGeometry(c.unit)
     c.detached = detached
     local host, bar = c.host, c.bar
