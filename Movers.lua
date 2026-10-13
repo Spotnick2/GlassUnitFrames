@@ -14,8 +14,9 @@
 --
 -- Clicking a mover selects it and opens a small nudge panel: X/Y in the
 -- frame's own offsets (from its leader, or from the screen centre), arrow
--- buttons (1 unit, Shift 10), reset this frame, lock; for a detached cast bar
--- (#74) also W/H and Attach. While unlocked, a glass dialog at the top centre
+-- buttons (1 unit, Shift 10), Center X (the exact horizontal middle of what
+-- it's placed on, alone: never mirrored), reset this frame, lock; for a
+-- detached cast bar (#74) also W/H, scale and Attach. While unlocked, a glass dialog at the top centre
 -- (Quartz's idea) says so, with Lock and the snapping / mirroring switches.
 -- Out of combat only: a combat start locks everything; unlock and nudges are
 -- refused in combat.
@@ -145,6 +146,8 @@ local function refreshPanel()
         local w, h = src.size()
         if not panel.w:HasFocus() then panel.w:SetText(w and string.format("%g", w) or "?") end
         if not panel.h:HasFocus() then panel.h:SetText(h and string.format("%g", h) or "?") end
+        local sc = src.scale and src.scale()
+        if not panel.s:HasFocus() then panel.s:SetText(sc and string.format("%g", sc) or "?") end
     end
 end
 
@@ -194,7 +197,12 @@ local function alignLines(id, axis)
         if b and sid ~= id and not src.follows(id) and sid ~= partner and not (partner and src.follows(partner)) then
             local lo, hi
             if axis == "x" then lo, hi = b:GetLeft(), b:GetRight() else lo, hi = b:GetBottom(), b:GetTop() end
-            if type(lo) == "number" and type(hi) == "number" then
+            -- A scaled frame (a detached cast bar) reports its rect in its own
+            -- units: bring it to UIParent's, where the drag happens.
+            local e, u = b:GetEffectiveScale(), UIParent:GetEffectiveScale()
+            if type(lo) == "number" and type(hi) == "number" and type(e) == "number" and type(u) == "number" and u > 0 then
+                local k = e / u   -- exactly 1 for an unscaled frame
+                lo, hi = lo * k, hi * k
                 lines[#lines + 1] = lo
                 lines[#lines + 1] = hi
                 lines[#lines + 1] = (lo + hi) / 2
@@ -289,6 +297,7 @@ local function select_(id)
         panel.y:ClearFocus()
         panel.w:ClearFocus()
         panel.h:ClearFocus()
+        panel.s:ClearFocus()
     end
     selected = id
     for mid, m in pairs(movers) do m.edge:SetShown(mid == id) end
@@ -437,6 +446,17 @@ local function makePanel()
         if x then place(selected, x, v, false, mirrorOf(selected)) end
     end)
     p.y:SetPoint("LEFT", yl, "RIGHT", 8, 0)
+    -- The exact horizontal middle of what it's placed on (the screen, or its
+    -- leader), y kept. Alone: a mirrored partner isn't dragged to the middle too.
+    p.buttons = {}
+    p.buttons.center = makeButton(p, "Center X", 64, function()
+        local src = selected and sources[selected]
+        if not src or InCombatLockdown() then return end
+        local _, y = src.position()
+        if y then place(selected, 0, y, false, nil) end
+        refreshPanel()
+    end)
+    p.buttons.center:SetPoint("LEFT", p.y, "RIGHT", 8, 0)
     -- Width / height: detached cast bars only (refreshPanel shows the row).
     local wl = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     wl:SetPoint("TOPLEFT", p, "TOPLEFT", 10, -68)
@@ -454,7 +474,16 @@ local function makePanel()
         if src and src.setSize then src.setSize(nil, v) end
     end)
     p.h:SetPoint("LEFT", hl, "RIGHT", 8, 0)
-    p.sizeRow = { wl, p.w, hl, p.h }
+    local sl = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    sl:SetPoint("LEFT", p.h, "RIGHT", 10, 0)
+    sl:SetText("Scale")
+    p.s = makeEdit(p, function(v)
+        local src = sources[selected]
+        if src and src.setScale then src.setScale(v) end
+    end)
+    p.s:SetWidth(44)
+    p.s:SetPoint("LEFT", sl, "RIGHT", 6, 0)
+    p.sizeRow = { wl, p.w, hl, p.h, sl, p.s }
     -- Arrows: 1 unit, Shift 10. Plain characters (every font has them).
     local left  = makeButton(p, "<", 24, function() nudge(-1, 0) end)
     local right = makeButton(p, ">", 24, function() nudge(1, 0) end)
@@ -480,7 +509,8 @@ local function makePanel()
         if src and src.attach then src.attach() end
     end)
     attach:SetPoint("RIGHT", lock, "LEFT", -4, 0)
-    p.buttons = { left = left, right = right, up = up, down = down, reset = reset, lock = lock, attach = attach }
+    p.buttons.left, p.buttons.right, p.buttons.up, p.buttons.down = left, right, up, down
+    p.buttons.reset, p.buttons.lock, p.buttons.attach = reset, lock, attach
     p:Hide()
     return p
 end
@@ -589,7 +619,7 @@ function syncCast()
             if selected == id then
                 selected = nil
                 if panel then
-                    for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h }) do e:ClearFocus() end
+                    for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h, panel.s }) do e:ClearFocus() end
                     panel:Hide()
                 end
             end

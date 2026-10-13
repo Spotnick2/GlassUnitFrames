@@ -213,6 +213,8 @@ function Methods.SetHeight(w, y) if guard(w, "SetHeight") then w._height = y end
 function Methods.GetWidth(w) return w._width end
 function Methods.GetHeight(w) return w._height end
 function Methods.EnableMouse(w, on) w._mouse = on and true or false end
+function Methods.SetScale(w, sc) if guard(w, "SetScale") then w._scale = sc end end
+function Methods.GetScale(w) return w._scale or 1 end
 function Methods.GetFrameLevel(w) return w._level end
 function Methods.SetFrameLevel(w, l) w._level = l end
 function Methods.GetEffectiveScale() return 0.64 end
@@ -588,6 +590,13 @@ Settings = {
         return c
     end,
     RegisterAddOnCategory = function(c) WoW.settings.addon = c end,
+    -- A sub-page (GlassRaidFrames ships these on Forever): recorded in order.
+    RegisterCanvasLayoutSubcategory = function(parent, frame, name)
+        local c = { parent = parent, frame = frame, name = name }
+        WoW.settings.subs = WoW.settings.subs or {}
+        table.insert(WoW.settings.subs, c)
+        return c
+    end,
     OpenToCategory = function(id) WoW.settings.opened = id end,
 }
 C_Texture = { GetAtlasExists = function(name) return WoW.atlases[name] == true end }

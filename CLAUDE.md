@@ -129,7 +129,12 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       while it's docked inside AND shown), the target's pill under its aura rows.
     - **Detached:** its own pill, CENTER on the screen centre. Defaults follow the owner's Quartz
       layout: player 340×20 at (0, −47), target at (0, −23).
-    - Saved in `db.castBars[unit] = { detached, x, y, w, h }`, each field validated against
+    - **Scale** 0.5–2 (0.05 steps), shown only while detached (`Castbar.SetScale`). The spot
+      stays in screen (UIParent) units at any scale: SetPoint offsets are in the host's own
+      scaled units, so `Place` / `SetPosition` divide them by the scale. Movers convert a scaled
+      frame's rect for alignment (`GetEffectiveScale` ratio). `Castbar.CenterX` puts a detached
+      bar in the exact horizontal middle.
+    - Saved in `db.castBars[unit] = { detached, x, y, w, h, scale }`, each field validated against
       `Castbar.LIMITS` (junk falls back to its default), pruned when empty. Only what the
       player set is saved (typing W leaves H on its default). "Reset frame positions"
       (`/glass reset`) also resets every bar's spot and size (`Castbar.ResetPositions`); it
@@ -208,7 +213,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   source (`Frames.SetPosition` for a unit). **Nothing starts the client's own drag on a protected
   button** (a drag combat interrupts can't be stopped; there is no shift-drag any more). Clicking
   a mover opens the nudge panel (X/Y offsets, arrows 1 / Shift 10, reset this frame, lock; W/H
-  and Attach for a cast bar). While unlocked, a glass **unlock dialog** at the top centre
+  scale and Attach for a cast bar; **Center X** for anything, the exact horizontal middle of
+  what it's placed on, alone: never mirrored). While unlocked, a glass **unlock dialog** at the top centre
   (Quartz's idea) holds Lock and the switches. It sits under the nudge panel and over the
   movers, and can be dragged aside (not saved).
   Unlock and nudges are refused in combat; a combat start locks. While dragging, a frame's
@@ -264,7 +270,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   `refreshing` guard keeps that from saving). Every control goes through **`GlassUF.Settings`**,
   the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
   `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`,
-  `SetCastOption`, `SetCastDetached`).
+  `SetCastOption`, `SetCastDetached`, `SetCastScale`, `CenterCast`). The cast bars have their
+  own **sub-page**, "Cast bars" (`RegisterCanvasLayoutSubcategory`, right after the main page,
+  hidden at creation). The column helpers take the page they lay out on (`column(x, y, parent)`),
+  and `slider` takes `{ label, min, max, step, get, set }` (`tunableSlider` for the material
+  knobs).
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe;
   `Tools/CastProbe/` is the throwaway cast/swing event trace for #72 and the later cast-bar PRs
   (deployed with `Tools\deploy.ps1 -CastProbe`). Typed `/cprobe` didn't dispatch in game,

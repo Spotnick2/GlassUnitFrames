@@ -2,10 +2,12 @@
 
 ## Unreleased
 
-- **Detachable cast bars.** In Options > AddOns > Glass Unit Frames > Cast bars, detach your own
-  cast bar or your target's. A detached bar becomes a glass bar of its own. Its default spot is
-  just under the middle of the screen (340×20), with the target's just above it. Unlock the
-  frames to drag it, type its position, or change its width and height. **Attach** puts it back
+- **Detachable cast bars.** Cast bar options now have their own page: Options > AddOns > Glass
+  Unit Frames > **Cast bars**. Detach your own cast bar or your target's, and it becomes a glass
+  bar of its own. Its default spot is just under the middle of the screen (340×20), with the
+  target's just above it. **Scale** it (0.5–2) and **center it horizontally** from that page.
+  Unlock the frames to drag it, type its position, width, height or scale, or click **Center X**
+  (also there for every frame). **Attach** puts it back
   on its frame. Detaching and attaching work in combat too. **Reset frame positions** also puts
   detached bars back at their default spot and size.
 - A detached player cast bar shows your **latency in ms** above the end of the bar (it can be

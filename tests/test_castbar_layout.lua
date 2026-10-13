@@ -228,14 +228,85 @@ check(p[4] == 10 and p[5] == 20, "the saved spot")
 check(pc.host._width == 300 and pc.host._height == 24, "the saved size")
 eq(pc.bar._height, 24 - 2 * inset, "the bar at the saved height")
 
--- Options: a Detach box per bar, wired to the settings.
+-- Scale (owner's ask): the spot stays in screen units at any scale.
+Castbar = GlassUF.Castbar
+S = GlassUF.Settings
+check(S.SetCastScale("player", 1.5), "scaled")
+eq(pc.host._scale, 1.5, "the host scales")
+eq(GlassUnitFramesDB.castBars.player.scale, 1.5, "saved")
+p = pc.host._points[1]
+check(p[4] == 10 / 1.5 and p[5] == 20 / 1.5, "SetPoint offsets divided by the scale: the same screen spot")
+Castbar.SetPosition("player", 30, -60)
+p = pc.host._points[1]
+check(p[4] == 30 / 1.5 and p[5] == -60 / 1.5, "a move at scale 1.5 too")
+eq(GlassUnitFramesDB.castBars.player.x, 30, "saved in screen units")
+S.SetCastScale("player", 9)
+eq(Castbar.ScaleOf("player"), 2, "clamped to 2")
+S.SetCastScale("player", 0.73)
+eq(Castbar.ScaleOf("player"), 0.75, "in 0.05 steps")
+-- Docked bars never scale.
+S.SetCastDetached("player", false)
+eq(pc.host._scale, 1, "docked: scale 1")
+S.SetCastDetached("player", true)
+eq(pc.host._scale, 0.75, "detached again: its scale back")
+
+-- Center X: the exact horizontal middle, y kept.
+check(S.CenterCast("player"), "centred")
+eq(GlassUnitFramesDB.castBars.player.x, 0, "x = 0")
+eq(GlassUnitFramesDB.castBars.player.y, -60, "y kept")
+check(not S.CenterCast("target"), "a docked bar isn't centred")
+
+-- The nudge panel: Scale and Center X.
+UIParent._center = { 683, 384 }
+M = GlassUF.Movers
+check(M.Unlock(), "unlocked")
+local mcs = M._test.movers["cast:player"]
+mcs._scripts.OnMouseUp(mcs)
+local nps = M._test.panel()
+eq(nps.s._text, "0.75", "the panel shows the scale")
+nps.s:SetText("1.25"); nps.s._scripts.OnEnterPressed(nps.s)
+eq(pc.host._scale, 1.25, "typed scale applies")
+Castbar.SetPosition("player", 40, -60)
+nps.buttons.center._scripts.OnClick(nps.buttons.center)
+eq(GlassUnitFramesDB.castBars.player.x, 0, "Center X from the panel")
+-- A unit's Center X centres it alone: its mirror partner stays.
+local tx = GlassUF.Frames.PositionOf("target")
+M._test.movers.player._scripts.OnMouseUp(M._test.movers.player)
+nps.buttons.center._scripts.OnClick(nps.buttons.center)
+eq(GlassUnitFramesDB.pos.player[4], 0, "the player frame centred")
+eq((GlassUF.Frames.PositionOf("target")), tx, "its mirror partner left alone")
+-- Alignment in screen units: a scaled bar's own rect is in its own units.
+pc.host._center, pc.host._width, pc.host._height = { 683 / 1.25, 300 / 1.25 }, 340, 20
+rawset(pc.host, "GetEffectiveScale", function() return 0.64 * 1.25 end)
+local function has2(list, v) for _, x in ipairs(list) do if math.abs(x - v) < 1e-6 then return true end end return false end
+check(has2(M._test.alignLines("target", "x"), 683 - 170 * 1.25), "a scaled bar's left edge, in screen units")
+rawset(pc.host, "GetEffectiveScale", nil)
+M.Lock()
+
+-- Options: its own "Cast bars" sub-page, registered right after the main page.
 local O = GlassUF.Options
+local cp = O._test.castPage
+local subs = WoW.settings.subs or {}
+check(subs[1] and subs[1].frame == cp and subs[1].parent == WoW.settings.canvas, "a sub-page under the main page")
+eq(subs[1] and subs[1].name, "Cast bars", "named Cast bars")
+check(not cp._shown, "hidden at creation (else blank on the first visit)")
 O._test.panel._scripts.OnShow(O._test.panel)
+check(O._test.controls.castDetach_target == nil, "the main page no longer builds the cast controls")
+cp._scripts.OnShow(cp)
 local cb = O._test.controls.castDetach_target
 check(cb ~= nil, "a Detach box for the target's bar")
+eq(cb:GetParent(), cp, "on the sub-page")
 cb:SetChecked(true); cb._scripts.OnClick(cb)
 check(GlassUF.Castbar.IsDetached("target"), "ticking it detaches the bar")
 check(O._test.controls.castDetach_player:GetChecked(), "the player's box shows its saved state")
+local sl = O._test.controls.castScale_player
+eq(sl._value, 1.25, "the scale slider shows the bar's scale")
+sl._scripts.OnValueChanged(sl, 1.5)
+eq(GlassUF.Castbar.ScaleOf("player"), 1.5, "the slider sets it")
+Castbar.SetPosition("player", 40, -60)
+local cbtn = O._test.controls.castCenter_player
+cbtn._scripts.OnClick(cbtn)
+eq(GlassUnitFramesDB.castBars.player.x, 0, "Center horizontally from the page")
 
 eq(next(GlassUF.paintFailures), nil, "no paint failures")
 GlassUnitFramesDB = nil

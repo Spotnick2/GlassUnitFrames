@@ -323,14 +323,17 @@ end
 -- Where a bar sits. Docked: the player's row inside the body (SUF's
 -- auto-hiding cast bar: health and power shrink while it shows), the target's
 -- glass pill under the body (under its aura rows). Detached: its own glass
--- pill, CENTER on the screen centre, its size and spot saved. The defaults
+-- pill, CENTER on the screen centre, its spot, size and scale saved. The spot
+-- is in screen (UIParent) units at any scale: SetPoint offsets are in the
+-- host's own scaled units, so they are divided by the scale. The defaults
 -- follow the owner's Quartz layout: the player's bar under the screen centre,
 -- the target's just above it.
 local PILL_H = 20
-Castbar.DETACHED = { player = { x = 0, y = -47, w = 340, h = 20 },
-                     target = { x = 0, y = -23, w = 340, h = 20 } }
-Castbar.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, w = { 80, 800 }, h = { 12, 40 } }
-local OTHER = { x = 0, y = -100, w = 240, h = 18 }   -- a bar with no defaults of its own
+Castbar.DETACHED = { player = { x = 0, y = -47, w = 340, h = 20, scale = 1 },
+                     target = { x = 0, y = -23, w = 340, h = 20, scale = 1 } }
+Castbar.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, w = { 80, 800 }, h = { 12, 40 },
+                   scale = { 0.5, 2 } }
+local OTHER = { x = 0, y = -100, w = 240, h = 18, scale = 1 }   -- a bar with no defaults of its own
 Castbar.bars = {}   -- unit -> the bar's state (c)
 
 local function inLimits(v, k)
@@ -347,14 +350,14 @@ local function saved(unit)
     return type(e) == "table" and e or nil
 end
 
--- x, y, w, h (each valid, else its default) and whether it's detached.
+-- x, y, w, h (each valid, else its default), whether it's detached, and its scale.
 local function geometry(unit)
     local d, e = Castbar.DETACHED[unit] or OTHER, saved(unit) or {}
     local function pick(k)
         if inLimits(e[k], k) then return e[k] end
         return d[k]
     end
-    return pick("x"), pick("y"), pick("w"), pick("h"), e.detached == true
+    return pick("x"), pick("y"), pick("w"), pick("h"), e.detached == true, pick("scale")
 end
 
 -- The entry to write into (made on the first write).
@@ -376,13 +379,14 @@ end
 -- Lay a bar out for its mode. Reconciles the player's rows explicitly: they
 -- shrink only while the bar is docked inside AND shown.
 function Castbar.Place(c)
-    local x, y, w, h, detached = geometry(c.unit)
+    local x, y, w, h, detached, scale = geometry(c.unit)
     c.detached = detached
     local host, bar = c.host, c.bar
     host:ClearAllPoints()
     bar:ClearAllPoints()
     if c.inside and not detached then
         c.skin:Hide()
+        host:SetScale(1)
         host:SetAllPoints(c.body)
         bar:SetHeight(CAST_ROW)
         bar:SetPoint("TOPLEFT", c.b.power, "BOTTOMLEFT", 0, -CAST_GAP)
@@ -390,10 +394,12 @@ function Castbar.Place(c)
     else
         c.skin:Show()
         if detached then
+            host:SetScale(scale)
             host:SetSize(w, h)
-            host:SetPoint("CENTER", UIParent, "CENTER", x, y)
+            host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
         else
             h = PILL_H
+            host:SetScale(1)
             host:SetSize(c.L.w, h)
             -- Under the aura rows when the frame has them (target), else right under the body.
             host:SetPoint("TOP", c.body, "BOTTOM", 0, c.L.auras and (GlassUF.Auras.Bottom() - 6) or -6)
@@ -444,8 +450,9 @@ function Castbar.SetPosition(unit, x, y, live)
     local c = Castbar.bars[unit]
     if not (c and c.detached and inLimits(x, "x") and inLimits(y, "y")) then return false end
     x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
+    local scale = select(6, geometry(unit))
     c.host:ClearAllPoints()
-    c.host:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    c.host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
     if not live then Castbar.SavePosition(unit, x, y) end
     return true, x, y
 end
@@ -473,12 +480,37 @@ function Castbar.SetSize(unit, w, h)
     return true
 end
 
--- A detached bar back at its default spot and size (still detached).
+function Castbar.ScaleOf(unit)
+    if not Castbar.bars[unit] then return nil end
+    return (select(6, geometry(unit)))
+end
+
+-- A bar's scale (shown while detached), clamped to LIMITS, in 0.05 steps.
+-- Allowed in combat, like everything here.
+function Castbar.SetScale(unit, s)
+    local c = Castbar.bars[unit]
+    if not c or type(s) ~= "number" or s ~= s then return false end
+    local lim = Castbar.LIMITS.scale
+    s = math.max(lim[1], math.min(lim[2], math.floor(s * 20 + 0.5) / 20))
+    entry(unit).scale = s
+    Castbar.Place(c)
+    return true, s
+end
+
+-- A detached bar in the exact horizontal middle of the screen (its y kept).
+function Castbar.CenterX(unit)
+    local c = Castbar.bars[unit]
+    if not (c and c.detached) then return false end
+    local _, y = geometry(unit)
+    return Castbar.SetPosition(unit, 0, y)
+end
+
+-- A detached bar back at its default spot, size and scale (still detached).
 function Castbar.ResetPosition(unit)
     local c = Castbar.bars[unit]
     if not c then return false end
     local e = entry(unit)
-    e.x, e.y, e.w, e.h = nil, nil, nil, nil
+    e.x, e.y, e.w, e.h, e.scale = nil, nil, nil, nil, nil
     prune(unit)
     Castbar.Place(c)
     return true
@@ -507,6 +539,8 @@ function Castbar.MoverSource(unit)
         reset = function() return Castbar.ResetPosition(unit) end,
         follows = function() return false end,
         size = function() return Castbar.SizeOf(unit) end,
+        scale = function() return Castbar.ScaleOf(unit) end,
+        setScale = function(s) return GlassUF.Settings.SetCastScale(unit, s) end,
         setSize = function(w, h) return Castbar.SetSize(unit, w, h) end,
         attach = function() return GlassUF.Settings.SetCastDetached(unit, false) end,
     }

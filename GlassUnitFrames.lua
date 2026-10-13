@@ -325,6 +325,21 @@ function Settings_.SetCastDetached(unit, on)
     return true
 end
 
+-- A cast bar's scale (#74), shown while it's detached; saved in
+-- db.castBars[unit].scale. Out of unlock mode too.
+function Settings_.SetCastScale(unit, s)
+    local ok = GlassUF.Castbar.SetScale(unit, s)
+    if ok then GlassUF.Movers.Refresh() end
+    return ok
+end
+
+-- A detached cast bar in the exact horizontal middle of the screen.
+function Settings_.CenterCast(unit)
+    local ok = GlassUF.Castbar.CenterX(unit)
+    if ok then GlassUF.Movers.Refresh() end
+    return ok
+end
+
 -- The player cast bar's extras (#72): "latency" (the block), "latencyText"
 -- (its ms figure, on a detached bar) and "pushback" (the +0.4 before the
 -- time). Saved only when off.

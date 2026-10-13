@@ -11,6 +11,11 @@
 -- apply-and-save helpers as /glass, and
 -- the panel re-reads the current state every time it opens, so a change made
 -- with a slash command never leaves it showing stale values.
+--
+-- Sub-page "Cast bars" (#74): detach, scale and centre each cast bar, and the
+-- player bar's latency / pushback switches. Registered right after the main
+-- page (in order), hidden at creation (porting guide: a page created shown is
+-- blank on its first visit).
 
 GlassUF = GlassUF or {}
 local Options = {}
@@ -80,22 +85,24 @@ end
 
 -- Two columns, each laid out top to bottom: the panel must fit the Settings
 -- canvas without scrolling (one column overflowed it in game).
-local function column(x, top)
-    return { x = x, y = top }
+-- A column lays out top to bottom on `parent` (the main page's scroll child
+-- by default, or a sub-page).
+local function column(x, top, parent)
+    return { x = x, y = top, parent = parent or content }
 end
 
 local function place(col, region, height, indent)
-    region:SetPoint("TOPLEFT", content, "TOPLEFT", col.x + (indent or 0), col.y)
+    region:SetPoint("TOPLEFT", col.parent, "TOPLEFT", col.x + (indent or 0), col.y)
     col.y = col.y - height
 end
 
 local function header(col, text)
     col.y = col.y - 6
-    place(col, label(content, text, "GameFontNormalLarge"), 26)
+    place(col, label(col.parent, text, "GameFontNormalLarge"), 26)
 end
 
 local function note(col, text, width)
-    local fs = label(content, text, "GameFontHighlightSmall")
+    local fs = label(col.parent, text, "GameFontHighlightSmall")
     fs:SetWidth(width or 400)
     place(col, fs, 18, 4)
 end
@@ -117,8 +124,9 @@ end
 -- A labelled check button: UICheckButtonTemplate / UIRadioButtonTemplate when
 -- the client has them (both ship here, per Priestly), else our own art.
 local RADIO_ART = "Interface\\Buttons\\UI-RadioButton"   -- 4 cells: normal, checked, highlight, pushed
-local function checkButton(text, radio)
-    local cb, templated = safeFrame("CheckButton", content, radio and "UIRadioButtonTemplate" or "UICheckButtonTemplate", "text")
+local function checkButton(text, radio, parent)
+    parent = parent or content
+    local cb, templated = safeFrame("CheckButton", parent, radio and "UIRadioButtonTemplate" or "UICheckButtonTemplate", "text")
     if not templated then
         if radio then
             cb:SetSize(16, 16)
@@ -138,7 +146,7 @@ local function checkButton(text, radio)
     elseif not radio then
         cb:SetSize(24, 24)
     end
-    local fs = label(content, text)
+    local fs = label(parent, text)
     fs:SetPoint("LEFT", cb, "RIGHT", 4, 0)
     cb.label = fs
     return cb
@@ -193,7 +201,7 @@ local function radioRow(col, rowLabel, options, get, set, labelWidth, offsets)
 end
 
 local function checkbox(col, text, get, set)
-    local cb = checkButton(text, false)
+    local cb = checkButton(text, false, col.parent)
     place(col, cb, 28, 4)
     cb:SetScript("OnClick", function(self) set(self:GetChecked() and true or false) end)
     controls[#controls + 1] = function() cb:SetChecked(get() and true or false) end
@@ -201,18 +209,19 @@ local function checkbox(col, text, get, set)
 end
 
 -- Hand-built slider: label and value on one line, the track under it.
--- Steps of 0.05.
+-- t = { label, min, max, step (default 0.05), get(), set(v) }.
 local SLIDER_W = 240
 local function slider(col, t)
-    local fs = label(content, t.label)
-    local value = label(content, "")
+    local parent, step = col.parent, t.step or 0.05
+    local fs = label(parent, t.label)
+    local value = label(parent, "")
     value:SetPoint("LEFT", fs, "LEFT", SLIDER_W + 12, 0)
     place(col, fs, 18, 4)
-    local s = CreateFrame("Slider", nil, content)
+    local s = CreateFrame("Slider", nil, parent)
     s:SetSize(SLIDER_W, 16)
     s:SetOrientation("HORIZONTAL")
     s:SetMinMaxValues(t.min, t.max)
-    s:SetValueStep(0.05)
+    s:SetValueStep(step)
     if s.SetObeyStepOnDrag then s:SetObeyStepOnDrag(true) end
     local track = s:CreateTexture(nil, "BACKGROUND")
     track:SetPoint("LEFT", s, "LEFT", 0, 0)
@@ -222,16 +231,24 @@ local function slider(col, t)
     s:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
     place(col, s, 26, 8)
     s:SetScript("OnValueChanged", function(self, v)
-        v = math.floor(v * 20 + 0.5) / 20
+        v = math.floor(v / step + 0.5) * step
         value:SetText(string.format("%.2f", v))
         if refreshing then return end
-        GlassUF.Settings.SetTunable(t, v)
+        t.set(v)
     end)
     controls[#controls + 1] = function()
-        local v = Glass.STYLE[t.style]
+        local v = t.get()
         s:SetValue(v)
         value:SetText(string.format("%.2f", v))
     end
+    return s
+end
+
+-- A material knob (Glass.TUNABLES) as a slider.
+local function tunableSlider(col, t)
+    local s = slider(col, { label = t.label, min = t.min, max = t.max,
+                            get = function() return Glass.STYLE[t.style] end,
+                            set = function(v) GlassUF.Settings.SetTunable(t, v) end })
     s.tunable = t
     return s
 end
@@ -242,6 +259,17 @@ end
 
 -- Shipped look back (knobs and font), saved values forgotten.
 function Options.ResetLook() GlassUF.Settings.ResetLook() end
+
+-- Unlock, closing the Settings window, or the movers would sit behind it.
+function Options.Unlock()
+    if GlassUF.Settings.Unlock() then
+        -- Close through the panel's own Close (it commits or prompts for
+        -- other pages' changes), not a bare hide.
+        local sp = rawget(_G, "SettingsPanel")
+        if sp and type(sp.Close) == "function" then pcall(sp.Close, sp)
+        elseif sp and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, sp) end
+    end
+end
 
 local function build()
     local title = label(content, "Glass Unit Frames", "GameFontNormalHuge")
@@ -257,7 +285,7 @@ local function build()
         function() return Glass.fontKey end,
         GlassUF.Settings.SetFont)
     left.y = left.y - 6
-    for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key] = slider(left, t) end
+    for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key] = tunableSlider(left, t) end
     place(left, button(content, "Reset look to defaults", 190, function()
         Options.ResetLook()
         controls.refreshAll()
@@ -312,42 +340,77 @@ local function build()
     note(right, "While they fight you or your group.", 270)
 
     header(right, "Cast bars")
-    for _, o in ipairs({ { "player", "Detach the player's cast bar" }, { "target", "Detach the target's cast bar" } }) do
-        local unit = o[1]
-        if GlassUF.Castbar.bars[unit] then
-            controls["castDetach_" .. unit] = checkbox(right, o[2],
-                function() return GlassUF.Castbar.IsDetached(unit) end,
-                function(v) GlassUF.Settings.SetCastDetached(unit, v) end)
-        end
-    end
-    note(right, "Unlock to move or resize a detached bar; Attach puts it back.", 270)
-    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "latencyText", "Latency in ms (detached bar)" },
-                           { "pushback", "Pushback before the time" } }
-    for _, o in ipairs(CAST_OPTIONS) do
-        local key = o[1]
-        controls["cast_" .. key] = checkbox(right, o[2],
-            function() return GlassUF.Castbar.options[key] end,
-            function(v) GlassUF.Settings.SetCastOption(key, v) end)
-    end
-    note(right, "Your own casts only. The block estimates the tail you can't cancel: key press to cast start.", 270)
+    note(right, "On their own page: Glass Unit Frames > Cast bars.", 270)
 
     header(right, "Positions")
-    -- Unlocking closes the Settings window, or the movers would sit behind it.
-    place(right, button(content, "Unlock frames", 190, function()
-        if GlassUF.Settings.Unlock() then
-            -- Close through the panel's own Close (it commits or prompts for
-            -- other pages' changes), not a bare hide.
-            local sp = rawget(_G, "SettingsPanel")
-            if sp and type(sp.Close) == "function" then pcall(sp.Close, sp)
-            elseif sp and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, sp) end
-        end
-    end), 30, 4)
+    place(right, button(content, "Unlock frames", 190, Options.Unlock), 30, 4)
     place(right, button(content, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
 
     -- Tall enough for the taller column; the scroll bar appears once that
     -- is more than the canvas shows.
     content:SetHeight(math.max(-left.y, -right.y) + 16)
 end
+
+--------------------------------------------------------------------------------
+-- Cast bars (sub-page, #74)
+--------------------------------------------------------------------------------
+
+local castPage = CreateFrame("Frame", "GlassUnitFramesCastOptions")
+castPage.name = "Cast bars"
+castPage:Hide()   -- or the first visit shows it blank (porting guide)
+
+local function buildCast()
+    local Castbar, S = GlassUF.Castbar, GlassUF.Settings
+    local title = label(castPage, "Cast bars", "GameFontNormalHuge")
+    title:SetPoint("TOPLEFT", castPage, "TOPLEFT", 16, -16)
+    local sub = label(castPage, "Detach a bar to give it its own glass bar on the screen. Unlock to drag it or set its size.",
+        "GameFontHighlightSmall")
+    sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
+    local left, right = column(16, -72, castPage), column(380, -72, castPage)
+
+    for _, o in ipairs({ { "player", "Your cast bar" }, { "target", "Your target's cast bar" } }) do
+        local unit = o[1]
+        if Castbar.bars[unit] then
+            header(left, o[2])
+            controls["castDetach_" .. unit] = checkbox(left, "Detached",
+                function() return Castbar.IsDetached(unit) end,
+                function(v) S.SetCastDetached(unit, v) end)
+            controls["castScale_" .. unit] = slider(left, { label = "Scale (detached)", min = 0.5, max = 2,
+                get = function() return Castbar.ScaleOf(unit) end,
+                set = function(v) S.SetCastScale(unit, v) end })
+            local center = button(castPage, "Center horizontally", 190, function() S.CenterCast(unit) end)
+            place(left, center, 30, 4)
+            controls["castCenter_" .. unit] = center
+            -- Centring moves a detached bar only.
+            controls[#controls + 1] = function() center:SetEnabled(Castbar.IsDetached(unit)) end
+        end
+    end
+
+    header(right, "Your cast bar's extras")
+    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "latencyText", "Latency in ms (detached bar)" },
+                           { "pushback", "Pushback before the time" } }
+    for _, o in ipairs(CAST_OPTIONS) do
+        local key = o[1]
+        controls["cast_" .. key] = checkbox(right, o[2],
+            function() return Castbar.options[key] end,
+            function(v) S.SetCastOption(key, v) end)
+    end
+    note(right, "The block estimates the tail you can't cancel:", 270)
+    note(right, "key press to cast start.", 270)
+
+    header(right, "Positions")
+    place(right, button(castPage, "Unlock frames", 190, Options.Unlock), 30, 4)
+    note(right, "Drag a detached bar; its panel sets", 270)
+    note(right, "X / Y, width, height and scale, or Attach.", 270)
+end
+
+castPage:SetScript("OnShow", function(self)
+    if not self.built then
+        self.built = true
+        buildCast()
+    end
+    controls.refreshAll()
+end)
 
 function controls.refreshAll()
     refreshing = true
@@ -374,6 +437,13 @@ local function register()
     if category or not (Settings and Settings.RegisterCanvasLayoutCategory) then return end
     category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
     Settings.RegisterAddOnCategory(category)
+    -- The sub-page, right after the main page (sub-pages register in order).
+    if Settings.RegisterCanvasLayoutSubcategory then
+        local ok, err = pcall(Settings.RegisterCanvasLayoutSubcategory, category, castPage, castPage.name)
+        if not ok then GlassUF.API.Fail("cast bars page", err) end
+    else
+        GlassUF.API.Fail("cast bars page", "no Settings subcategory API")
+    end
 end
 
 -- Open the panel; false when the Settings framework can't (then /glass says where it is).
@@ -386,4 +456,4 @@ local reg = CreateFrame("Frame")
 GlassUF.API.RegisterEvents(reg, { "PLAYER_LOGIN" })
 reg:SetScript("OnEvent", register)
 
-Options._test = { panel = panel, controls = controls, scroll = scroll, content = content }
+Options._test = { panel = panel, castPage = castPage, controls = controls, scroll = scroll, content = content }
