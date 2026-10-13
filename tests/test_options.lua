@@ -21,8 +21,11 @@ eq(WoW.settings.opened, 4242, "/glass options opens the category")
 
 -- Built lazily on first show.
 check(controls.slider_fill == nil, "nothing built before the panel is shown")
-panel._scripts.OnShow(panel)
-check(controls.slider_fill ~= nil and controls.hideBlizzard ~= nil, "built on first show")
+-- Hidden at creation, so Settings' first display fires OnShow and builds it
+-- (created shown, that display fired nothing: a blank page, #104).
+check(not panel._shown, "the main page is hidden at creation")
+panel:Show()
+check(controls.slider_fill ~= nil and controls.hideBlizzard ~= nil, "its first display builds it")
 -- Everything lives in a scroll child, sized to the taller column.
 local sc, content = O._test.scroll, O._test.content
 eq(sc._scrollChild, content, "controls sit in the scroll frame's child")

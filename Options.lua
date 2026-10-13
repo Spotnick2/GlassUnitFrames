@@ -25,6 +25,10 @@ local Glass, Frames, Blizzard = GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 
 local panel = CreateFrame("Frame", "GlassUnitFramesOptions")
 panel.name = "Glass Unit Frames"
+-- Created shown, Settings' first display fires no OnShow, nothing is built,
+-- and the page is blank until a later visit (porting guide; the owner saw it
+-- until a sub-page was opened, #104). Hidden, the first display builds it.
+panel:Hide()
 local controls = {}      -- refresh() callbacks, run on every OnShow
 local refreshing = false -- set while syncing controls, so a SetValue doesn't save
 local category
