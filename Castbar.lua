@@ -443,14 +443,10 @@ function Castbar.CastingRows(idle)
     return { health = inner - CAST_ROW - 2 * CAST_GAP - power, gap = CAST_GAP, power = power }
 end
 
+-- The body's rows have one owner, Frames.ReflowRows (#87): the swing rows share them.
 local function layoutRows(b, casting)
-    local r = casting and b.rows.casting or b.rows.idle
-    b.health:SetHeight(r.health)
-    if b.healPred then b.healPred:SetHeight(r.health) end
-    b.power:ClearAllPoints()
-    b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -r.gap)
-    b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -r.gap)
-    b.power:SetHeight(r.power)
+    b.castShown = casting and true or false
+    Frames.ReflowRows(b)
 end
 
 -- Where a bar sits. Docked: the player's row inside the body (SUF's

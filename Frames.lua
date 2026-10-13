@@ -1071,6 +1071,44 @@ local function tooltipLeave(self)
     pcall(fn, self)
 end
 
+-- The rows inside a body with a cast row (the player's): health, power, the
+-- docked cast row, the docked swing rows (#87). One owner: Castbar and Swing
+-- set b.castShown / b.swingCount and call this; every height and anchor is
+-- derived from both on every call. Health gives the room, never under
+-- HEALTH_MIN; below that, power gives the rest, down to POWER_MIN. Nothing
+-- here is protected (the body is a mouse-less child): it works in combat.
+Frames.SWING_ROW, Frames.SWING_GAP = 3, 1
+local HEALTH_MIN, POWER_MIN = 12, 6
+
+function Frames.RowHeights(b)
+    local r = b.castShown and b.rows.casting or b.rows.idle
+    local health = r.health - (b.swingCount or 0) * (Frames.SWING_ROW + Frames.SWING_GAP)
+    local power = r.power
+    if health < HEALTH_MIN then
+        power = math.max(POWER_MIN, power - (HEALTH_MIN - health))
+        health = HEALTH_MIN
+    end
+    return health, r.gap, power
+end
+
+function Frames.ReflowRows(b)
+    if not b.rows then return end
+    local health, gap, power = Frames.RowHeights(b)
+    b.health:SetHeight(health)
+    if b.healPred then b.healPred:SetHeight(health) end
+    b.power:ClearAllPoints()
+    b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -gap)
+    b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -gap)
+    b.power:SetHeight(power)
+    -- The swing rows go under the docked cast row while it shows, else under power.
+    if b.swingDock then
+        local above = (b.castShown and b.cast and b.cast.bar) or b.power
+        b.swingDock:ClearAllPoints()
+        b.swingDock:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -Frames.SWING_GAP)
+        b.swingDock:SetPoint("TOPRIGHT", above, "BOTTOMRIGHT", 0, -Frames.SWING_GAP)
+    end
+end
+
 local function build(unit)
     local L = Frames.LAYOUT[unit]
     local size = L.size
