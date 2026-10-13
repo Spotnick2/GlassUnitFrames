@@ -285,6 +285,7 @@ function Settings_.ResetPositions()
         GlassUF.Movers.CancelDrag()   -- a drag in flight would re-save over the reset
         Frames.ResetPositions()
         GlassUF.Castbar.ResetPositions()   -- detached cast bars' spots and sizes (#74)
+        GlassUF.Zoom.ResetSpots()          -- the combat zoom spots (the table being edited, #89)
         GlassUF.Movers.Refresh()      -- the open nudge panel shows the new numbers
         say("positions reset")
     end)
@@ -321,7 +322,7 @@ end
 -- protected); while unlocked, its mover appears or goes.
 function Settings_.SetCastDetached(unit, on)
     if not GlassUF.Castbar.SetDetached(unit, on) then return false end
-    GlassUF.Movers.SyncCastBars()
+    GlassUF.Movers.SyncBars()
     return true
 end
 
@@ -338,6 +339,21 @@ function Settings_.SetCastSize(unit, w, h)
     local ok = GlassUF.Castbar.SetSize(unit, w, h)
     if ok then GlassUF.Movers.Refresh() end
     return ok
+end
+
+-- Combat zoom (#89), per bar ("player", "target", "focus", "pet", "swing"):
+-- saved in db.zoom[global|role][bar]; while unlocked, its spot's mover follows.
+function Settings_.SetZoom(bar, on)
+    if not GlassUF.Zoom.SetEnabled(bar, on) then return false end
+    GlassUF.Movers.SyncBars()
+    return true
+end
+function Settings_.SetZoomScale(bar, s) return GlassUF.Zoom.SetScale(bar, s) end
+-- This character's role for the zoom (nil = global), saved per GUID.
+function Settings_.SetZoomRole(role)
+    if not GlassUF.Zoom.SetRole(role) then return false end
+    GlassUF.Movers.SyncBars()
+    return true
 end
 
 -- The glass swing timer rows (#87): db.swingTimer = false when off.
@@ -504,6 +520,8 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             if db.hideBlizzard and t and t.combo then Blizzard.HideFrame("ComboFrame") end
         end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
+        -- The combat zoom's starting state (a /reload in combat, #89).
+        GlassUF.Zoom.OnCombat(InCombatLockdown())
         -- arg1 = isInitialLogin: warn at a real login, never on /reload. Dev
         -- copies only: re-measuring the client is a chore a player can't do.
         if arg1 and API.IsDevBuild() and API.ClientBuild() ~= GlassUF.MEASURED_ON_BUILD then
@@ -512,8 +530,10 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         end
     elseif event == "PLAYER_REGEN_DISABLED" then
         GlassUF.Movers.OnCombat()   -- unlock mode ends: protected frames can't move in combat
+        GlassUF.Zoom.OnCombat(true)   -- then the bars go to their combat spots (#89)
     elseif event == "PLAYER_REGEN_ENABLED" then
         if InCombatLockdown() then return end   -- trust the lockdown state, not the event
+        GlassUF.Zoom.OnCombat(false)   -- home first, so queued work places bars at home (#89)
         runPending()
     end
 end)

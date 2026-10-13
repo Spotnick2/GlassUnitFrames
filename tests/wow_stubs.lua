@@ -96,6 +96,7 @@ function WoW.reset()
     WoW.rangeChecks = {}      -- C_SwingTimer.EnableRangeCheck calls, in order: { type, enable }
     WoW.swingInRange = {}     -- swing type -> IsTargetWithinSwingRange's answer (nil = unknown)
     WoW.cvars = { showSwingTimer = "1" }
+    WoW.uiScale = 0.64        -- UIParent's effective scale
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
 end
@@ -222,7 +223,17 @@ function Methods.SetScale(w, sc) if guard(w, "SetScale") then w._scale = sc end 
 function Methods.GetScale(w) return w._scale or 1 end
 function Methods.GetFrameLevel(w) return w._level end
 function Methods.SetFrameLevel(w, l) w._level = l end
-function Methods.GetEffectiveScale() return 0.64 end
+-- The UI's base scale (WoW.uiScale, 0.64 by default) times every SetScale on
+-- the widget and its parents, as the client computes it.
+function Methods.GetEffectiveScale(w)
+    local s = WoW.uiScale or 0.64
+    local p = w
+    while p do
+        s = s * (p._scale or 1)
+        p = p._parent
+    end
+    return s
+end
 
 -- Scripts and events.
 function Methods.SetScript(w, name, fn) w._scripts[name] = fn end
@@ -263,7 +274,19 @@ function Methods.GetAttribute(w, k) return w._attrs[k] end
 function Methods.RegisterForClicks(w, ...) if guard(w, "RegisterForClicks") then w._clicks = { ... } end end
 function Methods.StartMoving(w) if guard(w, "StartMoving") then w._moving = true end end
 -- No real geometry in the stub: a test sets w._center = { x, y } where it matters.
-function Methods.GetCenter(w) if w._center then return w._center[1], w._center[2] end end
+-- With no _center: a frame placed CENTER on UIParent's CENTER resolves as the
+-- client would, in the frame's own (scaled) units; UIParent's centre is
+-- WoW.uiCenter, in its units.
+function Methods.GetCenter(w)
+    if w._center then return w._center[1], w._center[2] end
+    local pt = w._points[1]
+    if pt and pt[1] == "CENTER" and pt[2] == UIParent and pt[3] == "CENTER" and w ~= UIParent then
+        local ux, uy = UIParent:GetCenter()
+        if not ux then return nil end
+        local k = UIParent:GetEffectiveScale() / w:GetEffectiveScale()
+        return ux * k + (pt[4] or 0), uy * k + (pt[5] or 0)
+    end
+end
 -- Edges from a test-set centre and the frame's size (no real layout here).
 local function edge(w, axis, sign)
     if not (w._center and w._width and w._height) then return nil end

@@ -214,6 +214,9 @@ end
 
 local function place(bar)
     local x, y, w, h, detached, scale = Castbar.Geometry("swing")
+    -- Zoomed in combat (#89): laid out detached at the zoom spot (effective only).
+    local zx, zy, zs = GlassUF.Zoom.Target("swing")
+    if zx then x, y, scale, detached = zx, zy, zs, true end
     bar.detached, bar.rowH = detached, h
     local host = bar.host
     host:ClearAllPoints()

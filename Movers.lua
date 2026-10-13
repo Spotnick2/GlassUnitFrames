@@ -137,16 +137,19 @@ local function refreshPanel()
     panel.sub:SetText("offsets from " .. relName((src.rel())))
     if not panel.x:HasFocus() then panel.x:SetText(x and string.format("%g", x) or "?") end
     if not panel.y:HasFocus() then panel.y:SetText(y and string.format("%g", y) or "?") end
-    -- A detached cast bar also has a size and an Attach.
-    local sized = src.size ~= nil
-    panel:SetHeight(sized and 126 or 100)
-    for _, r in ipairs(panel.sizeRow) do r:SetShown(sized) end
+    -- A detached cast bar also has a size, a scale and an Attach; a combat
+    -- zoom spot (#89) only a scale.
+    local sized, scaled = src.size ~= nil, src.scale ~= nil
+    panel:SetHeight((sized or scaled) and 126 or 100)
+    for i, r in ipairs(panel.sizeRow) do r:SetShown(i <= 4 and sized or (i > 4 and scaled)) end
     panel.buttons.attach:SetShown(src.attach ~= nil)
     if sized then
         local w, h = src.size()
         if not panel.w:HasFocus() then panel.w:SetText(w and string.format("%g", w) or "?") end
         if not panel.h:HasFocus() then panel.h:SetText(h and string.format("%g", h) or "?") end
-        local sc = src.scale and src.scale()
+    end
+    if scaled then
+        local sc = src.scale()
         if not panel.s:HasFocus() then panel.s:SetText(sc and string.format("%g", sc) or "?") end
     end
 end
@@ -604,31 +607,46 @@ local function showGrid()
     if overlay then overlay.grid:SetShown(Movers.snapGrid) end
 end
 
--- The detached cast bars' sources (#74): one per detached bar, gone (with its
--- mover, its drag and its selection) once the bar is attached.
-function syncCast()
-    local Castbar = GlassUF.Castbar
-    for unit in pairs(Castbar.bars) do
-        local id = "cast:" .. unit
-        if Castbar.IsDetached(unit) then
-            sources[id] = sources[id] or Castbar.MoverSource(unit)
-        elseif sources[id] then
-            if dragging and dragging.id == id then endDrag(false) end
-            sources[id] = nil
-            if movers[id] then movers[id]:Hide() end
-            if selected == id then
-                selected = nil
-                if panel then
-                    for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h, panel.s }) do e:ClearFocus() end
-                    panel:Hide()
-                end
-            end
+-- A source that no longer applies goes, with its mover, its drag and its selection.
+local function dropSource(id)
+    if not sources[id] then return end
+    if dragging and dragging.id == id then endDrag(false) end
+    sources[id] = nil
+    if movers[id] then movers[id]:Hide() end
+    if selected == id then
+        selected = nil
+        if panel then
+            for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h, panel.s }) do e:ClearFocus() end
+            panel:Hide()
         end
     end
 end
 
--- A cast bar was detached or attached: while unlocked, its mover follows.
-function Movers.SyncCastBars()
+-- The detached cast bars' sources (#74), one per detached bar, and the combat
+-- zoom spots' (#89), one per bar with its zoom on (its outline shown while
+-- unlocked).
+function syncCast()
+    local Castbar, Zoom = GlassUF.Castbar, GlassUF.Zoom
+    for unit in pairs(Castbar.bars) do
+        local id = "cast:" .. unit
+        if Castbar.IsDetached(unit) then
+            sources[id] = sources[id] or Castbar.MoverSource(unit)
+        else
+            dropSource(id)
+        end
+        local zid = "zoom:" .. unit
+        if Zoom.DEFAULTS[unit] and Zoom.Enabled(unit) then
+            sources[zid] = sources[zid] or Zoom.MoverSource(unit)
+        else
+            dropSource(zid)
+        end
+    end
+    Zoom.ShowProxies(Movers.unlocked or false)
+end
+
+-- A cast bar was detached or attached, or a zoom turned on or off: while
+-- unlocked, its mover follows.
+function Movers.SyncBars()
     if not Movers.unlocked then return end
     syncCast()
     for id, src in pairs(sources) do
@@ -653,6 +671,7 @@ function Movers.Unlock()
     end
     -- A detached swing pill shows every row while unlocked, so it has a size to drag (#87).
     if GlassUF.Swing then GlassUF.Swing.SetSample(true) end
+    Movers.unlocked = true   -- before syncCast: the zoom outlines show while unlocked
     syncCast()
     for id, src in pairs(sources) do
         movers[id] = movers[id] or makeMover(src)
@@ -672,6 +691,7 @@ function Movers.Lock()
     if dialog then dialog:Hide() end
     if overlay then overlay:Hide() end
     if GlassUF.Swing then GlassUF.Swing.SetSample(false) end
+    GlassUF.Zoom.ShowProxies(false)
     selected = nil
     Movers.unlocked = false
     return true

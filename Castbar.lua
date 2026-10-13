@@ -555,8 +555,13 @@ end
 -- Lay a bar out for its mode. Reconciles the player's rows explicitly: they
 -- shrink only while the bar is docked inside AND shown.
 function Castbar.Place(c)
+    GlassUF.Zoom.Cancel(c.unit)   -- any placement stops a glide: it snaps (#89)
     if c.place then return c.place(c) end   -- the swing rows (#87)
     local x, y, w, h, detached, scale = geometry(c.unit)
+    -- In combat with its zoom on, the bar is laid out detached at its zoom
+    -- spot: an effective detach, the saved one untouched (#89).
+    local zx, zy, zs = GlassUF.Zoom.Target(c.unit)
+    if zx then x, y, scale, detached = zx, zy, zs, true end
     c.detached = detached
     local host, bar = c.host, c.bar
     host:ClearAllPoints()
@@ -626,11 +631,15 @@ end
 -- Place a detached bar, rounded to 0.5 units; saved unless `live` (a drag in flight).
 function Castbar.SetPosition(unit, x, y, live)
     local c = Castbar.bars[unit]
-    if not (c and c.detached and inLimits(x, "x") and inLimits(y, "y")) then return false end
+    if not (c and Castbar.IsDetached(unit) and inLimits(x, "x") and inLimits(y, "y")) then return false end
     x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
-    local scale = select(6, geometry(unit))
-    c.host:ClearAllPoints()
-    c.host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
+    -- Zoomed (#89): the new home is saved and used when combat ends; the host
+    -- stays at (or keeps gliding to) its zoom spot.
+    if not GlassUF.Zoom.Target(unit) then
+        local scale = select(6, geometry(unit))
+        c.host:ClearAllPoints()
+        c.host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
+    end
     if not live then Castbar.SavePosition(unit, x, y) end
     return true, x, y
 end
@@ -749,7 +758,7 @@ end
 -- A detached bar in the exact horizontal middle of the screen (its y kept).
 function Castbar.CenterX(unit)
     local c = Castbar.bars[unit]
-    if not (c and c.detached) then return false end
+    if not (c and Castbar.IsDetached(unit)) then return false end
     local _, y = geometry(unit)
     return Castbar.SetPosition(unit, 0, y)
 end

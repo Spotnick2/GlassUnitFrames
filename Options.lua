@@ -605,6 +605,67 @@ castPage:SetScript("OnShow", function(self)
     controls.refreshAll()
 end)
 
+--------------------------------------------------------------------------------
+-- Combat zoom (sub-page, #89)
+--------------------------------------------------------------------------------
+
+local zoomPage = CreateFrame("Frame", "GlassUnitFramesZoomOptions")
+zoomPage.name = "Combat zoom"
+zoomPage:Hide()   -- or the first visit shows it blank (porting guide)
+
+local ZOOM_LABELS = { player = "Your cast bar", target = "Target cast bar", focus = "Focus cast bar",
+                      pet = "Pet cast bar", swing = "Swing timer" }
+
+local function buildZoom()
+    local Zoom, S = GlassUF.Zoom, GlassUF.Settings
+    local title = label(zoomPage, "Combat zoom", "GameFontNormalHuge")
+    title:SetPoint("TOPLEFT", zoomPage, "TOPLEFT", 16, -16)
+    local sub = label(zoomPage, "In combat, a bar glides to its combat spot, bigger, and back home after.",
+        "GameFontHighlightSmall")
+    sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
+    local left, right = column(16, -64, zoomPage), column(380, -64, zoomPage)
+
+    header(left, "Bars")
+    controls.zoomBars = {}
+    for _, bar in ipairs(Zoom.BARS) do
+        if GlassUF.Castbar.bars[bar] then
+            controls.zoomBars[bar] = checkbox(left, ZOOM_LABELS[bar] .. ": zoom in combat",
+                function() return Zoom.Enabled(bar) end,
+                function(v) S.SetZoom(bar, v) end)
+            controls["zoomScale_" .. bar] = slider(left, { label = "Combat scale", min = 0.5, max = 2.5,
+                get = function() return Zoom.Entry(bar).scale end,
+                set = function(v) S.SetZoomScale(bar, v) end })
+        end
+    end
+
+    header(right, "This character")
+    controls.zoomRole = radios(right, nil, { { "global", "Global" }, { "healer", "Healer" },
+                                             { "tank", "Tank" }, { "dps", "DPS" } },
+        function() return Zoom.role or "global" end,
+        function(r) S.SetZoomRole(r ~= "global" and r or nil) end)
+    local editing = label(zoomPage, "", "GameFontHighlightSmall")
+    place(right, editing, 22, 4)
+    controls.zoomEditing = editing
+    controls[#controls + 1] = function()
+        local key = Zoom.EditedKey()
+        editing:SetText(key == "global" and "Editing the global settings."
+            or ("Editing the " .. key .. " settings (this character is a " .. key .. ")."))
+    end
+    note(right, "A role uses its own settings once you change one; until then, the global ones.", 330)
+    note(right, "Pick a role here to edit its settings.", 330)
+    header(right, "Combat spots")
+    place(right, button(zoomPage, "Unlock frames", 190, Options.Unlock), 30, 4)
+    note(right, "Each bar that zooms shows a yellow outline at its combat spot: drag it.", 330)
+end
+
+zoomPage:SetScript("OnShow", function(self)
+    if not self.built then
+        self.built = true
+        buildZoom()
+    end
+    controls.refreshAll()
+end)
+
 function controls.refreshAll()
     refreshing = true
     for i, fn in ipairs(controls) do
@@ -634,6 +695,8 @@ local function register()
     if Settings.RegisterCanvasLayoutSubcategory then
         local ok, err = pcall(Settings.RegisterCanvasLayoutSubcategory, category, castPage, castPage.name)
         if not ok then GlassUF.API.Fail("cast bars page", err) end
+        ok, err = pcall(Settings.RegisterCanvasLayoutSubcategory, category, zoomPage, zoomPage.name)
+        if not ok then GlassUF.API.Fail("combat zoom page", err) end
     else
         GlassUF.API.Fail("cast bars page", "no Settings subcategory API")
     end
@@ -649,4 +712,5 @@ local reg = CreateFrame("Frame")
 GlassUF.API.RegisterEvents(reg, { "PLAYER_LOGIN" })
 reg:SetScript("OnEvent", register)
 
-Options._test = { panel = panel, castPage = castPage, controls = controls, scroll = scroll, content = content }
+Options._test = { panel = panel, castPage = castPage, zoomPage = zoomPage, controls = controls, scroll = scroll,
+                  content = content }

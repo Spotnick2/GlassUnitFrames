@@ -43,7 +43,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 ## Layout
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Zoom.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -250,6 +250,32 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - Time text shows on rows at least 8 px tall.
   - **Colours:** `castColors` keys `swingMH`, `swingOH`, `swingRanged`. The option is
     `db.swingTimer` (saved only when off).
+- **`Zoom.lua`** (#89): combat zoom, per bar (player, target, focus, pet, swing), off by default.
+  - **What it does:** in combat, a bar is laid out **detached at its zoom spot** (x, y, scale) and
+    goes home when combat ends.
+  - **Placement:** `Castbar.Place` and the swing rows' `place` ask `Zoom.Target(unit)`. That's an
+    **effective** detach: the saved one is untouched. So a zoomed player row gives the body its
+    room back, and the docked swing rows leave too.
+  - **Glide:** a visible bar glides (0.3 s ease-out cubic, centre and scale, in UIParent units
+    through the effective-scale ratio). A docked-inside row, the docked swing host, a hidden host,
+    or an unreadable rect snaps.
+  - **Placement and glides:** any `Place` cancels that bar's glide (`Zoom.Cancel`) and snaps; a
+    mode change retargets from the glide's current point. `Castbar.SetPosition` / `CenterX` save
+    the home spot but don't move a zoomed host.
+  - **Triggers:** the combat dispatcher calls `Movers.OnCombat()` then `Zoom.OnCombat(true)`. On
+    regen, `Zoom.OnCombat(false)` runs **before** the combat queue. `PLAYER_ENTERING_WORLD` sets the
+    initial state.
+  - **Settings:** `db.zoom[global|healer|tank|dps][bar] = { on, x, y, scale }`, sparse, each field
+    validated (scale 0.5–2.5). `db.zoomRole[guid]` is this character's role (read at
+    `PLAYER_LOGIN`; a secret or absent GUID means global).
+    - A role's entry, when there is one, is used whole; else the global one.
+    - A role's first edit copies the bar's resolved global entry.
+    - You edit the table of this character's role (`Zoom.EditedKey()`).
+  - **Unlock mode:** each bar with its zoom on gets a yellow outline (a proxy frame on UIParent) and
+    a mover `zoom:<bar>`: position, scale, reset, no W/H. `Movers.SyncBars` adds and removes it.
+    "Reset frame positions" also resets the zoom spots of the edited table.
+  - **Options:** its own sub-page, "Combat zoom" (registered after Cast bars): per bar, "zoom in
+    combat" and a combat scale; this character's role.
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
   (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
   `Blizzard_AuraContainer`). The client picks, sorts and draws the auras, so secret aura data
@@ -330,7 +356,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;

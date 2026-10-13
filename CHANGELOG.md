@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Combat zoom.** Pick bars (your cast bar, target, focus, pet, the swing timer) to move to a
+  combat spot and grow while you're in combat. Each glides there when the fight starts and back
+  home when it ends.
+  - Turn it on per bar, with a combat scale, in Options > AddOns > Glass Unit Frames > **Combat
+    zoom**.
+  - Unlock the frames to drag each bar's combat spot: the yellow outline.
+  - Set this character's role (Healer, Tank or DPS) to give that role its own spots and scales; a
+    role starts from the global settings.
 - **Swing timer, in glass.** Main hand, off hand and ranged rows, drawn from the game's own swing
   timer.
   - A row shows from its first swing until the fight ends: a caster who never meleed gets none, a
