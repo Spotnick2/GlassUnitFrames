@@ -97,6 +97,8 @@ function WoW.reset()
     WoW.swingInRange = {}     -- swing type -> IsTargetWithinSwingRange's answer (nil = unknown)
     WoW.cvars = { showSwingTimer = "1" }
     WoW.uiScale = 0.64        -- UIParent's effective scale
+    WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
+    WoW.repeating = false
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
 end
@@ -506,6 +508,13 @@ C_SwingTimer = {
     IsTargetWithinSwingRange = function(t) return WoW.swingInRange[t] end,
 }
 
+-- The profession batch (dump 70338): GetRemainingRecasts() -> remaining,
+-- IsRecipeRepeating() -> bool; WoW.recasts / WoW.repeating drive them.
+C_TradeSkillUI = {
+    GetRemainingRecasts = function() return WoW.recasts end,
+    IsRecipeRepeating = function() return WoW.repeating == true end,
+}
+
 -- CVars (dump 70338): GetCVarBool(name) -> optional bool; SetCVar(name, value)
 -- -> success, firing CVAR_UPDATE(name, value) as the client does.
 C_CVar = {
@@ -753,7 +762,9 @@ function UnitCastingInfo(u)
     local c = WoW.units[u] and WoW.units[u].casting
     if not c or c.channel then return nil end
     if WoW.secretFields.castName then return WoW.Secret("castName") end
-    return c.name, c.name, 136243, castTime(c, "startMs"), castTime(c, "endMs"), false, c.guid,
+    local trade = c.trade or false
+    if WoW.secretFields.tradeskill then trade = WoW.Secret("isTradeskill") end
+    return c.name, c.name, 136243, castTime(c, "startMs"), castTime(c, "endMs"), trade, c.guid,
         false, c.spellID, nil, castTime(c, "delayMs")
 end
 -- name, displayName, texture, startMs, endMs, isTradeskill, notInterruptible,

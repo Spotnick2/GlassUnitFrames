@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Craft count on your cast bar.** Making several of something shows **Heavy Linen Bandage
+  (3/5)** while it crafts. A single craft shows just its name. The green "complete" flash now
+  comes once, at the end of the batch, not between every craft. Turn the count off under Options >
+  AddOns > Glass Unit Frames > Cast bars ("Craft count (3/5)").
 - **Combat zoom.** Pick bars (your cast bar, target, focus, pet, the swing timer) to move to a
   combat spot and grow while you're in combat. Each glides there when the fight starts and back
   home when it ends.

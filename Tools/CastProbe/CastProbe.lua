@@ -129,12 +129,18 @@ local WORLD_EVENTS = {
     "PLAYER_SWING", "PLAYER_SWING_RANGE_UPDATE", "WEAPON_SLOT_CHANGED",
     "MIRROR_TIMER_START", "MIRROR_TIMER_PAUSE", "MIRROR_TIMER_STOP",
     "SPELL_UPDATE_COOLDOWN",
+    -- PR 5 (tradeskill): the batch, as the client tracks it.
+    "TRADE_SKILL_CRAFT_BEGIN", "UPDATE_TRADESKILL_CAST_STOPPED", "TRADE_SKILL_ITEM_CRAFTED_RESULT",
+    "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE",
 }
 local SNAPSHOT = {
     UNIT_SPELLCAST_START = true, UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_DELAYED = true,
     UNIT_SPELLCAST_CHANNEL_START = true, UNIT_SPELLCAST_CHANNEL_UPDATE = true,
     UNIT_SPELLCAST_CHANNEL_STOP = true, UNIT_SPELLCAST_INTERRUPTED = true,
     UNIT_SPELLCAST_SUCCEEDED = true,
+    -- PR 5: which cast is live at a failure and at the craft events.
+    UNIT_SPELLCAST_FAILED = true, UNIT_SPELLCAST_FAILED_QUIET = true,
+    TRADE_SKILL_CRAFT_BEGIN = true, UPDATE_TRADESKILL_CAST_STOPPED = true,
 }
 local SHORT = {}
 for _, e in ipairs(UNIT_EVENTS) do SHORT[e] = e:gsub("^UNIT_SPELLCAST_", "") end
@@ -165,12 +171,22 @@ local function onEvent(_, event, ...)
         end
         if event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
             local by = a[4]   -- interruptedBy:WOWGUID (before castBarID)
-            if by ~= nil and not secret(by) and type(by) == "string" and by ~= "" then
+            -- Secrecy first: comparing a secret aborts the line (Codex, PR 5).
+            if not secret(by) and type(by) == "string" and by ~= "" then
                 local okP, name = pcall(function() return select(6, GetPlayerInfoByGUID(by)) end)
                 line = line .. " interruptedByName=" .. (okP and fmt(name) or "ERR")
             end
         end
         if SNAPSHOT[event] then line = line .. " || " .. castSnapshot() end
+        -- PR 5: the client's batch state on every cast event and craft event.
+        if SHORT[event] or event:find("TRADE") then
+            local ts = rawget(_G, "C_TradeSkillUI")
+            if ts and ts.GetRemainingRecasts then
+                local okR, r = pcall(ts.GetRemainingRecasts)
+                local okP, rp = pcall(ts.IsRecipeRepeating)
+                line = line .. " || recasts=" .. (okR and fmt(r) or "ERR") .. " repeating=" .. (okP and fmt(rp) or "ERR")
+            end
+        end
         if event == "PLAYER_SWING" or event == "UNIT_ATTACK_SPEED" or event == "WEAPON_SLOT_CHANGED" then
             line = line .. " || speeds=" .. fmtArgs(pack(UnitAttackSpeed("player")))
         end
@@ -334,6 +350,7 @@ boot:SetScript("OnEvent", function(self, _, name)
     hook("C_SwingTimer", "EnableRangeCheck", "EnableRangeCheck")
     hook("C_TradeSkillUI", "CraftRecipe", "CraftRecipe")
     hook("C_TradeSkillUI", "CraftEnchant", "CraftEnchant")
+    hook("C_TradeSkillUI", "StopRecipeRepeat", "StopRecipeRepeat")
     log("|cff7fd4ff==== session start ====|r")
     say("loaded. /cprobe help, then /cprobe status. " .. (#failed > 0 and (#failed .. " registration(s) failed, see status") or "all registered"))
 end)

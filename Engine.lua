@@ -229,6 +229,12 @@ end
 local world = CreateFrame("Frame")
 world:SetScript("OnEvent", function(_, event, unit)
     local base = TOKEN_EVENTS[event]
+    if event == "UPDATE_TRADESKILL_CAST_STOPPED" then
+        -- Not a unit event: its argument is isScrapping. The player's batch
+        -- craft count (Castbar.lua) ends with it (#91).
+        if Engine.OnTradeskillStopped then Engine.OnTradeskillStopped(unit) end
+        return
+    end
     if event == "CURRENT_SPELL_CAST_CHANGED" then
         -- Not a unit event: its argument is cancelledCast. The player's cast
         -- tracker (Castbar.lua) stamps it for the latency estimate (#72).
@@ -269,7 +275,8 @@ end)
 API.RegisterEvents(world, { "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_PET",
                             "GROUP_ROSTER_UPDATE", "PLAYER_FLAGS_CHANGED", "RAID_TARGET_UPDATE",
                             "PARTY_LEADER_CHANGED", "PARTY_LOOT_METHOD_CHANGED", "PLAYER_UPDATE_RESTING",
-                            "PET_UI_UPDATE", "CURRENT_SPELL_CAST_CHANGED" })
+                            "PET_UI_UPDATE", "CURRENT_SPELL_CAST_CHANGED",
+                            "UPDATE_TRADESKILL_CAST_STOPPED" })
 
 -- UNIT_TARGET: registered per base unit so the client filters it (it fires for
 -- every nameplate/party/raid unit otherwise). The unit whose target changed
