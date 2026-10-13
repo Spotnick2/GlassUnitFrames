@@ -360,6 +360,13 @@ function Methods.SetTimerDuration(b, d, interp, dir) b._timer = { duration = d, 
 -- PlayerModel (and the aura container: both take a unit).
 local function seq(w, what) w._seq = w._seq or {}; table.insert(w._seq, what) end
 function Methods.SetUnit(m, unit) m._modelUnit = unit; seq(m, "SetUnit"); return true end
+-- A model file for the unit set, unless the unit says it has none
+-- (WoW.units[u].noModel: the Earthborer case, #82).
+function Methods.GetModelFileID(m)
+    local un = m._modelUnit and WoW.units[m._modelUnit]
+    if not un or un.noModel then return nil end
+    return 123456
+end
 
 -- Blizzard's managed aura container (Blizzard_AuraContainer; not in the API
 -- dump, shipped by DinoUF on Forever). It records its groups; the client
@@ -375,6 +382,8 @@ function Methods.SetDurationCooldown(b, cd) b._cooldown = cd end
 function Methods.SetDurationText(b, fs) b._durationText = fs end
 function Methods.SetApplicationCount(b, fs) b._countText = fs end
 function Methods.ClearModel(m) m._modelUnit = nil end
+-- dump: SetPortraitTexture(textureObject, unitToken, disableMasking)
+function SetPortraitTexture(tex, unit) tex._portraitUnit = unit end
 
 --------------------------------------------------------------------------------
 -- Globals
