@@ -45,8 +45,11 @@ Castbar.DEFAULT_COLORS = {
     cast = { 0.95, 0.74, 0.22, 1 }, channel = { 0.40, 0.80, 1.00, 1 },
     complete = { 0.30, 0.85, 0.35, 1 }, failed = { 0.85, 0.22, 0.22, 1 },
     spark = { 1, 1, 1, 0.8 },
+    -- The swing rows (#87): main hand, off hand, ranged.
+    swingMH = { 1.00, 0.82, 0.35, 1 }, swingOH = { 0.95, 0.58, 0.30, 1 }, swingRanged = { 0.45, 0.80, 0.45, 1 },
 }
-Castbar.COLOR_KEYS = { "spell", "time", "cast", "channel", "complete", "failed", "spark", "background" }
+Castbar.COLOR_KEYS = { "spell", "time", "cast", "channel", "complete", "failed", "spark", "background",
+                       "swingMH", "swingOH", "swingRanged" }
 Castbar.colors = {}
 
 -- A saved colour we can use: four numbers in 0..1 (alpha may be missing).
@@ -443,14 +446,10 @@ function Castbar.CastingRows(idle)
     return { health = inner - CAST_ROW - 2 * CAST_GAP - power, gap = CAST_GAP, power = power }
 end
 
+-- The body's rows have one owner, Frames.ReflowRows (#87): the swing rows share them.
 local function layoutRows(b, casting)
-    local r = casting and b.rows.casting or b.rows.idle
-    b.health:SetHeight(r.health)
-    if b.healPred then b.healPred:SetHeight(r.health) end
-    b.power:ClearAllPoints()
-    b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -r.gap)
-    b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -r.gap)
-    b.power:SetHeight(r.power)
+    b.castShown = casting and true or false
+    Frames.ReflowRows(b)
 end
 
 -- Where a bar sits. Docked: the player's row inside the body (SUF's
@@ -467,14 +466,23 @@ Castbar.DETACHED = { player = { x = 0, y = -47, w = 340, h = 20, scale = 1 },
                      -- #76: focus above the target's bar, the pet's under the player's
                      -- (thinner, as Quartz's pet bar).
                      focus  = { x = 0, y = 1, w = 340, h = 16, scale = 1 },
-                     pet    = { x = 0, y = -71, w = 220, h = 16, scale = 1 } }
+                     pet    = { x = 0, y = -71, w = 220, h = 16, scale = 1 },
+                     -- #87: the swing rows' pill (h = one row), under the player's bar.
+                     swing  = { x = 0, y = -66, w = 340, h = 6, scale = 1 } }
 Castbar.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, w = { 80, 800 }, h = { 12, 40 },
                    scale = { 0.5, 2 } }
+-- A bar's own limits where they differ (the swing rows: h is one thin row).
+Castbar.LIMITS_FOR = { swing = { h = { 2, 20 } } }
 local OTHER = { x = 0, y = -100, w = 240, h = 18, scale = 1 }   -- a bar with no defaults of its own
 Castbar.bars = {}   -- unit -> the bar's state (c)
 
-local function inLimits(v, k)
-    local lim = Castbar.LIMITS[k]
+local function limit(k, unit)
+    local own = Castbar.LIMITS_FOR[unit]
+    return (own and own[k]) or Castbar.LIMITS[k]
+end
+
+local function inLimits(v, k, unit)
+    local lim = limit(k, unit)
     return type(v) == "number" and not API.IsSecret(v) and v == v and v >= lim[1] and v <= lim[2]
 end
 
@@ -491,11 +499,12 @@ end
 local function geometry(unit)
     local d, e = Castbar.DETACHED[unit] or OTHER, saved(unit) or {}
     local function pick(k)
-        if inLimits(e[k], k) then return e[k] end
+        if inLimits(e[k], k, unit) then return e[k] end
         return d[k]
     end
     return pick("x"), pick("y"), pick("w"), pick("h"), e.detached == true, pick("scale")
 end
+Castbar.Geometry = geometry   -- the swing rows (Swing.lua) place themselves from it
 
 -- The entry to write into (made on the first write).
 local function entry(unit)
@@ -546,6 +555,7 @@ end
 -- Lay a bar out for its mode. Reconciles the player's rows explicitly: they
 -- shrink only while the bar is docked inside AND shown.
 function Castbar.Place(c)
+    if c.place then return c.place(c) end   -- the swing rows (#87)
     local x, y, w, h, detached, scale = geometry(c.unit)
     c.detached = detached
     local host, bar = c.host, c.bar
@@ -638,7 +648,7 @@ function Castbar.SetSize(unit, w, h)
     if not c then return false end
     local function clamp(v, k)
         if type(v) ~= "number" or v ~= v then return nil end
-        local lim = Castbar.LIMITS[k]
+        local lim = limit(k, unit)
         return math.max(lim[1], math.min(lim[2], math.floor(v + 0.5)))
     end
     -- Only the dimension given is saved: the other keeps following its default.
@@ -679,6 +689,7 @@ end
 
 -- One bar's colours: texts, spark, background (the fills on its next paint).
 function paintColors(c)
+    if c.paintColors then return c.paintColors(c) end   -- the swing rows (#87)
     local col = Castbar.colors
     if not col.spell then return end   -- not configured yet
     c.spell:SetTextColor(col.spell[1], col.spell[2], col.spell[3], col.spell[4])
@@ -763,7 +774,8 @@ end
 
 -- The unlock-mode source for a detached bar (Movers.lua: id, label, frame,
 -- rel, position, set, save, reset, follows; plus size, setSize and attach).
-local LABELS = { player = "Player cast bar", target = "Target cast bar", focus = "Focus cast bar", pet = "Pet cast bar" }
+local LABELS = { player = "Player cast bar", target = "Target cast bar", focus = "Focus cast bar", pet = "Pet cast bar",
+                 swing = "Swing timer" }
 function Castbar.MoverSource(unit)
     local c = Castbar.bars[unit]
     if not c then return nil end

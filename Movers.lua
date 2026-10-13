@@ -651,6 +651,8 @@ function Movers.Unlock()
     for unit in pairs(Frames.byUnit) do
         sources[unit] = sources[unit] or unitSource(unit)
     end
+    -- A detached swing pill shows every row while unlocked, so it has a size to drag (#87).
+    if GlassUF.Swing then GlassUF.Swing.SetSample(true) end
     syncCast()
     for id, src in pairs(sources) do
         movers[id] = movers[id] or makeMover(src)
@@ -669,6 +671,7 @@ function Movers.Lock()
     if panel then panel:Hide() end
     if dialog then dialog:Hide() end
     if overlay then overlay:Hide() end
+    if GlassUF.Swing then GlassUF.Swing.SetSample(false) end
     selected = nil
     Movers.unlocked = false
     return true

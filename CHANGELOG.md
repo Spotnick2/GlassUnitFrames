@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Swing timer, in glass.** Main hand, off hand and ranged rows, drawn from the game's own swing
+  timer.
+  - A row shows from its first swing until the fight ends: a caster who never meleed gets none, a
+    wand user gets ranged.
+  - By default they're thin lines inside your player frame, under the power bar (and under your cast
+    bar while you cast).
+  - Detach them from Options > AddOns > Glass Unit Frames > **Cast bars** ("Settings for: Swing")
+    to get a glass bar of their own you can drag, size and scale. Their row heights are set there
+    too.
+  - Out of melee or shooting range, a row dims.
+  - Colours for each hand are on the same page.
+  - **Blizzard's own swing bars** are Blizzard's option (Options > Swing Timer > Enable Swing
+    Timer). Untick it to see only the glass ones; the Cast bars page has the same checkbox.
 - Fixed: hovering a unit frame now shows the unit's tooltip.
 - Fixed: a portrait no longer stays empty for creatures the client has no 3D portrait model for
   (an Earthborer, for one), or for a unit out of range. It shows the 2D portrait instead.

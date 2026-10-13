@@ -11,6 +11,7 @@ Glass.lua
 Engine.lua
 Frames.lua
 Castbar.lua
+Swing.lua
 Auras.lua
 Blizzard.lua
 Movers.lua
