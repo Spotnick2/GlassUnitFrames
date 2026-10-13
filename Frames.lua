@@ -1264,6 +1264,7 @@ function Frames.Build(db)
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
     if db.aggroRed == false then Frames.aggroRed = false end
     GlassUF.Castbar.Configure(db)
+    GlassUF.Zoom.Configure(db)
     if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
     if Frames.HAPPINESS_POSITIONS[db.happiness] then Frames.happinessPos = db.happiness end
     if type(db.healthText) == "table" then
