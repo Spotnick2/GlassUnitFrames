@@ -130,7 +130,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     `GetModelFileID()` was nil while it was visible and in range.
   - A model without a file gets one retry 0.3 s later (`portraitToken`: a newer paint cancels
     it), then the client's **2D portrait** (`SetPortraitTexture` on `b.portrait2D`, a tile
-    texture under the model's frame).
+    texture under the model's frame), cropped to the square inside its disc so it fills the tile
+    (#84).
   - An out-of-range unit gets the 2D portrait at once.
   - An unreadable file id counts as a model: a working 3D portrait is never swapped for a guess.
 - **`Castbar.lua`**: the player, target, focus and pet cast bars (#72 moved them out of

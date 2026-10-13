@@ -22,6 +22,9 @@ check(not t.portrait2D._shown, "not yet: a retry is pending")
 WoW.flushTimers()
 check(t.portrait2D._shown and not t.model._shown, "still no model after the retry: the 2D portrait")
 eq(t.portrait2D._portraitUnit, "target", "the target's own 2D portrait")
+local tc = t.portrait2D._texCoord
+check(tc and tc[1] == 0.15 and tc[2] == 0.85 and tc[3] == 0.15 and tc[4] == 0.85,
+      "cropped to the square inside the round portrait (#84)")
 
 -- The model loads on the retry: 3D after all.
 WoW.SetUnit("target", { name = "Kobold", reaction = 2, noModel = true })
