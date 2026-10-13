@@ -28,8 +28,39 @@ local NAMES = { player = "Player", target = "Target", pet = "Pet", targettarget 
 local TINT = { 0.30, 0.65, 1.00, 0.35 }
 
 Movers.unlocked = false
-local movers, selected, dragging = {}, nil, nil
+local movers, selected, dragging = {}, nil, nil   -- keyed by source id; selected is an id
 local panel
+
+-- What a mover moves: a "source", one per draggable thing, keyed by an id (a
+-- unit's id is its unit name). Movers reach positions only through it:
+--   label, frame() (what the mover covers), rel() (the name and frame its
+--   offsets are from), position() (x, y or nil), set(x, y, live) (ok, x, y;
+--   out of combat), save(x, y) (the table only: safe in combat), reset(),
+--   follows(id) (is it carried by that source?).
+local sources = {}
+
+-- Is `unit` carried by `leader` (anchored to it, directly or through a chain)?
+local function followsFrom(unit, leader)
+    local L = Frames.LAYOUT[unit]
+    while L and L.anchorTo do
+        if L.anchorTo == leader then return true end
+        L = Frames.LAYOUT[L.anchorTo]
+    end
+    return false
+end
+
+local function unitSource(unit)
+    return {
+        id = unit, label = NAMES[unit] or unit,
+        frame = function() return Frames.byUnit[unit] end,
+        rel = function() return Frames.AnchorOf(unit) end,
+        position = function() return Frames.PositionOf(unit) end,
+        set = function(x, y, live) return Frames.SetPosition(unit, x, y, live) end,
+        save = function(x, y) return Frames.SavePosition(unit, x, y) end,
+        reset = function() return Frames.ResetPosition(unit) end,
+        follows = function(leader) return followsFrom(unit, leader) end,
+    }
+end
 
 -- Snapping while dragging: align a frame's edges and centre to other frames'
 -- (and the screen centre) within SNAP_DIST, with a guide line showing each
@@ -62,13 +93,13 @@ local function mirrorOf(unit)
     return other
 end
 
--- Place `unit` and, if given, its mirror `other` at -x (the one mirror rule);
--- `live` = a drag in flight (not saved yet). Returns ok and the offsets
--- applied to `unit`.
-local function place(unit, x, y, live, other)
-    local ok, ax, ay = Frames.SetPosition(unit, x, y, live)
+-- Place source `id` and, if given, its mirror `other` at -x (the one mirror
+-- rule); `live` = a drag in flight (not saved yet). Returns ok and the
+-- offsets applied to `id`.
+local function place(id, x, y, live, other)
+    local ok, ax, ay = sources[id].set(x, y, live)
     if not ok then return false end
-    if other then Frames.SetPosition(other, -ax, ay, live) end
+    if other then sources[other].set(-ax, ay, live) end
     return true, ax, ay
 end
 local overlay   -- the grid and the guide lines, full screen, under the movers
@@ -82,7 +113,7 @@ end
 local snappedCenter, showGuide   -- defined below (need the snapping helpers)
 
 local function offsetsFromMover(m)
-    local _, relFrame = Frames.AnchorOf(m.unit)   -- what SetPosition places it on
+    local _, relFrame = sources[m.id].rel()   -- what set() places it on
     local mx, my = snappedCenter(m)
     -- Not `relFrame and relFrame:GetCenter()`: `and` keeps only the first return.
     local rx, ry
@@ -92,10 +123,11 @@ local function offsetsFromMover(m)
 end
 
 local function refreshPanel()
-    if not (panel and selected) then return end
-    local x, y = Frames.PositionOf(selected)
-    panel.title:SetText(NAMES[selected] or selected)
-    panel.sub:SetText("offsets from " .. relName((Frames.AnchorOf(selected))))
+    if not (panel and selected and sources[selected]) then return end
+    local src = sources[selected]
+    local x, y = src.position()
+    panel.title:SetText(src.label)
+    panel.sub:SetText("offsets from " .. relName((src.rel())))
     if not panel.x:HasFocus() then panel.x:SetText(x and string.format("%g", x) or "?") end
     if not panel.y:HasFocus() then panel.y:SetText(y and string.format("%g", y) or "?") end
 end
@@ -114,45 +146,36 @@ local function endDrag(save)
     if save and m.lastX then
         if InCombatLockdown() then
             -- Only the table (never a protected frame under lockdown).
-            Frames.SavePosition(m.unit, m.lastX, m.lastY)
-            if m.partner then Frames.SavePosition(m.partner, -m.lastX, m.lastY) end
+            sources[m.id].save(m.lastX, m.lastY)
+            if m.partner then sources[m.partner].save(-m.lastX, m.lastY) end
         else
-            place(m.unit, m.lastX, m.lastY, false, m.partner)
+            place(m.id, m.lastX, m.lastY, false, m.partner)
         end
     end
     m.lastX, m.lastY, m.lines, m.partner = nil, nil, nil, nil
     m:ClearAllPoints()
-    m:SetAllPoints(Frames.byUnit[m.unit])
+    m:SetAllPoints(sources[m.id].frame())
     showGuide("vguide", nil)
     showGuide("hguide", nil)
 end
 
 local function finishDrag() endDrag(true) end
 
--- Is `unit` carried by `leader` (anchored to it, directly or through a chain)?
-local function followsFrom(unit, leader)
-    local L = Frames.LAYOUT[unit]
-    while L and L.anchorTo do
-        if L.anchorTo == leader then return true end
-        L = Frames.LAYOUT[L.anchorTo]
-    end
-    return false
-end
-
--- The lines a dragged frame may align to on one axis: every other frame's
--- two edges and centre (not the frame itself, nor what moves with it), plus
+-- The lines a dragged frame may align to on one axis: every other source's
+-- two edges and centre (not the source itself, nor what moves with it), plus
 -- the screen centre.
-local function alignLines(unit, axis)
+local function alignLines(id, axis)
     local lines = {}
     local ucx, ucy = UIParent:GetCenter()
     -- Not `axis == "x" and ucx or ucy`: a nil ucx would hand x the y centre.
     local centre
     if axis == "x" then centre = ucx else centre = ucy end
     if type(centre) == "number" then lines[#lines + 1] = centre end
-    local m = movers[unit]
+    local m = movers[id]
     local partner = m and m.partner
-    for u, b in pairs(Frames.byUnit) do
-        if u ~= unit and not followsFrom(u, unit) and u ~= partner and not (partner and followsFrom(u, partner)) then
+    for sid, src in pairs(sources) do
+        local b = src.frame()
+        if b and sid ~= id and not src.follows(id) and sid ~= partner and not (partner and src.follows(partner)) then
             local lo, hi
             if axis == "x" then lo, hi = b:GetLeft(), b:GetRight() else lo, hi = b:GetBottom(), b:GetTop() end
             if type(lo) == "number" and type(hi) == "number" then
@@ -216,7 +239,7 @@ function snappedCenter(m)
         if Movers.snapAlign and type(w) == "number" and type(h) == "number" then
             -- Nothing the lines depend on moves during a drag (the dragged
             -- frame's own group is excluded): build them once per drag.
-            m.lines = m.lines or { x = alignLines(m.unit, "x"), y = alignLines(m.unit, "y") }
+            m.lines = m.lines or { x = alignLines(m.id, "x"), y = alignLines(m.id, "y") }
             nx, gx = alignAxis(mx, w / 2, m.lines.x)
             ny, gy = alignAxis(my, h / 2, m.lines.y)
         end
@@ -238,33 +261,33 @@ local function follow(m)
     -- Skip when nothing moved: every SetPoint re-lays out the whole group.
     local rx, ry = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
     if rx == m.lastX and ry == m.lastY then return end
-    local ok, ax, ay = place(m.unit, x, y, true, m.partner)
+    local ok, ax, ay = place(m.id, x, y, true, m.partner)
     if ok then m.lastX, m.lastY = ax, ay end
 end
 
-local function select_(unit)
+local function select_(id)
     -- Switching frames discards a coordinate typed but not committed: its
     -- Enter would otherwise land on the NEW frame (Codex, #52).
-    if panel and unit ~= selected then
+    if panel and id ~= selected then
         panel.x:ClearFocus()
         panel.y:ClearFocus()
     end
-    selected = unit
-    for u, m in pairs(movers) do m.edge:SetShown(u == unit) end
+    selected = id
+    for mid, m in pairs(movers) do m.edge:SetShown(mid == id) end
     if panel then
         panel:ClearAllPoints()
-        panel:SetPoint("BOTTOM", movers[unit], "TOP", 0, 8)
+        panel:SetPoint("BOTTOM", movers[id], "TOP", 0, 8)
         panel:Show()
         refreshPanel()
     end
 end
 
-local function makeMover(unit, b)
+local function makeMover(src)
     local m = CreateFrame("Frame", nil, UIParent)
-    m.unit = unit
+    m.id = src.id
     m:SetFrameStrata("DIALOG")
     m:SetFrameLevel(MOVER_LEVEL)   -- above the grid and guides
-    m:SetAllPoints(b)
+    m:SetAllPoints(src.frame())
     m:EnableMouse(true)
     m:SetMovable(true)
     m:SetClampedToScreen(true)
@@ -280,13 +303,13 @@ local function makeMover(unit, b)
     m.edge = edge
     local fs = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fs:SetPoint("CENTER", m, "CENTER")
-    fs:SetText(NAMES[unit] or unit)
+    fs:SetText(src.label)
     m:SetScript("OnDragStart", function(self)
         if InCombatLockdown() then return end
-        select_(self.unit)
+        select_(self.id)
         -- Mirror or not is decided now (Alt held = alone) and holds for the
         -- whole drag, so what's seen is what's saved.
-        self.partner = (not IsAltKeyDown()) and mirrorOf(self.unit) or nil
+        self.partner = (not IsAltKeyDown()) and mirrorOf(self.id) or nil
         self:StartMoving()
         dragging = self
         self:SetScript("OnUpdate", follow)
@@ -297,7 +320,7 @@ local function makeMover(unit, b)
         finishDrag()
         refreshPanel()
     end)
-    m:SetScript("OnMouseUp", function(self) select_(self.unit) end)
+    m:SetScript("OnMouseUp", function(self) select_(self.id) end)
     m:Hide()
     return m
 end
@@ -306,7 +329,7 @@ end
 local function nudge(dx, dy)
     if not selected or InCombatLockdown() then return end
     local step = IsShiftKeyDown() and 10 or 1
-    local x, y = Frames.PositionOf(selected)
+    local x, y = sources[selected].position()
     if not x then return end   -- can't tell where it is: never invent a position
     if place(selected, x + dx * step, y + dy * step, false, mirrorOf(selected)) then refreshPanel() end
 end
@@ -364,7 +387,7 @@ local function makePanel()
     xl:SetPoint("TOPLEFT", p, "TOPLEFT", 10, -42)
     xl:SetText("X")
     p.x = makeEdit(p, function(v)
-        local _, y = Frames.PositionOf(selected)
+        local _, y = sources[selected].position()
         if y then place(selected, v, y, false, mirrorOf(selected)) end
     end)
     p.x:SetPoint("LEFT", xl, "RIGHT", 8, 0)
@@ -372,7 +395,7 @@ local function makePanel()
     yl:SetPoint("LEFT", p.x, "RIGHT", 10, 0)
     yl:SetText("Y")
     p.y = makeEdit(p, function(v)
-        local x = Frames.PositionOf(selected)
+        local x = sources[selected].position()
         if x then place(selected, x, v, false, mirrorOf(selected)) end
     end)
     p.y:SetPoint("LEFT", yl, "RIGHT", 8, 0)
@@ -387,8 +410,8 @@ local function makePanel()
     down:SetPoint("LEFT", up, "RIGHT", 2, 0)
     local reset = makeButton(p, "Reset", 52, function()
         local other = selected and mirrorOf(selected)   -- before the reset changes it
-        if selected and Frames.ResetPosition(selected) then
-            if other then Frames.ResetPosition(other) end
+        if selected and sources[selected].reset() then
+            if other then sources[other].reset() end
             refreshPanel()
         end
     end)
@@ -487,9 +510,12 @@ function Movers.Unlock()
     overlay:Show()
     showGrid()
     Frames.NormalizeSaves()   -- older saves rewritten from the live rects, once
-    for unit, b in pairs(Frames.byUnit) do
-        movers[unit] = movers[unit] or makeMover(unit, b)
-        movers[unit]:Show()
+    for unit in pairs(Frames.byUnit) do
+        sources[unit] = sources[unit] or unitSource(unit)
+    end
+    for id, src in pairs(sources) do
+        movers[id] = movers[id] or makeMover(src)
+        movers[id]:Show()
     end
     Movers.unlocked = true
     select_("target")
