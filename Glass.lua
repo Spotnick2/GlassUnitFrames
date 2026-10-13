@@ -23,15 +23,25 @@ local lib = LibStub("LibGlass-1.0")
 local current = lib:New()   -- classic, the default
 GlassUF.LOOKS = { classic = true, clean = true }
 GlassUF.look = "classic"
+-- The glass body (#101): clear is LibGlass's own default (tint alpha 0.24,
+-- its notes' "clear"); smoked takes the middle of the 0.50-0.80 its notes
+-- explored for smoked reading surfaces.
+GlassUF.BODIES = { clear = true, smoked = true }
+GlassUF.SMOKED = 0.65
+GlassUF.body = "clear"
 GlassUF.Glass = setmetatable({}, {
     __index = function(_, k) return current[k] end,
     __newindex = function(_, k, v) current[k] = v end,
 })
 
--- Before the build only (ADDON_LOADED): surfaces built earlier keep their look.
-function GlassUF.UseLook(look)
-    if look == "clean" and GlassUF.look ~= "clean" then
-        current = lib:New({ preset = "clean" })
-        GlassUF.look = "clean"
-    end
+-- Before the build only (ADDON_LOADED): surfaces built earlier keep their
+-- look. `body` is "smoked" or anything else (clear).
+function GlassUF.UseLook(look, body)
+    local opts = {}
+    if look == "clean" then opts.preset = "clean" end
+    if body == "smoked" then opts.bodyAlpha = GlassUF.SMOKED end
+    if next(opts) == nil then return end
+    current = lib:New(opts)
+    GlassUF.look = opts.preset or "classic"
+    GlassUF.body = opts.bodyAlpha and "smoked" or "clear"
 end

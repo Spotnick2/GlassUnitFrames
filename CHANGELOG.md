@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Clear or smoked glass.** Options > AddOns > Glass Unit Frames > Look > Body: **Smoked** (or
+  `/glass body smoked`), then `/reload`, for a darker glass behind the bars and text. It works
+  with either the Classic or the Clean look. "Reset look to defaults" puts it back to clear.
 - **A clean glass look to try.** Options > AddOns > Glass Unit Frames > Look > Glass: **Clean**
   (or `/glass look clean`), then `/reload`. It gives thin square rims, no grain, and softer gloss
   and shading. Classic stays the default.

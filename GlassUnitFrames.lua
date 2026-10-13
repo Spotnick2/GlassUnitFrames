@@ -207,6 +207,7 @@ local HELP = {
     "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
     "look classic|clean  - the glass: classic, or LibGlass's clean preset (after /reload, saved)",
+    "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
     "level power|name|portrait  - where the target's level goes (saved)",
     "happiness left|right|under  - hunter pet happiness: left of the pet's portrait, right of the frame, or under the portrait (saved)",
     "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
@@ -240,6 +241,14 @@ end
 
 -- The glass look (#102): "clean" saved, classic the default (not saved).
 -- Takes effect after /reload: LibGlass builds a look into each surface.
+-- The glass body (#101): "smoked" saved, clear the default (not saved).
+-- Takes effect after /reload, like the look.
+function Settings_.SetGlassBody(body)
+    if not GlassUF.BODIES[body] then return false end
+    GlassUnitFramesDB.glassBody = body ~= "clear" and body or nil
+    return true
+end
+
 function Settings_.SetLook(look)
     if not GlassUF.LOOKS[look] then return false end
     GlassUnitFramesDB.look = look ~= "classic" and look or nil
@@ -262,6 +271,7 @@ function Settings_.ResetLook()
     end
     Settings_.SetFont(DEFAULTS.font)
     Settings_.SetLook("classic")   -- the glass look too (after /reload, #102)
+    Settings_.SetGlassBody("clear")   -- and its body (#101)
 end
 
 -- Unlock mode (movers + nudge panel). Unlock is refused in combat, never queued.
@@ -461,6 +471,12 @@ local function slash(msg)
         else
             say("mark name|top|right (now " .. Frames.markPos .. ")")
         end
+    elseif cmd == "body" then
+        if Settings_.SetGlassBody(arg) then
+            say("glass body " .. arg .. ": takes effect after /reload")
+        else
+            say("body clear|smoked (now " .. GlassUF.body .. ")")
+        end
     elseif cmd == "look" then
         if Settings_.SetLook(arg) then
             say("look " .. arg .. ": takes effect after /reload")
@@ -530,7 +546,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then return end
         -- The look first: the knobs, the font and every surface belong to its instance.
-        if type(GlassUnitFramesDB) == "table" and GlassUnitFramesDB.look == "clean" then GlassUF.UseLook("clean") end
+        if type(GlassUnitFramesDB) == "table" then
+            GlassUF.UseLook(GlassUnitFramesDB.look, GlassUnitFramesDB.glassBody)
+        end
         local db = ensureDefaults()
         Glass.SetFont(db.font)
         -- Secure frames cannot be set up under lockdown. Loading normally runs

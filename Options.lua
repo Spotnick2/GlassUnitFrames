@@ -299,7 +299,10 @@ local function build()
     controls.look = radioRow(left, "Glass", { { "classic", "Classic" }, { "clean", "Clean" } },
         function() return (GlassUnitFramesDB and GlassUnitFramesDB.look) or "classic" end,
         GlassUF.Settings.SetLook, 60, { 0, 84 })
-    note(left, "The glass look takes effect after /reload.", 340)
+    controls.glassBody = radioRow(left, "Body", { { "clear", "Clear" }, { "smoked", "Smoked" } },
+        function() return (GlassUnitFramesDB and GlassUnitFramesDB.glassBody) or "clear" end,
+        GlassUF.Settings.SetGlassBody, 60, { 0, 84 })
+    note(left, "The glass and its body take effect after /reload.", 340)
     radios(left, "Font", { { "arial", "Arial Narrow" }, { "friz", "Friz Quadrata" } },
         function() return Glass.fontKey end,
         GlassUF.Settings.SetFont)
