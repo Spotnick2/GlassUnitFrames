@@ -365,7 +365,7 @@ sl._scripts.OnValueChanged(sl, 1.5)
 eq(GlassUF.Castbar.ScaleOf("player"), 1.5, "the slider sets it")
 -- Width and height sliders (the owner's ask), not just scale.
 C.castWidth._scripts.OnValueChanged(C.castWidth, 402)
-eq((GlassUF.Castbar.SizeOf("player")), 400, "the width slider, in steps of 5")
+eq((GlassUF.Castbar.SizeOf("player")), 402, "the width slider, whole units (as the unlock panel types them)")
 C.castHeight._scripts.OnValueChanged(C.castHeight, 26)
 eq(select(2, GlassUF.Castbar.SizeOf("player")), 26, "the height slider")
 eq(pc.host._height, 26, "the bar follows")

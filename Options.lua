@@ -366,7 +366,8 @@ castPage:Hide()   -- or the first visit shows it blank (porting guide)
 -- Colour swatches open the client's colour picker (ColorPickerFrame, in the
 -- 70338 dump; DinoUF opens it the same way on Forever), above the Settings
 -- window (HIGH strata). Cancel puts the colour back as it was, default or set.
-local function openPicker(key, hasAlpha)
+local pickerStrata, pickerHooked   -- the picker's own strata while we've raised it
+local function openPicker(key, hasAlpha, refresh)
     local cp = rawget(_G, "ColorPickerFrame")
     if not (cp and type(cp.SetupColorPickerAndShow) == "function") then
         GlassUF.API.Fail("colour picker", "no ColorPickerFrame:SetupColorPickerAndShow")
@@ -376,12 +377,32 @@ local function openPicker(key, hasAlpha)
     local cur = Castbar.colors[key] or Glass.STYLE.tint
     local r0, g0, b0, a0 = cur[1], cur[2], cur[3], cur[4] or 1
     local wasSet = type(db().castColors) == "table" and db().castColors[key] ~= nil
+    local function same(x, y) return math.abs(x - y) < 0.001 end
     local function apply()
         local r, g, b = cp:GetColorRGB()
         local a = 1
         if hasAlpha then a = (cp.GetColorAlpha and cp:GetColorAlpha()) or a0 end
+        -- The picker reports its starting colour when it opens: an unchanged
+        -- default stays a default (nothing saved), so a later default still
+        -- reaches this player.
+        if not wasSet and same(r, r0) and same(g, g0) and same(b, b0) and same(a, a0) then return end
         S.SetCastColor(key, r, g, b, a)
-        controls.refreshAll()
+        refresh()   -- this swatch only: a drag calls this many times a second
+    end
+    -- Above the Settings window (HIGH), and back to its own strata when it
+    -- closes: the picker is shared with Blizzard and every addon.
+    if not pickerStrata then
+        local okS, strata = pcall(cp.GetFrameStrata, cp)
+        pickerStrata = okS and strata or "DIALOG"
+    end
+    if not pickerHooked then   -- once: hooks can't be removed
+        pickerHooked = true
+        cp:HookScript("OnHide", function(self)
+            if pickerStrata then
+                pcall(self.SetFrameStrata, self, pickerStrata)
+                pickerStrata = nil
+            end
+        end)
     end
     pcall(cp.SetFrameStrata, cp, "FULLSCREEN_DIALOG")
     local ok = pcall(cp.SetupColorPickerAndShow, cp, {
@@ -389,7 +410,7 @@ local function openPicker(key, hasAlpha)
         swatchFunc = apply, opacityFunc = apply,
         cancelFunc = function()
             if wasSet then S.SetCastColor(key, r0, g0, b0, a0) else S.SetCastColor(key, nil) end
-            controls.refreshAll()
+            refresh()
         end,
     })
     return ok
@@ -408,11 +429,12 @@ local function swatch(parent, text, key, hasAlpha)
     b.fill = fill
     local fs = label(parent, text)
     fs:SetPoint("LEFT", b, "RIGHT", 6, 0)
-    b:SetScript("OnClick", function() openPicker(key, hasAlpha) end)
-    controls[#controls + 1] = function()
+    local function refresh()
         local c = GlassUF.Castbar.colors[key] or Glass.STYLE.tint
         fill:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
     end
+    b:SetScript("OnClick", function() openPicker(key, hasAlpha, refresh) end)
+    controls[#controls + 1] = refresh
     return b
 end
 
@@ -448,7 +470,7 @@ local function buildCast()
         function() return Castbar.IconSide(castUnit) end,
         function(side) S.SetCastIcon(castUnit, side) end,
         84, { 0, 60, 128 })
-    controls.castWidth = slider(left, { label = "Width (detached)", min = 80, max = 800, step = 5, fmt = "%d",
+    controls.castWidth = slider(left, { label = "Width (detached)", min = 80, max = 800, step = 1, fmt = "%d",
         get = function() return (Castbar.SizeOf(castUnit)) end,
         set = function(v) S.SetCastSize(castUnit, v, nil) end })
     controls.castHeight = slider(left, { label = "Height (detached)", min = 12, max = 40, step = 1, fmt = "%d",

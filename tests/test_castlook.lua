@@ -148,7 +148,7 @@ S.SetCastColor("spark", nil)
 -- The colour picker: the client's ColorPickerFrame; cancel puts it back.
 local picker = CreateFrame("Frame", "ColorPickerFrame", UIParent)
 local info
-rawset(picker, "SetupColorPickerAndShow", function(self, i) info = i end)
+rawset(picker, "SetupColorPickerAndShow", function(self, i) info = i; self:Show() end)
 rawset(picker, "GetColorRGB", function() return 0.2, 0.4, 0.6 end)
 rawset(picker, "GetColorAlpha", function() return 0.5 end)
 local O = GlassUF.Options
@@ -180,6 +180,62 @@ local p = pc.lagText._points[1]
 check(p[1] == "BOTTOMRIGHT" and p[2] == pc.bar, "the ms figure inside the block, bottom right")
 stop("player", g9); WoW.flushTimers()
 S.SetCastDetached("player", false)
+
+-- Review fixes (/code-review, #79).
+Castbar = GlassUF.Castbar
+-- Self-cast, in every form of our name (Forever: "First Surname"; UnitName
+-- gives the first name with the surname where the realm should be).
+WoW.units.player.name = "Karuzo Macphisto"
+for _, form in ipairs({ "Karuzo Macphisto", "Karuzo" }) do
+    local gs = guid()
+    cast("player", gs, nil, { sentTo = form })
+    eq(textOf(pc.spell), "Greater Heal", "no arrow on a self-cast named '" .. form .. "'")
+    WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", gs, 2061, "CastBar-1")
+    stop("player", gs); WoW.flushTimers()
+end
+WoW.units.player.name = "Morphisto"
+-- The player's complete flash needs this cast's SUCCEEDED: a cast that stops
+-- without one (failed as it landed) doesn't flash green.
+local gn = guid()
+cast("player", gn)
+stop("player", gn)
+check(not pc.host._shown, "no SUCCEEDED: no complete flash")
+-- A nil name with a target set never reaches %s.
+local gz = guid()
+cast("player", gz, nil, { sentTo = "Someone Else" })
+WoW.units.player.casting.name = nil
+GlassUF.Engine.FullRepaint(pl); WoW.tick()
+eq(GlassUF.paintFailures["cast name"], nil, "a nil name: no paint failure")
+stop("player", gz); WoW.flushTimers()
+-- A new unit forgets the old one's failed mark (an unreadable guid's true).
+tc.failedGUID = true
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+eq(tc.failedGUID, nil, "a target change forgets the failed mark")
+-- The ms figure goes inside the block only from a 20 px bar (under that it
+-- runs into the time text): above the detached bar at 18.
+S.SetCastDetached("player", true)
+pc.bar._height = 18
+local gm = guid()
+WoW.fire("CURRENT_SPELL_CAST_CHANGED", false)
+cast("player", gm)
+eq(pc.lagText._points[1][2], pc.host, "an 18 px bar: the ms figure above the bar")
+stop("player", gm); WoW.flushTimers()
+S.SetCastDetached("player", false)
+-- The picker reports its starting colour on opening: nothing saved; and its
+-- strata is given back when it closes (it's shared).
+picker:Hide()   -- the earlier session closes, as it would in game
+picker._strata = "DIALOG"
+picker:Show()
+picker:Hide()
+local d = Castbar.DEFAULT_COLORS.cast
+rawset(picker, "GetColorRGB", function() return d[1], d[2], d[3] end)
+local cs = O._test.controls.castSwatches.cast
+cs._scripts.OnClick(cs)
+eq(picker._strata, "FULLSCREEN_DIALOG", "raised over the Settings window while open")
+info.swatchFunc()
+eq(GlassUnitFramesDB.castColors, nil, "an unchanged default: nothing saved")
+picker:Hide()
+eq(picker._strata, "DIALOG", "its own strata back when it closes")
 
 -- Saved colours are validated at load: junk falls back to the default.
 local saved = GlassUnitFramesDB

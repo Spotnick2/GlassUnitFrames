@@ -110,6 +110,7 @@ local function plainGUID(v)
     return v
 end
 local plainString = plainGUID   -- the same test: a plain, non-empty string
+local paintColors   -- one bar's colours (defined with the colour setters)
 
 --------------------------------------------------------------------------------
 -- Latency estimate (#72). On Forever the SENT and START of a hard cast arrive
@@ -133,6 +134,7 @@ local plainString = plainGUID   -- the same test: a plain, non-empty string
 --------------------------------------------------------------------------------
 
 local SAMPLES, STALE = 7, 1
+local MS_INSIDE = 20   -- bar height from which the ms figure sits inside the block
 local lat = { samples = {} }   -- also: stamp
 
 Engine.OnCastChanged = function(cancelled)
@@ -185,14 +187,29 @@ local function trackPlayer(c, event, ...)
         -- FAILED may still flash (mayFlash).
         c.sentGUID = plainGUID((select(2, ...)))
         -- "Spell -> Target" (#78): SENT's target name, plain for the player
-        -- (CastProbe). Not for a self-cast.
+        -- (CastProbe: "First Surname", as "Karuzo Macphisto"). Not for a
+        -- self-cast, matched against every form of our own name (the
+        -- display name's format is unmeasured; UnitName gives the first name
+        -- with the surname where the realm should be).
         local target = plainString((...))
-        local me = plainString(GetUnitName("player", false))
-        if target and target == me then target = nil end
+        if target then
+            local first, surname = UnitName("player")
+            first, surname = plainString(first), plainString(surname)
+            if target == plainString(GetUnitName("player", false)) or target == first
+                or (first and surname and target == first .. " " .. surname) then
+                target = nil
+            end
+        end
         c.sentTarget = target
         local now, stamp = GetTime(), lat.stamp
         lat.stamp = nil
         if stamp and now > stamp and now - stamp <= STALE then addSample(now - stamp) end
+        return
+    end
+    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+        -- The player's complete flash needs this cast's SUCCEEDED (it comes
+        -- before the STOP, in the same frame: measured).
+        c.succeededGUID = plainGUID((...))
         return
     end
     if CAST_STOP[event] then
@@ -259,13 +276,13 @@ local function paintLag(c, d, channel)
     c.lag:SetValue(math.max(0, math.min(1, est / total)))
     c.lag:Show()
     -- The ms figure: inside the block, at its bottom corner (Quartz), on a
-    -- bar at least 16 tall; just above a smaller detached bar; never on the
-    -- docked 14 px row.
+    -- bar at least 20 tall (under that it runs into the time text); just above
+    -- a smaller detached bar; never on the docked 14 px row.
     local lt = c.lagText
     local barH = c.bar:GetHeight() or 0
-    if Castbar.options.latencyText and (barH >= 16 or c.detached) then
+    if Castbar.options.latencyText and (barH >= MS_INSIDE or c.detached) then
         lt:ClearAllPoints()
-        local inside = barH >= 16
+        local inside = barH >= MS_INSIDE
         if channel then
             if inside then lt:SetPoint("BOTTOMLEFT", c.bar, "BOTTOMLEFT", 2, 1)
             else lt:SetPoint("BOTTOMLEFT", c.host, "TOPLEFT", 2, 1) end
@@ -297,8 +314,10 @@ local function showCast(f, c, d, channel)
     local target = Castbar.options.targetName and c.castTarget
     if not attempt("cast name", function()
         -- The name goes to the client as is (other units' may be secret).
-        if target then c.spell:SetFormattedText("%s -> %s", (info(f.unit)), target)
-        else c.spell:SetText((info(f.unit))) end
+        local name = (info(f.unit))
+        -- target is only ever set on the player's bar, whose name is plain.
+        if target and type(name) == "string" then c.spell:SetFormattedText("%s -> %s", name, target)
+        else c.spell:SetText(name) end
     end) then c.spell:SetText("") end
     -- The icon: the texture goes straight to the client (never read in Lua).
     if c.iconSide ~= "none" then
@@ -387,6 +406,10 @@ Engine.SetPainter("cast", function(f, event, ...)
         local guid = plainGUID((...))
         local newest = guid == nil or c.latestGUID == nil or guid == c.latestGUID
         local failed = c.failedGUID == true or (guid ~= nil and c.failedGUID == guid)
+        -- The player's own: only a cast whose SUCCEEDED we saw (a cast that
+        -- fails as it lands never gets one). Other units have no SUCCEEDED
+        -- for us: their STOP, as Quartz does.
+        if f.unit == "player" and guid ~= nil and c.succeededGUID ~= guid then failed = true end
         if newest and not failed then flash(c, nil, nil, "complete") end
     elseif event ~= nil and not CAST_STOP[event] then
         API.Fail("cast duration", "no DurationObject on " .. event)
@@ -649,18 +672,22 @@ function Castbar.SetIconSide(unit, side)
     return true
 end
 
+-- One bar's colours: texts, spark, background (the fills on its next paint).
+function paintColors(c)
+    local col = Castbar.colors
+    if not col.spell then return end   -- not configured yet
+    c.spell:SetTextColor(col.spell[1], col.spell[2], col.spell[3], col.spell[4])
+    c.time:SetTextColor(col.time[1], col.time[2], col.time[3], col.time[4])
+    c.spark:SetVertexColor(col.spark[1], col.spark[2], col.spark[3], col.spark[4])
+    local bg = col.background
+    if bg then Glass.SetSurfaceTint(c.glass, bg[1], bg[2], bg[3], bg[4])
+    else Glass.SetSurfaceTint(c.glass) end
+end
+
 -- The colours on every bar now: texts, spark, background; the fills on the
 -- next paint (a repaint follows).
 local function applyColors()
-    local col = Castbar.colors
-    for _, c in pairs(Castbar.bars) do
-        c.spell:SetTextColor(col.spell[1], col.spell[2], col.spell[3], col.spell[4])
-        c.time:SetTextColor(col.time[1], col.time[2], col.time[3], col.time[4])
-        c.spark:SetVertexColor(col.spark[1], col.spark[2], col.spark[3], col.spark[4])
-        local bg = col.background
-        if bg then Glass.SetSurfaceTint(c.glass, bg[1], bg[2], bg[3], bg[4])
-        else Glass.SetSurfaceTint(c.glass) end
-    end
+    for _, c in pairs(Castbar.bars) do paintColors(c) end
     Engine.RepaintChannel("cast")
 end
 
@@ -782,14 +809,18 @@ function Castbar.Build(b, body, L)
     c.icon = txt:CreateTexture(nil, "ARTWORK")
     c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     c.icon:Hide()
-    -- The spark: a thin bright line on the fill's moving edge (the client
-    -- moves the edge; no Lua geometry), under the text.
-    c.spark = txt:CreateTexture(nil, "ARTWORK")
+    -- The spark: a thin bright line just inside the fill's moving edge (the
+    -- client moves the edge; no Lua geometry), on the bar's glass overlay and
+    -- under its own rounded mask, so a full bar's spark stays inside the
+    -- bar's round end. Under the text.
+    local over = bar.overlay or bar
+    c.spark = over:CreateTexture(nil, "OVERLAY", nil, 3)
     c.spark:SetColorTexture(1, 1, 1, 1)
     c.spark:SetBlendMode("ADD")
     c.spark:SetWidth(2)
-    c.spark:SetPoint("TOPRIGHT", bar:GetStatusBarTexture(), "TOPRIGHT", 1, 0)
-    c.spark:SetPoint("BOTTOMRIGHT", bar:GetStatusBarTexture(), "BOTTOMRIGHT", 1, 0)
+    c.spark:SetPoint("TOPRIGHT", bar:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+    c.spark:SetPoint("BOTTOMRIGHT", bar:GetStatusBarTexture(), "BOTTOMRIGHT", 0, 0)
+    c.spark:AddMaskTexture(Glass.Mask(over, "bar_mask", 8, 0, bar))
     c.spark:Hide()
     host:Hide()
 
@@ -832,16 +863,7 @@ function Castbar.Build(b, body, L)
     end)
     Castbar.bars[b.unit] = c
     Castbar.Place(c)
-    local col = Castbar.colors
-    if col.spell then
-        spell:SetTextColor(col.spell[1], col.spell[2], col.spell[3], col.spell[4])
-        time:SetTextColor(col.time[1], col.time[2], col.time[3], col.time[4])
-        c.spark:SetVertexColor(col.spark[1], col.spark[2], col.spark[3], col.spark[4])
-        if col.background then
-            local bg = col.background
-            Glass.SetSurfaceTint(c.glass, bg[1], bg[2], bg[3], bg[4])
-        end
-    end
+    paintColors(c)
     return c
 end
 
@@ -850,7 +872,7 @@ end
 -- full repaint: that would let an interrupt's repeats flash again.
 function Castbar.TokenChanged(c)
     c.flashing = false
-    c.latestGUID = nil
+    c.latestGUID, c.failedGUID = nil, nil
 end
 
 -- Turn a cast option on or off; repaint so the change shows mid-cast.

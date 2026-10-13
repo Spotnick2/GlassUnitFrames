@@ -157,14 +157,19 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       the default). The texture goes from `UnitCastingInfo` / `UnitChannelInfo` straight to
       `SetTexture` (never read in Lua).
     - **`Spell -> Target`** on the player's bar only, from SENT's target name (plain for the
-      player), matched to the START by castGUID. Never for a self-cast.
+      player, "First Surname" in the traces), matched to the START by castGUID. Never for a
+      self-cast, matched against every form of our name (`GetUnitName`, `UnitName`'s first name,
+      and first + surname). A nil name never reaches `%s`.
     - **`remaining / total`** (`GetRemainingDuration`, `GetTotalDuration` straight to
       `SetFormattedText`: secret-safe). The precision is 0–3 decimals; the formats are built once
       per change (`FMT`).
     - **Spark:** a 2 px ADD line anchored to the fill texture's moving edge (no Lua geometry).
     - **Complete flash:** a short full bar in the complete colour when a **cast** (not a channel)
       STOPs without failing. The first INTERRUPTED / FAILED arrives with the cast still live, so
-      it marks the newest cast failed (`c.failedGUID`), and its STOP then doesn't flash green.
+      it marks the newest cast failed (`c.failedGUID`, forgotten on a token change), and its STOP
+      then doesn't flash green. The player's bar also needs that cast's SUCCEEDED
+      (`c.succeededGUID`): a cast that fails as it lands gets none. Other units have no
+      SUCCEEDED for us, so their STOP flashes, as in Quartz.
     - **Colours** (`db.castColors[key] = { r, g, b, a }`, validated, saved only when set): spell
       text, time text, casting, channeling, complete, failed, spark, and background. The
       background is the pill's own glass tint, through LibGlass's `SetSurfaceTint(g, ...)`;
@@ -183,7 +188,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       queuing by "an end event in the SENT frame": an unrelated SUCCEEDED (Auto Shot) would drop
       real samples.
     - Shown: the median of the last 7 samples; `GetNetStats` (`~`) before the first. The `ms`
-      figure sits **inside the block, at its bottom corner** (Quartz) on a bar at least 16 tall,
+      figure sits **inside the block, at its bottom corner** (Quartz) on a bar at least 20 tall (`MS_INSIDE`),
       just above a smaller detached bar, and never on the docked 14 px row.
     - `Frames.OverlayBar` places only its clip frame: the caller anchors the bar it returns.
   - **Pushback:** `+0.4` / `-0.4` before the time. It's **assigned** from the cumulative
@@ -301,7 +306,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   own **sub-page**, "Cast bars": one set of per-bar controls behind a "Settings for" picker
   (Detached, icon side, width, height, scale, Center), and the shared text, colour and extras
   sections. Colour swatches open `ColorPickerFrame:SetupColorPickerAndShow` (DinoUF's way on
-  Forever) above the Settings window. The page is registered with
+  Forever) above the Settings window. The picker is shared, so its strata is given back on
+  `OnHide` (one hook). It reports its starting colour when it opens, and an unchanged default
+  is never saved. A change refreshes only that swatch. The page is registered with
   `RegisterCanvasLayoutSubcategory`, right after the main page, and hidden at creation. The column helpers take the page they lay out on (`column(x, y, parent)`),
   and `slider` takes `{ label, min, max, step, get, set }` (`tunableSlider` for the material
   knobs).
