@@ -1013,6 +1013,22 @@ local function buildHealthLoss(b)
     b.lossBar = loss
 end
 
+-- The hover tooltip (#80): Blizzard's own unit tooltip (UnitFrame_OnEnter
+-- reads self.unit, anchors it the default way and keeps it updated), as SUF
+-- and DinoUF do on Forever. Never on a forbidden tooltip; both looked up when
+-- used, and an error there never reaches the button.
+local function tooltipEnter(self)
+    local tt, fn = rawget(_G, "GameTooltip"), rawget(_G, "UnitFrame_OnEnter")
+    if not (tt and fn) or tt:IsForbidden() then return end
+    local ok, err = pcall(fn, self)
+    if not ok then API.Fail("tooltip", err) end
+end
+local function tooltipLeave(self)
+    local tt, fn = rawget(_G, "GameTooltip"), rawget(_G, "UnitFrame_OnLeave")
+    if not (tt and fn) or tt:IsForbidden() then return end
+    pcall(fn, self)
+end
+
 local function build(unit)
     local L = Frames.LAYOUT[unit]
     local size = L.size
@@ -1031,6 +1047,8 @@ local function build(unit)
     b:SetAttribute("*type1", "target")
     b:SetAttribute("*type2", "togglemenu")
     b:RegisterForClicks(API.UnitButtonClicks())
+    b:HookScript("OnEnter", tooltipEnter)
+    b:HookScript("OnLeave", tooltipLeave)
     b:SetClampedToScreen(true)
     applyPosition(b)   -- leaders are built first (ORDER), so a follower's leader exists
 

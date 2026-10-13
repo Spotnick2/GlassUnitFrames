@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed: hovering a unit frame now shows the unit's tooltip.
 - **Detachable cast bars.** Cast bar options now have their own page: Options > AddOns > Glass
   Unit Frames > **Cast bars**. Detach your own cast bar or your target's, and it becomes a glass
   bar of its own. Its default spot is just under the middle of the screen (340×20), with the

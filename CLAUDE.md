@@ -120,7 +120,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   owner's 4K screen.
 - **`Frames.lua`** (frames): `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
-  anywhere, portrait included, reaches the button.
+  anywhere, portrait included, reaches the button. **Hover tooltip** (#80): `OnEnter` / `OnLeave`
+  post-hooks call Blizzard's `UnitFrame_OnEnter` / `UnitFrame_OnLeave` (they read `self.unit`),
+  never on a forbidden `GameTooltip`, under `pcall` (an error goes to `API.Fail("tooltip")`),
+  as SUF and DinoUF do.
 - **`Castbar.lua`**: the player, target, focus and pet cast bars (#72 moved them out of
   `Frames.lua`; pet and focus came in #76, each a 16 px pill (`LAYOUT.castH`): the pet's under
   its body, the focus's **above** it (`castAbove`: under it would cover the ToT row). They detach
