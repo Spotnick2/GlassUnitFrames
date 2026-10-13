@@ -878,6 +878,10 @@ end
 function Castbar.TokenChanged(c)
     c.flashing = false
     c.latestGUID, c.failedGUID = nil, nil
+    -- The old unit's spell icon: with no newest guid, a later FAILED (no
+    -- START) would flash it (Codex, #79). The repaint that follows (deferred)
+    -- shows the new unit's icon if it is casting.
+    c.icon:Hide()
 end
 
 -- Turn a cast option on or off; repaint so the change shows mid-cast.

@@ -267,6 +267,26 @@ stop("player", gk)
 WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "player", gk, 2061, nil, nil)
 check(pc.host._shown and pc.icon._shown, "an interrupt keeps the interrupted cast's icon")
 WoW.flushTimers()
+-- A target change, then a FAILED with no START on the new target: no newest
+-- guid to compare, so the old target's icon must already be gone (Codex).
+local gt = guid()
+cast("target", gt)
+check(tc.icon._shown, "the target's cast icon")
+stop("target", gt); WoW.tick(); WoW.flushTimers()
+WoW.SetUnit("target", { name = "Defias Pillager", reaction = 2 })
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+WoW.fire("UNIT_SPELLCAST_FAILED", "target", guid(), 2061)
+check(tc.host._shown and textOf(tc.spell) == "Failed", "the new target's failure flashes")
+check(not tc.icon._shown, "without the old target's icon")
+WoW.flushTimers()
+-- A new target picked mid-cast: the repaint shows its icon.
+WoW.SetUnit("target", { name = "Defias Pillager", reaction = 2 })
+WoW.units.target.casting = { name = "Fireball", guid = guid(), spellID = 133, total = 3, remaining = 2,
+                             startMs = WoW.now * 1000, endMs = (WoW.now + 3) * 1000, delayMs = 0 }
+WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
+check(tc.host._shown and tc.icon._shown, "a target picked mid-cast shows its icon")
+WoW.units.target.casting = nil
+WoW.fire("UNIT_SPELLCAST_STOP", "target", nil, 133); WoW.tick(); WoW.flushTimers()
 
 -- Saved colours are validated at load: junk falls back to the default.
 local saved = GlassUnitFramesDB

@@ -203,7 +203,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     unreadable guid keeps the old behaviour, and a rejected attempt (client-side
     `Cast-2-0-0-0-…` guid, never SENT) no longer flashes. A flashed guid never flashes again,
     even when the newest guid is unknown. A target change (`Engine.OnTokenChanged` →
-    `Castbar.TokenChanged`) forgets the newest guid; an ordinary full repaint doesn't.
+    `Castbar.TokenChanged`) forgets the newest guid and hides the old unit's icon (a later FAILED
+    with no START would flash it); an ordinary full repaint doesn't.
   - **Options:** `latency`, `latencyText`, `pushback`, `targetName`, `totalTime`, `complete`
     (`Castbar.SetOption`, saved only when off).
   - Measuring tool: `Tools/CastProbe`.
