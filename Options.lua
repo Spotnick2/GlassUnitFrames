@@ -311,8 +311,18 @@ local function build()
         GlassUF.Settings.SetAggroRed)
     note(right, "While they fight you or your group.", 270)
 
-    header(right, "Cast bar")
-    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "pushback", "Pushback before the time" } }
+    header(right, "Cast bars")
+    for _, o in ipairs({ { "player", "Detach the player's cast bar" }, { "target", "Detach the target's cast bar" } }) do
+        local unit = o[1]
+        if GlassUF.Castbar.bars[unit] then
+            controls["castDetach_" .. unit] = checkbox(right, o[2],
+                function() return GlassUF.Castbar.IsDetached(unit) end,
+                function(v) GlassUF.Settings.SetCastDetached(unit, v) end)
+        end
+    end
+    note(right, "Unlock to move or resize a detached bar; Attach puts it back.", 270)
+    local CAST_OPTIONS = { { "latency", "Latency block at the end" }, { "latencyText", "Latency in ms (detached bar)" },
+                           { "pushback", "Pushback before the time" } }
     for _, o in ipairs(CAST_OPTIONS) do
         local key = o[1]
         controls["cast_" .. key] = checkbox(right, o[2],

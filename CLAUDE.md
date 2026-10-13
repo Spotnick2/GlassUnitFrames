@@ -122,7 +122,22 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 - **`Castbar.lua`**: the player and target cast bars (#72 moved them out of `Frames.lua`):
   the inside player row and the target's pill (`Castbar.Build`, `Castbar.CastingRows`), and the
   `cast` channel's painter. It paints through `Frames.attempt`, and Frames resolves it at build
-  time. On the **player's** bar (#72):
+  time.
+  - **Detachable** (#74): each bar's host is a mouse-less **child of its unit button** (so it
+    hides with it: no target, no target bar), with a glass pill of its own (`c.skin`).
+    - **Docked:** the player's row inside the body (pill hidden; health and power shrink only
+      while it's docked inside AND shown), the target's pill under its aura rows.
+    - **Detached:** its own pill, CENTER on the screen centre. Defaults follow the owner's Quartz
+      layout: player 340×20 at (0, −47), target at (0, −23).
+    - Saved in `db.castBars[unit] = { detached, x, y, w, h }`, each field validated against
+      `Castbar.LIMITS` (junk falls back to its default), pruned when empty.
+    - `Castbar.Place(c)` lays a bar out for its mode and reconciles the rows. Levels are fixed at
+      build: host H, pill H (rims H + 10), bar H + 2, text H + 11.
+    - Detach and attach work **in combat**: a cast host is never protected (measured with
+      CastProbe `hier`, #74).
+    - In unlock mode a detached bar is a mover source `cast:<unit>` (`Castbar.MoverSource`: W/H,
+      Attach).
+  - On the **player's** bar (#72):
   - **Latency block:** a red overlay (`Frames.OverlayBar`) over the end the cast heads for:
     reverse fill for casts, normal for channels. It estimates the tail you probably can't
     cancel, so it's the **key press → cast start** interval, not a network RTT.
@@ -134,8 +149,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       frame always fires `CAST_CHANGED(false)` just before its SENT (measured). Don't detect
       queuing by "an end event in the SENT frame": an unrelated SUCCEEDED (Auto Shot) would drop
       real samples.
-    - Shown: the median of the last 7 samples; `GetNetStats` before the first. No `ms` text
-      yet: the docked row is 14 px (it comes back with the detached bar, PR 2).
+    - Shown: the median of the last 7 samples; `GetNetStats` (`~`) before the first. The `ms`
+      figure sits just above the block's end, **only on a detached bar** (the docked row is
+      14 px).
     - `Frames.OverlayBar` places only its clip frame: the caller anchors the bar it returns.
   - **Pushback:** `+0.4` / `-0.4` before the time. It's **assigned** from the cumulative
     `delayTimeMs` (the 11th return of `UnitCastingInfo`), or from how far a channel's end moved.
@@ -147,7 +163,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     `Cast-2-0-0-0-…` guid, never SENT) no longer flashes. A flashed guid never flashes again,
     even when the newest guid is unknown. A target change (`Engine.OnTokenChanged` →
     `Castbar.TokenChanged`) forgets the newest guid; an ordinary full repaint doesn't.
-  - **Options:** `latency`, `pushback` (`Castbar.SetOption`).
+  - **Options:** `latency`, `latencyText`, `pushback` (`Castbar.SetOption`).
   - Measuring tool: `Tools/CastProbe`.
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
   (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
@@ -181,20 +197,26 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   old-style saves are still honoured. Positions change only through `Frames.SetPosition` /
   `ResetPosition` / `ResetPositions`, **out of combat**.
 - **`Movers.lua`**: unlock mode (`/glass unlock|lock`, the options panel's Unlock button). One
-  plain, insecure mover per frame on UIParent, **anchored to the button, never the reverse** (a
-  frame a protected frame anchors to becomes protected). Dragging moves the mover; the button
-  follows through `Frames.SetPosition`. **Nothing starts the client's own drag on a protected
+  plain, insecure mover per **source** on UIParent, **anchored to its frame, never the reverse**
+  (a frame a protected frame anchors to becomes protected). A source is the adapter a mover
+  moves through (`label`, `frame`, `rel`, `position`, `set`, `save`, `reset`, `follows`), keyed
+  by an id. A unit's id is its unit name; a detached cast bar's is `cast:<unit>`, with `size`,
+  `setSize` and `attach` as well. Dragging moves the mover; the frame follows through its
+  source (`Frames.SetPosition` for a unit). **Nothing starts the client's own drag on a protected
   button** (a drag combat interrupts can't be stopped; there is no shift-drag any more). Clicking
-  a mover opens the nudge panel (X/Y offsets, arrows 1 / Shift 10, reset this frame, lock).
+  a mover opens the nudge panel (X/Y offsets, arrows 1 / Shift 10, reset this frame, lock; W/H
+  and Attach for a cast bar). While unlocked, a glass **unlock dialog** at the top centre
+  (Quartz's idea) holds Lock and the switches.
   Unlock and nudges are refused in combat; a combat start locks. While dragging, a frame's
   edges/centre **align** to other frames' (and the screen centre) within 8 units with a yellow guide
   line, else its centre snaps to a 16-unit **grid** drawn over the screen; the frame's own
-  followers aren't alignment targets; **Alt** places freely. Both switches are in the nudge panel
-  (saved only when off: `db.snapGrid`, `db.snapAlign`). **Mirroring** (on by default,
+  followers aren't alignment targets; **Alt** places freely. Both switches are on the unlock
+  dialog (saved only when off: `db.snapGrid`, `db.snapAlign`). **Mirroring** (on by default,
   `db.mirror` when off, `/glass mirror`): moving the player or target frame (drag, arrows, typed
   X/Y, reset) places the other at the mirrored spot (-x, same y), but only while the pair IS
   symmetric (a custom asymmetric layout is never overwritten). Alt at the start of a drag moves one
-  alone, fixed for the whole drag; the drag's partner isn't an alignment target.
+  alone, fixed for the whole drag; the drag's partner isn't an alignment target. Cast bars never
+  mirror.
 - **`Blizzard.lua`**: hides the Blizzard frames that GlassUF **replaces** (`FRAMES` map).
   - Only frames we draw a replacement for (player, pet, target, ToT, focus, focus target):
     `ComboFrame` is hidden only once our combo pips exist (rogues and druids). Party is never touched, since the owner uses
@@ -221,7 +243,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castPushback` (saved only when off), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback` (saved only when off), `castBars[unit]` (#74), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
@@ -238,7 +260,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   `refreshing` guard keeps that from saving). Every control goes through **`GlassUF.Settings`**,
   the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
   `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`,
-  `SetCastOption`).
+  `SetCastOption`, `SetCastDetached`).
 - **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe;
   `Tools/CastProbe/` is the throwaway cast/swing event trace for #72 and the later cast-bar PRs
   (deployed with `Tools\deploy.ps1 -CastProbe`). Typed `/cprobe` didn't dispatch in game,
