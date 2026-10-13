@@ -209,6 +209,7 @@ local HELP = {
     "look classic|clean  - the glass: classic, or LibGlass's clean preset (after /reload, saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
     "level power|name|portrait  - where the target's level goes (saved)",
+    "portrait player|target|pet 3d|2d|none  - a frame's portrait (saved; none waits for combat to end)",
     "happiness left|right|under  - hunter pet happiness: left of the pet's portrait, right of the frame, or under the portrait (saved)",
     "text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp  - a frame's health text (saved)",
     "mark name|top|right  - raid mark before the name, on the top edge, or right of the frame (saved)",
@@ -318,6 +319,17 @@ function Settings_.SetHealthFormat(unit, kind)
     GlassUnitFramesDB.healthText = GlassUnitFramesDB.healthText or {}
     GlassUnitFramesDB.healthText[unit] = kind
     return true
+end
+
+-- A frame's portrait (#97): "3d" (default, not saved), "2d" or "none" in
+-- db.portrait[unit]. To or from "none" waits for combat to end.
+function Settings_.SetPortraitMode(unit, mode)
+    local ok, why = Frames.SetPortraitMode(unit, mode)
+    if not ok then return false end
+    GlassUnitFramesDB.portrait = GlassUnitFramesDB.portrait or {}
+    GlassUnitFramesDB.portrait[unit] = mode ~= "3d" and mode or nil
+    if next(GlassUnitFramesDB.portrait) == nil then GlassUnitFramesDB.portrait = nil end
+    return true, why
 end
 
 function Settings_.SetHappinessPosition(pos)
@@ -464,6 +476,13 @@ local function slash(msg)
             say(unit .. " health text " .. kind)
         else
             say("text <unit> " .. table.concat(Frames.HEALTH_FORMATS, "|") .. "  (e.g. /glass text target curmaxhp)")
+        end
+    elseif cmd == "portrait" then
+        local unit, mode = arg:match("^(%S+)%s+(%S+)$")
+        if unit and Settings_.SetPortraitMode(unit, mode) then
+            say(unit .. " portrait " .. mode)
+        else
+            say("portrait player|target|pet 3d|2d|none")
         end
     elseif cmd == "mark" then
         if Settings_.SetMark(arg) then

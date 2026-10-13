@@ -142,6 +142,20 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     (#84).
   - An out-of-range unit gets the 2D portrait at once.
   - An unreadable file id counts as a model: a working 3D portrait is never swapped for a guess.
+  - **Modes** (#97), per portrait frame (player, target, pet), saved in `db.portrait[unit]`
+    ("2d" | "none"; 3D is the default and isn't saved):
+    - **2D:** the painter always uses the 2D path and never loads the model.
+    - **none:** the tile is hidden and the secure button narrows to the body.
+    - `Frames.portraitReq` is what was asked; `b.portraitMode` is what's applied. 3D ↔ 2D applies
+      live, in combat too. To or from "none" resizes the protected button, so in combat it waits in
+      `WhenOutOfCombat("portrait:<unit>")`, and the last request wins.
+    - Every applied change bumps `portraitToken` (a pending retry never lands).
+    - **With no tile:**
+      - the level "on the portrait" shows on the power line (`Frames.LevelPosOf`, used by
+        `placeLevel` and the painters);
+      - PvP and resting move to the body's top glass layer;
+      - happiness anchors to the frame.
+    - Mirroring stays centre mirroring for a mixed pair.
 - **`Castbar.lua`**: the player, target, focus and pet cast bars (#72 moved them out of
   `Frames.lua`; pet and focus came in #76, each a 16 px pill (`LAYOUT.castH`): the pet's under
   its body, the focus's **above** it (`castAbove`: under it would cover the ToT row). They detach
@@ -396,7 +410,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
