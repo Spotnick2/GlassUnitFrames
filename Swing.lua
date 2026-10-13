@@ -31,6 +31,7 @@ local ROWS = { { type = ST and ST.MainHand or 0, color = "swingMH" },
 local OUT_OF_RANGE = 0.4   -- a row's alpha out of reach (Blizzard's)
 local TEXT_MIN = 8         -- a detached row this tall shows its time
 local DETACHED_GAP = 2
+Swing.DETACHED_GAP = DETACHED_GAP   -- the zoom outline sizes the pill from it (#89)
 
 Swing.enabled = true       -- db.swingTimer == false turns the rows off
 Swing.sample = false       -- unlock mode: a detached pill shows every row, idle
@@ -213,18 +214,15 @@ end
 --------------------------------------------------------------------------------
 
 local function place(bar)
-    local x, y, w, h, detached, scale = Castbar.Geometry("swing")
     -- Zoomed in combat (#89): laid out detached at the zoom spot (effective only).
-    local zx, zy, zs = GlassUF.Zoom.Target("swing")
-    if zx then x, y, scale, detached = zx, zy, zs, true end
+    local x, y, w, h, detached, scale = Castbar.EffectiveGeometry("swing")
     bar.detached, bar.rowH = detached, h
     local host = bar.host
     host:ClearAllPoints()
     if detached then
         bar.skin:Show()
-        host:SetScale(scale)
         host:SetWidth(w)
-        host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
+        Castbar.PlaceAt(host, x, y, scale)
         bar.b.swingDock = nil
     else
         bar.skin:Hide()

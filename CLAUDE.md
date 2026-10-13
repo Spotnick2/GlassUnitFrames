@@ -253,7 +253,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 - **`Zoom.lua`** (#89): combat zoom, per bar (player, target, focus, pet, swing), off by default.
   - **What it does:** in combat, a bar is laid out **detached at its zoom spot** (x, y, scale) and
     goes home when combat ends.
-  - **Placement:** `Castbar.Place` and the swing rows' `place` ask `Zoom.Target(unit)`. That's an
+  - **Placement:** `Castbar.Place` and the swing rows' `place` read `Castbar.EffectiveGeometry(unit)`,
+    which overrides the geometry with `Zoom.Target(unit)`. `Castbar.PlaceAt(host, x, y, scale)` is
+    the one detached placement (Place, SetPosition, the swing pill, the glide and the outlines). That's an
     **effective** detach: the saved one is untouched. So a zoomed player row gives the body its
     room back, and the docked swing rows leave too.
   - **Glide:** a visible bar glides (0.3 s ease-out cubic, centre and scale, in UIParent units
@@ -263,7 +265,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     mode change retargets from the glide's current point. `Castbar.SetPosition` / `CenterX` save
     the home spot but don't move a zoomed host.
   - **Triggers:** the combat dispatcher calls `Movers.OnCombat()` then `Zoom.OnCombat(true)`. On
-    regen, `Zoom.OnCombat(false)` runs **before** the combat queue. `PLAYER_ENTERING_WORLD` sets the
+    regen, `Zoom.OnCombat(false)` runs **before** the lockdown guard and the combat queue. `PLAYER_ENTERING_WORLD` sets the
     initial state.
   - **Settings:** `db.zoom[global|healer|tank|dps][bar] = { on, x, y, scale }`, sparse, each field
     validated (scale 0.5–2.5). `db.zoomRole[guid]` is this character's role (read at

@@ -506,6 +506,23 @@ local function geometry(unit)
 end
 Castbar.Geometry = geometry   -- the swing rows (Swing.lua) place themselves from it
 
+-- What a bar is laid out with now: its geometry, overridden in combat by its
+-- zoom spot when its zoom is on (an effective detach; the saved one untouched, #89).
+function Castbar.EffectiveGeometry(unit)
+    local x, y, w, h, detached, scale = geometry(unit)
+    local zx, zy, zs = GlassUF.Zoom.Target(unit)
+    if zx then x, y, scale, detached = zx, zy, zs, true end
+    return x, y, w, h, detached, scale
+end
+
+-- A detached host: its scale, CENTER on the screen centre. The spot is in
+-- screen (UIParent) units at any scale, so the offsets are divided by it.
+function Castbar.PlaceAt(host, x, y, scale)
+    host:ClearAllPoints()
+    host:SetScale(scale)
+    host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
+end
+
 -- The entry to write into (made on the first write).
 local function entry(unit)
     local db = Castbar.db
@@ -557,11 +574,7 @@ end
 function Castbar.Place(c)
     GlassUF.Zoom.Cancel(c.unit)   -- any placement stops a glide: it snaps (#89)
     if c.place then return c.place(c) end   -- the swing rows (#87)
-    local x, y, w, h, detached, scale = geometry(c.unit)
-    -- In combat with its zoom on, the bar is laid out detached at its zoom
-    -- spot: an effective detach, the saved one untouched (#89).
-    local zx, zy, zs = GlassUF.Zoom.Target(c.unit)
-    if zx then x, y, scale, detached = zx, zy, zs, true end
+    local x, y, w, h, detached, scale = Castbar.EffectiveGeometry(c.unit)
     c.detached = detached
     local host, bar = c.host, c.bar
     host:ClearAllPoints()
@@ -574,9 +587,8 @@ function Castbar.Place(c)
     else
         c.skin:Show()
         if detached then
-            host:SetScale(scale)
             host:SetSize(w, h)
-            host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
+            Castbar.PlaceAt(host, x, y, scale)
         else
             h = c.L.castH or PILL_H
             host:SetScale(1)
@@ -635,11 +647,7 @@ function Castbar.SetPosition(unit, x, y, live)
     x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
     -- Zoomed (#89): the new home is saved and used when combat ends; the host
     -- stays at (or keeps gliding to) its zoom spot.
-    if not GlassUF.Zoom.Target(unit) then
-        local scale = select(6, geometry(unit))
-        c.host:ClearAllPoints()
-        c.host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
-    end
+    if not GlassUF.Zoom.Target(unit) then Castbar.PlaceAt(c.host, x, y, select(6, geometry(unit))) end
     if not live then Castbar.SavePosition(unit, x, y) end
     return true, x, y
 end

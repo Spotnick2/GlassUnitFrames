@@ -27,7 +27,7 @@ local DURATION = 0.3
 Zoom.combat = false
 Zoom.role = nil     -- this character's role ("healer", "tank", "dps") or nil: global
 local db, guid
-local glides = {}   -- unit -> { fx, fy, fs, tx, ty, ts, t, cur = { x, y, s } }
+local glides = {}   -- unit -> { fx, fy, fs (from), tx, ty, ts (to), t, cx, cy, cs (on screen now) }
 
 local function finite(v)
     return type(v) == "number" and not API.IsSecret(v) and v == v and v > -math.huge and v < math.huge
@@ -86,6 +86,16 @@ local function editEntry(bar)
     return t[bar]
 end
 
+-- Empty entries and tables go, so the saved table stays sparse.
+local function prune(key, bar)
+    local z = db.zoom
+    if type(z) ~= "table" then return end
+    local t = z[key]
+    if type(t) == "table" and type(t[bar]) == "table" and next(t[bar]) == nil then t[bar] = nil end
+    if type(t) == "table" and next(t) == nil then z[key] = nil end
+    if next(z) == nil then db.zoom = nil end
+end
+
 function Zoom.Enabled(bar) return Zoom.Entry(bar).on end
 
 -- Where a bar goes right now: x, y, scale while in combat with its zoom on, else nil.
@@ -116,11 +126,7 @@ local function rectOf(host)
     return hx * he / ue - ux, hy * he / ue - uy, s
 end
 
-local function put(host, x, y, s)
-    host:ClearAllPoints()
-    host:SetScale(s)
-    host:SetPoint("CENTER", UIParent, "CENTER", x / s, y / s)
-end
+local function put(host, x, y, s) GlassUF.Castbar.PlaceAt(host, x, y, s) end
 
 -- Any Place stops that bar's glide (an option, a resize, a reset): it snaps.
 function Zoom.Cancel(unit)
@@ -137,9 +143,8 @@ controller:SetScript("OnUpdate", function(self, elapsed)
         g.t = g.t + elapsed
         local k = math.min(1, g.t / DURATION)
         local e = ease(k)
-        local x, y, s = g.fx + (g.tx - g.fx) * e, g.fy + (g.ty - g.fy) * e, g.fs + (g.ts - g.fs) * e
-        g.cur = { x, y, s }
-        if c then put(c.host, x, y, s) end
+        g.cx, g.cy, g.cs = g.fx + (g.tx - g.fx) * e, g.fy + (g.ty - g.fy) * e, g.fs + (g.ts - g.fs) * e
+        if c then put(c.host, g.cx, g.cy, g.cs) end
         if k >= 1 or not c then
             glides[unit] = nil
             if c then Castbar.Place(c) end   -- the exact final anchors
@@ -160,8 +165,8 @@ local function move(c)
     local Castbar = GlassUF.Castbar
     local g = glides[c.unit]
     local fx, fy, fs
-    if g and g.cur then
-        fx, fy, fs = g.cur[1], g.cur[2], g.cur[3]   -- retarget from the point on screen
+    if g then
+        fx, fy, fs = g.cx, g.cy, g.cs   -- retarget from the point on screen
     elseif c.host:IsVisible() then
         fx, fy, fs = rectOf(c.host)
     end
@@ -170,7 +175,7 @@ local function move(c)
     local tx, ty, ts = rectOf(c.host)
     if not tx then return end
     put(c.host, fx, fy, fs)
-    glides[c.unit] = { fx = fx, fy = fy, fs = fs, tx = tx, ty = ty, ts = ts, t = 0, cur = { fx, fy, fs } }
+    glides[c.unit] = { fx = fx, fy = fy, fs = fs, tx = tx, ty = ty, ts = ts, t = 0, cx = fx, cy = fy, cs = fs }
     controller:Show()
 end
 
@@ -200,6 +205,7 @@ end
 function Zoom.SetEnabled(bar, on)
     if not (db and Zoom.DEFAULTS[bar]) then return false end
     editEntry(bar).on = on and true or nil
+    prune(Zoom.EditedKey(), bar)
     refresh(bar)
     return true
 end
@@ -229,6 +235,7 @@ function Zoom.ResetSpot(bar)
     local t = type(db.zoom) == "table" and db.zoom[Zoom.EditedKey()]
     local e = type(t) == "table" and t[bar]
     if type(e) == "table" then e.x, e.y, e.scale = nil, nil, nil end
+    prune(Zoom.EditedKey(), bar)
     refresh(bar)
     return true
 end
@@ -283,7 +290,9 @@ local function placeProxy(bar)
     local p = proxy(bar)
     local e = Zoom.Entry(bar)
     local _, _, w, h = GlassUF.Castbar.Geometry(bar)
-    if bar == "swing" then h = 3 * h + 2 * 2 + 2 * Glass.Inset("small") end   -- the pill with every row
+    if bar == "swing" then   -- the unlocked pill: every row, as Swing's sample shows it
+        h = 3 * h + 2 * GlassUF.Swing.DETACHED_GAP + 2 * Glass.Inset("small")
+    end
     p:SetSize(w, h)
     put(p, e.x, e.y, e.scale)
 end
@@ -309,10 +318,10 @@ function Zoom.MoverSource(bar)
         rel = function() return "UIParent", UIParent end,
         position = function() local e = Zoom.Entry(bar); return e.x, e.y end,
         set = function(x, y, live)
+            if not live then return Zoom.SetSpot(bar, x, y) end   -- saved, then placed by refresh
             if not (inLimits(x, "x") and inLimits(y, "y")) then return false end
             x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
             put(proxy(bar), x, y, Zoom.Entry(bar).scale)
-            if not live then Zoom.SetSpot(bar, x, y) end
             return true, x, y
         end,
         save = function(x, y) return Zoom.SetSpot(bar, x, y) end,
@@ -327,14 +336,21 @@ end
 -- Setup
 --------------------------------------------------------------------------------
 
--- Called by Frames.Build (ADDON_LOADED); the role needs the GUID (PLAYER_LOGIN).
-function Zoom.Configure(saved) db = saved end
+local readRole
 
-local function readRole()
+-- Called by Frames.Build (ADDON_LOADED, or later when the build was deferred
+-- past PLAYER_LOGIN by combat): the role is read here too.
+function Zoom.Configure(saved)
+    db = saved
+    readRole()
+end
+
+function readRole()
     local ok, g = pcall(UnitGUID, "player")
     if not ok or API.IsSecret(g) or type(g) ~= "string" or g == "" then return end
     guid = g
-    local roles = db and db.zoomRole
+    if not db then return end   -- the settings arrive with Configure, which reads again
+    local roles = db.zoomRole
     local r = type(roles) == "table" and roles[guid] or nil
     Zoom.role = ROLE_OK[r] and r or nil
 end

@@ -348,11 +348,16 @@ function Settings_.SetZoom(bar, on)
     GlassUF.Movers.SyncBars()
     return true
 end
-function Settings_.SetZoomScale(bar, s) return GlassUF.Zoom.SetScale(bar, s) end
+function Settings_.SetZoomScale(bar, s)
+    local ok, v = GlassUF.Zoom.SetScale(bar, s)
+    GlassUF.Movers.Refresh()   -- an open nudge panel shows the new scale
+    return ok, v
+end
 -- This character's role for the zoom (nil = global), saved per GUID.
 function Settings_.SetZoomRole(role)
     if not GlassUF.Zoom.SetRole(role) then return false end
     GlassUF.Movers.SyncBars()
+    GlassUF.Movers.Refresh()   -- the role's spot and scale in an open nudge panel
     return true
 end
 
@@ -532,8 +537,11 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         GlassUF.Movers.OnCombat()   -- unlock mode ends: protected frames can't move in combat
         GlassUF.Zoom.OnCombat(true)   -- then the bars go to their combat spots (#89)
     elseif event == "PLAYER_REGEN_ENABLED" then
+        -- Home first, so queued work places bars at home (#89). Before the
+        -- lockdown guard: the zoom touches no protected frame, and a REGEN_ENABLED
+        -- seen with lockdown still reported must not leave the bars zoomed.
+        GlassUF.Zoom.OnCombat(false)
         if InCombatLockdown() then return end   -- trust the lockdown state, not the event
-        GlassUF.Zoom.OnCombat(false)   -- home first, so queued work places bars at home (#89)
         runPending()
     end
 end)

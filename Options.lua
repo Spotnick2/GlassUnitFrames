@@ -627,15 +627,14 @@ local function buildZoom()
 
     header(left, "Bars")
     controls.zoomBars = {}
+    -- Every bar, built or not: the page may first show before a build deferred by combat.
     for _, bar in ipairs(Zoom.BARS) do
-        if GlassUF.Castbar.bars[bar] then
-            controls.zoomBars[bar] = checkbox(left, ZOOM_LABELS[bar] .. ": zoom in combat",
-                function() return Zoom.Enabled(bar) end,
-                function(v) S.SetZoom(bar, v) end)
-            controls["zoomScale_" .. bar] = slider(left, { label = "Combat scale", min = 0.5, max = 2.5,
-                get = function() return Zoom.Entry(bar).scale end,
-                set = function(v) S.SetZoomScale(bar, v) end })
-        end
+        controls.zoomBars[bar] = checkbox(left, ZOOM_LABELS[bar] .. ": zoom in combat",
+            function() return Zoom.Enabled(bar) end,
+            function(v) S.SetZoom(bar, v) end)
+        controls["zoomScale_" .. bar] = slider(left, { label = "Combat scale", min = 0.5, max = 2.5,
+            get = function() return Zoom.Entry(bar).scale end,
+            set = function(v) S.SetZoomScale(bar, v) end })
     end
 
     header(right, "This character")

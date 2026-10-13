@@ -92,7 +92,7 @@ check(near(point(tc)[5], -90 / 1.25) and tc.host:GetScale() == 1.25, "exactly at
 WoW.combat = false
 combat(false)
 WoW.tick(DUR / 2)
-local cur = glides.target.cur
+local cur = { glides.target.cx, glides.target.cy }
 -- The rect unreadable mid-glide (layout not resolved): the glide's own point still serves.
 local realCenter = tc.host.GetCenter   -- the stub's method, before the override
 rawset(tc.host, "GetCenter", function(self)
@@ -198,6 +198,9 @@ check(near(px._points[1][5], -120 / 1.25), "at the spot")
 zm._scripts.OnMouseUp(zm)
 local np = M._test.panel()
 check(np.s._shown and not np.w._shown, "its panel: a scale, no W/H")
+eq(np.sizeRow[5]._points[1][1], "TOPLEFT", "the scale starts the row (not after the hidden H)")
+check(S.SetZoomScale("player", 1.4), "the combat scale from the options page")
+eq(np.s._text, "1.4", "the open panel follows (review, #90)")
 local src = M._test.sources["zoom:player"]
 check(src.set(10, -100, false), "moved")
 eq(GlassUnitFramesDB.zoom.global.player.x, 10, "saved in the global table")
@@ -265,6 +268,43 @@ end
 eq(Zoom.role, nil, "back to global")
 check(textOf(C.zoomEditing):find("global"), "editing the global settings")
 zp._shown = false
+
+-- REGEN_ENABLED seen while lockdown is still reported: the bars still go home (review, #90).
+combat(true)
+check(pc.detached, "zoomed")
+WoW.combat = true
+WoW.fire("PLAYER_REGEN_ENABLED")
+check(not Zoom.combat and not pc.detached, "home even with lockdown still reported")
+WoW.combat = false
+
+-- Turning a zoom on and off leaves nothing saved (review, #90).
+check(S.SetZoom("pet", true) and S.SetZoom("pet", false), "pet zoom on and off")
+check(not (GlassUnitFramesDB.zoom and GlassUnitFramesDB.zoom.global and GlassUnitFramesDB.zoom.global.pet),
+      "no empty pet entry left behind")
+
+-- A build deferred by combat past PLAYER_LOGIN still reads the saved role,
+-- and the zoom page lists every bar before the build (review, #90).
+do
+    local keep = GlassUnitFramesDB
+    keep.zoomRole = { ["Player-1-00000001"] = "tank" }
+    WoW.reset(); standardUnits(); WoW.units.player.guid = "Player-1-00000001"; GlassUF = nil
+    WoW.combat = true
+    loadAddon({ db = keep })
+    WoW.fire("PLAYER_LOGIN")
+    check(next(GlassUF.Frames.byUnit) == nil, "the build waits for combat to end")
+    local zp2 = GlassUF.Options._test.zoomPage
+    zp2._shown = true
+    zp2._scripts.OnShow(zp2)
+    local n2 = 0
+    for _ in pairs(GlassUF.Options._test.controls.zoomBars) do n2 = n2 + 1 end
+    eq(n2, 5, "the zoom page lists every bar before the build")
+    zp2._shown = false
+    WoW.combat = false
+    WoW.fire("PLAYER_REGEN_ENABLED")
+    check(GlassUF.Frames.byUnit.player ~= nil, "built after combat")
+    eq(GlassUF.Zoom.role, "tank", "the saved role is read")
+    keep.zoomRole = nil
+end
 
 -- Saved junk falls back to the defaults.
 local saved = GlassUnitFramesDB

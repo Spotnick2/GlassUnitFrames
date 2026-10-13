@@ -142,6 +142,11 @@ local function refreshPanel()
     local sized, scaled = src.size ~= nil, src.scale ~= nil
     panel:SetHeight((sized or scaled) and 126 or 100)
     for i, r in ipairs(panel.sizeRow) do r:SetShown(i <= 4 and sized or (i > 4 and scaled)) end
+    -- Without W/H (a zoom spot), the scale starts the row.
+    local sl = panel.sizeRow[5]
+    sl:ClearAllPoints()
+    if sized then sl:SetPoint("LEFT", panel.h, "RIGHT", 10, 0)
+    else sl:SetPoint("TOPLEFT", panel, "TOPLEFT", 10, -68) end
     panel.buttons.attach:SetShown(src.attach ~= nil)
     if sized then
         local w, h = src.size()
@@ -678,7 +683,6 @@ function Movers.Unlock()
         movers[id]:Show()
     end
     dialog:Show()
-    Movers.unlocked = true
     select_("target")
     return true
 end
