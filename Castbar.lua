@@ -33,10 +33,10 @@ local LAG = { 0.95, 0.20, 0.18, 0.55 }
 
 -- Options (the Cast bars page): all on by default, saved only when off.
 Castbar.options = { latency = true, latencyText = true, pushback = true,
-                    targetName = true, totalTime = true, complete = true, craftCount = true }
+                    targetName = true, totalTime = true, complete = true, craftCount = true, craftMerge = true }
 Castbar.DB_KEYS = { latency = "castLatency", latencyText = "castLatencyText", pushback = "castPushback",
                     targetName = "castTargetName", totalTime = "castTotalTime", complete = "castComplete",
-                    craftCount = "castCraftCount" }
+                    craftCount = "castCraftCount", craftMerge = "castCraftMerge" }
 
 -- Colours, every bar (#78). Plain numbers only: they go to SetStatusBarColor
 -- on glass bars, whose LibGlass hook compares them. `background` nil = the
@@ -199,6 +199,56 @@ local function craftRemaining()
     return r
 end
 
+-- The merged batch bar (#93): one duration for the whole batch, re-anchored
+-- to reality at every craft START and DELAYED: this craft's real end plus
+-- left x (one craft + the gap between crafts). The gap is the running mean of
+-- the gaps seen in this batch (measured ~0.1 s, #91). The merge is decided per
+-- batch and sticky: unreadable timing, the guard expiring or the option going
+-- off ends it for the rest of the batch.
+local MERGE_GAP, MERGE_GAP_MAX, HOLD_GUARD = 0.1, 0.5, 1.5
+
+local function mergeOn(k) return k and k.merged and Castbar.options.craftMerge and k.dur ~= nil end
+
+-- This craft's plain end (s) and its base total (s): pushback moves the end,
+-- never the total (measured, #72).
+local function craftTiming()
+    local ok, e = pcall(function() return select(5, UnitCastingInfo("player")) end)
+    e = ok and plainNumber(e) or nil
+    local okD, d = pcall(UnitCastingDuration, "player")
+    if not (e and okD and d) then return nil end
+    local okS, secret = pcall(d.HasSecretValues, d)
+    if not okS or API.IsSecret(secret) or secret ~= false then return nil end
+    local okT, t = pcall(d.GetTotalDuration, d)
+    t = okT and plainNumber(t) or nil
+    if not t or t <= 0 or t > 3600 then return nil end
+    return e / 1000, t
+end
+
+local function deriveBatch(k)
+    local e, single = craftTiming()
+    local du = rawget(_G, "C_DurationUtil")
+    if not (e and du) then k.merged = false; return end
+    local gap = k.gapN > 0 and (k.gapSum / k.gapN) or MERGE_GAP
+    local total = e + k.left * (single + gap) - k.start
+    if not (total > 0 and total < 360000) then k.merged = false; return end
+    k.dur = k.dur or du.CreateDuration()
+    if not pcall(k.dur.SetTimeFromStart, k.dur, k.start, total) then k.merged = false end
+end
+
+-- A hold that sees no next craft within HOLD_GUARD drops the merge (Quartz's
+-- stuck bar): its own generation, never the bar's token (showCast and flash
+-- bump that).
+local function armGuard(c, k)
+    k.holdGen = k.holdGen + 1
+    local gen = k.holdGen
+    C_Timer.After(HOLD_GUARD, function()
+        if c.craft == k and k.holding and k.holdGen == gen then
+            k.merged, k.holding = false, nil
+            Engine.RepaintChannel("cast", function(f) return f.unit == "player" end)
+        end
+    end)
+end
+
 -- A craft's START: the same batch when it is the same recipe and the count went
 -- down by exactly one, else a new batch. Anything else clears it.
 local function trackCraft(c, guid, spellID)
@@ -210,9 +260,21 @@ local function trackCraft(c, guid, spellID)
     local k = c.craft
     if k and spellID ~= nil and k.spellID == spellID and left == k.left - 1 then
         k.left, k.guid = left, guid
+        -- The gap since the last craft's STOP: one sample, consumed here.
+        if k.holding then
+            local g = GetTime() - k.lastStop
+            if g >= 0 then
+                k.gapSum, k.gapN = k.gapSum + math.min(g, MERGE_GAP_MAX), k.gapN + 1
+            end
+            k.holding, k.lastStop = nil, nil
+        end
     else
-        c.craft = { spellID = spellID, total = left + 1, left = left, guid = guid }
+        k = { spellID = spellID, total = left + 1, left = left, guid = guid,
+              start = GetTime(), gapSum = 0, gapN = 0, holdGen = 0,
+              merged = Castbar.options.craftMerge and left > 0 }
+        c.craft = k
     end
+    if k.merged then deriveBatch(k) end
 end
 
 -- Blizzard's craft loop stopped (UPDATE_TRADESKILL_CAST_STOPPED, a world event
@@ -220,7 +282,10 @@ end
 Engine.OnTradeskillStopped = function(isScrapping)
     if API.IsSecret(isScrapping) or isScrapping ~= false then return end
     local c = Castbar.bars.player
-    if c then c.craft = nil end
+    if not (c and c.craft) then return end
+    c.craft = nil
+    -- A held merged bar goes; a flash or a replacement cast stays (#93).
+    Engine.RepaintChannel("cast", function(f) return f.unit == "player" end)
 end
 
 local function trackPlayer(c, event, ...)
@@ -267,7 +332,17 @@ local function trackPlayer(c, event, ...)
         -- nothing): the stored count from its START decides, never a fresh read.
         local k = c.craft
         if k and (guid == nil or guid == k.guid) then
-            if k.left > 0 then c.craftHold = true else c.craft = nil end
+            if k.left > 0 then
+                c.craftHold = true
+                -- Held until the next craft: armed once (a duplicate STOP neither
+                -- re-arms nor moves the gap's start).
+                if not k.holding then
+                    k.holding, k.lastStop = true, GetTime()
+                    if mergeOn(k) then armGuard(c, k) end
+                end
+            else
+                c.craft = nil
+            end
         end
     elseif CAST_FAIL[event] then
         -- A cancelled craft ends its batch; a failure of anything else doesn't.
@@ -290,6 +365,8 @@ local function trackPlayer(c, event, ...)
         -- the start moving by the same amount): assigned, never added up.
         local delayMs = castDelay()
         if delayMs then c.delay = delayMs / 1000 end
+        -- A pushed-back craft moves the batch's end, never its start (#93).
+        if mergeOn(c.craft) then deriveBatch(c.craft) end
     elseif event == "UNIT_SPELLCAST_CHANNEL_UPDATE" then
         local endNow = channelEnd()
         if c.chanEnd and endNow then c.delay = (c.chanEnd - endNow) / 1000 end
@@ -360,6 +437,10 @@ end
 local function showCast(f, c, d, channel)
     c.token = c.token + 1
     c.flashing = false
+    -- A merged batch (#93): the batch's duration, for the fill and the time text.
+    local k = not channel and f.unit == "player" and c.craft
+    c.merged = mergeOn(k) and true or false
+    if c.merged then d = k.dur end
     if not attempt("cast timer", c.bar.SetTimerDuration, c.bar, d, nil, API.TimerDirection(channel)) then
         c.duration = nil
         hideLag(c)
@@ -391,7 +472,8 @@ local function showCast(f, c, d, channel)
         c.icon:SetShown(ok)
     end
     c.spark:SetShown(Castbar.colors.spark[4] > 0)
-    if not attempt("cast latency", paintLag, c, d, channel) then hideLag(c) end
+    -- The latency block is one cast's: not on a whole batch.
+    if c.merged or not attempt("cast latency", paintLag, c, d, channel) then hideLag(c) end
     c.host:Show()
 end
 
@@ -486,6 +568,9 @@ Engine.SetPainter("cast", function(f, event, ...)
     elseif event ~= nil and not CAST_STOP[event] then
         API.Fail("cast duration", "no DurationObject on " .. event)
     end
+    -- A merged batch between two crafts keeps its bar as it is (#93).
+    local k = f.unit == "player" and c.craft
+    if k and k.holding and mergeOn(k) and not c.flashing then return end
     -- Nothing casting: hide, unless an interrupt/fail flash is still up.
     if not c.flashing then
         c.duration = nil
@@ -944,7 +1029,8 @@ function Castbar.Build(b, body, L)
     -- in red before it: + on a cast (it ends later), - on a channel (sooner).
     -- "remaining / total" both go to the client as is (secret-safe).
     local function paintTime()
-        local d, delay = c.duration, Castbar.options.pushback and c.delay
+        -- No pushback on a merged batch: its end moves instead (#93).
+        local d, delay = c.duration, Castbar.options.pushback and not c.merged and c.delay
         local sign = (delay and delay > 0) and (c.channel and "-" or "+") or ""
         if Castbar.options.totalTime then
             if sign ~= "" then
@@ -987,6 +1073,9 @@ end
 function Castbar.SetOption(key, on)
     if Castbar.DB_KEYS[key] == nil then return false end
     Castbar.options[key] = on and true or false
+    -- Off mid-batch: this batch stops merging (on: from the next batch).
+    local p = Castbar.bars.player
+    if key == "craftMerge" and not on and p and p.craft then p.craft.merged, p.craft.holding = false, nil end
     Engine.RepaintChannel("cast")
     return true
 end

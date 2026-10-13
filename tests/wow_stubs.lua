@@ -78,6 +78,7 @@ function WoW.reset()
     WoW.chat = {}
     WoW.addonVersion = "dev"
     WoW.timers = {}
+    WoW.timerDue = setmetatable({}, { __mode = "k" })
     WoW.now = 1000            -- GetTime(): the frame time, advanced by tests
     WoW.netStats = { 3.4, 0.15, 29, 33 }   -- GetNetStats(): in, out, home ms, world ms (measured)
     WoW.unitWatch = {}
@@ -489,7 +490,12 @@ function WoW.SetEditMode(open)
     if em then em._shown = open end
 end
 
-C_Timer = { After = function(s, fn) table.insert(WoW.timers, fn) end }
+-- C_Timer.After records when each callback is due: flushTimers runs them all
+-- (most tests), WoW.runDue only those due by WoW.now (timing tests).
+C_Timer = { After = function(s, fn)
+    table.insert(WoW.timers, fn)
+    WoW.timerDue[fn] = WoW.now + (s or 0)
+end }
 
 -- C_DurationUtil.CreateDuration() -> LuaDurationObject (dump 70338): the
 -- methods the addon uses. A test reads _start / _dur.
@@ -498,6 +504,7 @@ C_DurationUtil = { CreateDuration = function()
     function d:SetTimeFromStart(startTime, duration) self._start, self._dur = startTime, duration end
     function d:GetRemainingDuration() return math.max(0, (self._start or 0) + (self._dur or 0) - WoW.now) end
     function d:GetTotalDuration() return self._dur or 0 end
+    function d:HasSecretValues() return false end
     return d
 end }
 
@@ -533,6 +540,14 @@ C_CVar = {
 function WoW.flushTimers()
     local run = WoW.timers
     WoW.timers = {}
+    for _, fn in ipairs(run) do fn() end
+end
+function WoW.runDue()
+    local run, keep = {}, {}
+    for _, fn in ipairs(WoW.timers) do
+        if (WoW.timerDue[fn] or 0) <= WoW.now then run[#run + 1] = fn else keep[#keep + 1] = fn end
+    end
+    WoW.timers = keep
     for _, fn in ipairs(run) do fn() end
 end
 
