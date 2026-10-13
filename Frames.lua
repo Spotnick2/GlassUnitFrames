@@ -218,7 +218,7 @@ local function paintName(f, u)
         end
     end
     local lvl = ""
-    if f.levelText and Frames.levelPos == "name" then
+    if f.levelText and Frames.LevelPosOf(f) == "name" then
         lvl = levelClass(u)
         if lvl ~= "" then lvl = lvl .. " " end
     end
@@ -285,8 +285,9 @@ Engine.SetPainter("name", function(f)
     if not attempt("name text", paintName, f, u) then f.nameText:SetText("") end
     if f.levelText then
         local lc = levelClass(u)
-        f.levelText:SetText(Frames.levelPos == "power" and lc or "")
-        if f.levelOnTile then f.levelOnTile:SetText(Frames.levelPos == "portrait" and lc or "") end
+        local pos = Frames.LevelPosOf(f)
+        f.levelText:SetText(pos == "power" and lc or "")
+        if f.levelOnTile then f.levelOnTile:SetText(pos == "portrait" and lc or "") end
     end
     paintColor(f, u)
 end)
@@ -389,7 +390,8 @@ Engine.SetPainter("portrait", function(f)
     local m, u = f.model, f.unit
     if not (m and UnitExists(u)) then return end
     f.portraitToken = (f.portraitToken or 0) + 1   -- a newer paint cancels a pending retry
-    if plain(UnitIsVisible, u) == false then show2D(f, u) return end
+    if f.portraitMode == "none" then return end      -- no tile (#97)
+    if f.portraitMode == "2d" or plain(UnitIsVisible, u) == false then show2D(f, u) return end
     local function load()
         m:ClearModel()
         m:SetUnit(u)
@@ -483,10 +485,17 @@ end
 Frames.LEVEL_POSITIONS = { power = true, name = true, portrait = true }
 Frames.levelPos = "power"
 
+-- Where a frame's level goes now: "portrait" with no tile shown (#97) means
+-- the power line; the saved choice comes back with the tile.
+function Frames.LevelPosOf(b)
+    if Frames.levelPos == "portrait" and b.portraitMode == "none" then return "power" end
+    return Frames.levelPos
+end
+
 local function placeLevel(b)
     if not b.levelText then return end
     b.powerLeftText:ClearAllPoints()
-    if Frames.levelPos == "power" then
+    if Frames.LevelPosOf(b) == "power" then
         b.powerLeftText:SetPoint("LEFT", b.levelText, "RIGHT", 6, 0)
     else
         b.powerLeftText:SetPoint("LEFT", b.power, "LEFT", 7, 0)
@@ -517,7 +526,9 @@ local function placeHappiness(b)
     local icon = b.indicators and b.indicators.happiness
     if not icon then return end
     icon:ClearAllPoints()
-    local pos, anchor = Frames.happinessPos, b.tile or b
+    -- The tile only while it shows (#97: none hides it).
+    local anchor = (b.tile and b.portraitMode ~= "none") and b.tile or b
+    local pos = Frames.happinessPos
     if pos == "right" then
         icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
     elseif pos == "under" then
@@ -1109,6 +1120,81 @@ function Frames.ReflowRows(b)
     end
 end
 
+-- Portraits (#97): "3d" (the model, 2D when it has none), "2d" (always the
+-- client's 2D portrait: cheaper, the same look on every unit) or "none" (no
+-- tile; the button narrows to the body). Frames.portraitReq[unit] is what
+-- was asked (saved); b.portraitMode what is applied. 3D <-> 2D applies live,
+-- in combat too (nothing protected); anything to or from "none" resizes the
+-- secure button, so in combat it waits (the last request wins).
+Frames.PORTRAIT_MODES = { ["3d"] = true, ["2d"] = true, none = true }
+Frames.portraitReq = {}
+
+function Frames.PortraitModeOf(unit)
+    return Frames.portraitReq[unit] or "3d"
+end
+
+-- The tile's indicators (PvP, resting) live on the tile; with no tile, on the
+-- body's top glass layer, the same corner.
+local function placeTileIndicators(b)
+    local ind, L = b.indicators, b.layout
+    if not ind then return end
+    local onTile = b.portraitMode ~= "none"
+    local top = onTile and b.tileTop or b.glass.top
+    local large, left = L.size == "large", L.portrait == "left"
+    if ind.pvp then
+        local s = large and 24 or 18
+        ind.pvp:SetParent(top)
+        ind.pvp:ClearAllPoints()
+        ind.pvp:SetPoint("CENTER", top, left and "BOTTOMLEFT" or "BOTTOMRIGHT", left and s / 2 or -s / 2, s / 2)
+    end
+    if ind.resting then
+        local s = large and 22 or 16
+        ind.resting:SetParent(top)
+        ind.resting:SetFrameLevel(top:GetFrameLevel() + 1)
+        ind.resting:ClearAllPoints()
+        ind.resting:SetPoint("CENTER", top, "TOPLEFT", s * 0.5, -s * 0.6)
+    end
+end
+
+-- Apply a mode to a built frame. Out of combat whenever it changes "none"
+-- (the button's size); the callers make sure.
+local function applyPortrait(b, mode)
+    local L = b.layout
+    if not b.tile then return end
+    local wasNone = b.portraitMode == "none"
+    b.portraitMode = mode
+    b.portraitToken = (b.portraitToken or 0) + 1   -- a pending 3D retry never lands after a switch
+    local showTile = mode ~= "none"
+    b.tile:SetShown(showTile)
+    if (mode == "none") ~= wasNone then b:SetSize(L.w + (showTile and (L.h + GAP) or 0), L.h) end
+    if mode == "none" then
+        b.model:ClearModel()
+        b.model:Hide()
+        b.portrait2D:Hide()
+    end
+    placeTileIndicators(b)
+    placeLevel(b)
+    placeHappiness(b)
+    placeMark(b)
+    Engine.MarkDirty(b, "portrait")
+    Engine.MarkDirty(b, "name")
+end
+
+function Frames.SetPortraitMode(unit, mode)
+    local b = Frames.byUnit[unit]
+    if not (b and b.tile and Frames.PORTRAIT_MODES[mode]) then return false end
+    Frames.portraitReq[unit] = mode ~= "3d" and mode or nil
+    local resize = (mode == "none") ~= (b.portraitMode == "none")
+    if resize and InCombatLockdown() then
+        GlassUF.WhenOutOfCombat("portrait:" .. unit, function()
+            applyPortrait(b, Frames.PortraitModeOf(unit))
+        end, "the portrait changes when combat ends")
+        return true, "combat"
+    end
+    applyPortrait(b, mode)
+    return true
+end
+
 local function build(unit)
     local L = Frames.LAYOUT[unit]
     local size = L.size
@@ -1209,7 +1295,7 @@ local function build(unit)
         flat:SetAllPoints(m)
         flat:Hide()
         b.portrait2D = flat
-        b.tile = tile
+        b.tile, b.tileTop = tile, tileGlass.top
         if b.levelText then
             -- The level can sit on the portrait: on the tile's own top layer,
             -- so its rim never covers it.
@@ -1236,6 +1322,12 @@ local function build(unit)
     placeLevel(b)
     placeHappiness(b)   -- after the portrait tile exists
     placeMark(b)        -- a right-hand mark may step past the happiness icon
+    -- The saved portrait mode (#97), at build: before any lockdown.
+    if b.tile then
+        b.portraitMode = "3d"
+        local mode = Frames.PortraitModeOf(unit)
+        if mode ~= "3d" then applyPortrait(b, mode) end
+    end
     RegisterUnitWatch(b)
     Engine.Register(b, { ticker = L.ticker })
     Frames.byUnit[unit] = b
@@ -1267,6 +1359,11 @@ function Frames.Build(db)
     GlassUF.Zoom.Configure(db)
     if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
     if Frames.HAPPINESS_POSITIONS[db.happiness] then Frames.happinessPos = db.happiness end
+    if type(db.portrait) == "table" then
+        for unit, mode in pairs(db.portrait) do
+            if Frames.PORTRAIT_MODES[mode] and mode ~= "3d" then Frames.portraitReq[unit] = mode end
+        end
+    end
     if type(db.healthText) == "table" then
         for unit, kind in pairs(db.healthText) do
             if HEALTH_FORMAT_OK[kind] then Frames.healthFormat[unit] = kind end

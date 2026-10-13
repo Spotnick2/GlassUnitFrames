@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Portraits: 3D, 2D or none.** Choose per frame (player, target, pet) under Options > AddOns >
+  Glass Unit Frames > Portraits, or `/glass portrait target 2d`.
+  - **2D** always shows the flat portrait: lighter, and the same look on every unit.
+  - **None** removes the portrait, and the frame narrows to its bar. Changed during a fight, it
+    waits until combat ends.
+  - The level, PvP and resting icons that sit on the portrait move onto the frame when it's gone.
 - **Clear or smoked glass.** Options > AddOns > Glass Unit Frames > Look > Body: **Smoked** (or
   `/glass body smoked`), then `/reload`, for a darker glass behind the bars and text. It works
   with either the Classic or the Clean look. "Reset look to defaults" puts it back to clear.

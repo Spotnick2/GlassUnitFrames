@@ -329,6 +329,21 @@ local function build()
         end
     end
 
+    -- Portraits per frame (#97): 3D, 2D or none.
+    header(left, "Portraits")
+    local PORTRAITS = { { "3d", "3D" }, { "2d", "2D" }, { "none", "None" } }
+    controls.portraitRows = {}
+    for _, r in ipairs({ { "player", "Player" }, { "target", "Target" }, { "pet", "Pet" } }) do
+        local unit = r[1]
+        if Frames.byUnit[unit] and Frames.byUnit[unit].tile then
+            controls.portraitRows[unit] = radioRow(left, r[2], PORTRAITS,
+                function() return Frames.PortraitModeOf(unit) end,
+                function(mode) return GlassUF.Settings.SetPortraitMode(unit, mode) end,
+                100, { 0, 50, 100 })
+        end
+    end
+    note(left, "None narrows the frame; in combat it waits until the fight ends.", 340)
+
     header(right, "Raid mark")
     radios(right, "Placement", { { "name", "Before the name" }, { "top", "On the top edge" }, { "right", "Right of the frame" } },
         function() return Frames.markPos end,
