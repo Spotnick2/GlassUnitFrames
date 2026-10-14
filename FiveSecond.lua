@@ -42,6 +42,11 @@ local combat = false
 
 local function plain(v) return not API.IsSecret(v) end
 
+local function readCombat()
+    local ok, v = pcall(InCombatLockdown)
+    combat = ok and plain(v) and v == true
+end
+
 local function manaType()
     local pt = Enum and Enum.PowerType
     return (pt and plain(pt.Mana) and pt.Mana) or 0
@@ -161,8 +166,7 @@ local function onEvent(_, event, a1, a2, a3)
         -- the 5 s, so leaving combat ends the window.
         if S.state == "window" then toIdle() else paint() end
     elseif event == "PLAYER_ENTERING_WORLD" then
-        local ok, v = pcall(InCombatLockdown)
-        combat = ok and plain(v) and v == true
+        readCombat()
         paint()
     elseif event == "PLAYER_DEAD" then
         toIdle()
@@ -208,11 +212,12 @@ end
 
 function FiveSecond.Built() return strips ~= nil end
 
--- Off: idle, hidden, no events.
+-- Off: idle, hidden, no events. On again: combat may have changed unseen, so
+-- it's re-read.
 function FiveSecond.SetEnabled(on)
     FiveSecond.enabled = on and true or false
     if not strips then return false end
-    if FiveSecond.enabled then register() else ev:UnregisterAllEvents() end
+    if FiveSecond.enabled then register(); readCombat() else ev:UnregisterAllEvents() end
     toIdle()
     return true
 end

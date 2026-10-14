@@ -172,6 +172,21 @@ eq(st.state, "window", "back on: spends count again")
 check(clip._shown, "and show")
 settle()
 
+-- Combat changing while it's off (no events): turning it on re-reads combat.
+GlassUF.Settings.SetFiveSecond(false)
+combat(true)
+GlassUF.Settings.SetFiveSecond(true)
+cast(MANA_SPELL)
+check(clip._shown, "off out of combat, on in combat: shown (combat re-read)")
+settle()
+combat(true)                   -- seen while on
+GlassUF.Settings.SetFiveSecond(false)
+combat(false)
+GlassUF.Settings.SetFiveSecond(true)
+cast(MANA_SPELL)
+check(not clip._shown, "off in combat, on out of combat: hidden (combat only)")
+settle()
+
 -- The options page offers both switches to a mana user.
 local O = GlassUF.Options
 O._test.panel:Show()
