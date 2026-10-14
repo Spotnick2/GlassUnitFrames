@@ -140,6 +140,23 @@ function API.PowerAlpha(unit)
     return curveAlpha(unit, nil, false, visibleCurve)
 end
 
+-- 1 below full MANA, 0 at full (#94: the five-second strip hides at full).
+-- Mana by type, never the current bar: a druid in a form shows rage or energy.
+local fullCurve
+function API.ManaAlpha(unit)
+    if not fullCurve and C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor then
+        fullCurve = C_CurveUtil.CreateColorCurve()
+        local types = Enum and Enum.LuaCurveType
+        if types and types.Step then fullCurve:SetType(types.Step) end
+        fullCurve:AddPoint(0, CreateColor(1, 1, 1, 1))
+        fullCurve:AddPoint(0.9999, CreateColor(1, 1, 1, 1))
+        fullCurve:AddPoint(1, CreateColor(1, 1, 1, 0))
+    end
+    local pt = Enum and Enum.PowerType
+    local mana = (pt and not API.IsSecret(pt.Mana) and pt.Mana) or 0
+    return curveAlpha(unit, mana, false, fullCurve)
+end
+
 -- CreateFrame with a template that may be missing on this client. A missing
 -- template doesn't throw, it returns a bare frame (Priestly, FOREVER-PROBE),
 -- so `proof` names a field the template would have made. Returns the frame and

@@ -98,6 +98,7 @@ function WoW.reset()
     WoW.rangeChecks = {}      -- C_SwingTimer.EnableRangeCheck calls, in order: { type, enable }
     WoW.swingInRange = {}     -- swing type -> IsTargetWithinSwingRange's answer (nil = unknown)
     WoW.cvars = { showSwingTimer = "1" }
+    WoW.spellCosts = {}       -- spellID -> GetSpellPowerCost's table ("error": it throws)
     WoW.uiScale = 0.64        -- UIParent's effective scale
     WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
     WoW.repeating = false
@@ -518,6 +519,14 @@ C_DurationUtil = { CreateDuration = function()
     function d:GetTotalDuration() return self._dur or 0 end
     function d:HasSecretValues() return false end
     return d
+end }
+
+-- C_Spell.GetSpellPowerCost(spellID) -> powerCosts (dump 70338; measured
+-- plain, entries { type, cost, minCost, costPerSec }). WoW.spellCosts drives it.
+C_Spell = { GetSpellPowerCost = function(id)
+    local c = WoW.spellCosts[id]
+    if c == "error" then error("GetSpellPowerCost failed") end
+    return c
 end }
 
 -- The swing timer API (dump 70338): EnableRangeCheck(swingType, enable),

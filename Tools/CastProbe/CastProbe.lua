@@ -122,6 +122,10 @@ local UNIT_EVENTS = {
     "UNIT_SPELLCAST_SUCCEEDED", "UNIT_SPELLCAST_DELAYED",
     "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_CHANNEL_STOP",
     "UNIT_ATTACK_SPEED",
+    -- #94 (five-second rule): mana changes, as the client reports them.
+    "UNIT_POWER_UPDATE",
+    -- #108: ticks or continuous? Counted, logged with the next UPDATE.
+    "UNIT_POWER_FREQUENT",
 }
 local WORLD_EVENTS = {
     "CURRENT_SPELL_CAST_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
@@ -154,8 +158,18 @@ end
 
 local f = CreateFrame("Frame")
 
+local freqMana, freqLast = 0, nil   -- #108: FREQUENT(MANA) since the last UPDATE(MANA)
+
 local function onEvent(_, event, ...)
     if event == "SPELL_UPDATE_COOLDOWN" and not cdEvents then return end
+    if event == "UNIT_POWER_FREQUENT" then
+        local token = select(2, ...)
+        if not secret(token) and token == "MANA" then
+            freqMana = freqMana + 1
+            freqLast = GetTime()
+        end
+        return
+    end
     local a = pack(...)
     local ok, err = pcall(function()
         local line = (SHORT[event] or event) .. " " .. fmtArgs(a)
@@ -189,6 +203,40 @@ local function onEvent(_, event, ...)
         end
         if event == "PLAYER_SWING" or event == "UNIT_ATTACK_SPEED" or event == "WEAPON_SLOT_CHANGED" then
             line = line .. " || speeds=" .. fmtArgs(pack(UnitAttackSpeed("player")))
+        end
+        -- #94: is mana readable, is the spell's cost, is the regen API?
+        if event == "UNIT_POWER_UPDATE" or event == "UNIT_SPELLCAST_SUCCEEDED" then
+            if event == "UNIT_POWER_UPDATE" and (secret(a[2]) or a[2] ~= "MANA") then return end
+            local okP, mana = pcall(UnitPower, "player", 0)
+            local okM, maxMana = pcall(UnitPowerMax, "player", 0)
+            local okR, base, casting = pcall(GetManaRegen)
+            if event == "UNIT_POWER_UPDATE" then
+                line = line .. string.format(" || freq=%d", freqMana)
+                    .. (freqLast and string.format(" (last %.3f ago)", GetTime() - freqLast) or "")
+                freqMana = 0
+            end
+            line = line .. " || mana=" .. (okP and fmt(mana) or "ERR") .. "/" .. (okM and fmt(maxMana) or "ERR")
+                .. " regen=" .. (okR and (fmt(base) .. "," .. fmt(casting)) or "ERR")
+            if event == "UNIT_SPELLCAST_SUCCEEDED" and not secret(a[3]) and type(a[3]) == "number" then
+                local okC, costs = pcall(C_Spell.GetSpellPowerCost, a[3])
+                if not okC then
+                    line = line .. " cost=ERR"
+                elseif secret(costs) then
+                    line = line .. " cost=S"
+                elseif type(costs) ~= "table" then
+                    line = line .. " cost=" .. fmt(costs)
+                else
+                    local parts = {}
+                    for _, c in ipairs(costs) do
+                        if secret(c) or type(c) ~= "table" then
+                            parts[#parts + 1] = "?"
+                        else
+                            parts[#parts + 1] = fmt(c.type) .. ":" .. fmt(c.cost) .. "/" .. fmt(c.minCost)
+                        end
+                    end
+                    line = line .. " cost={" .. table.concat(parts, " ") .. "}"
+                end
+            end
         end
         if event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
             line = line .. " lockdown=" .. fmt(InCombatLockdown())

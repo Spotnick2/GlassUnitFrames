@@ -43,7 +43,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 ## Layout
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Zoom.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `FiveSecond.lua` → `Zoom.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -63,7 +63,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - `PowerAlpha` / `ComboAlpha`: an opacity the **client** computes from a step colour curve over
     a power fraction (`UnitPowerPercent(unit, type, unmodified, curve)` → `GetRGBA` alpha), handed
     straight to `SetAlpha` even when secret. Measured working (#42): the hidden-power fade and the
-    combo pips use it. Nothing may depend on `Enum.LuaCurveType.Step` existing;
+    combo pips use it. Nothing may depend on `Enum.LuaCurveType.Step` existing. `ManaAlpha` is
+    the same over MANA by type (1 below full, 0 at full): `PowerAlpha` reads the current bar, rage
+    or energy for a druid in a form;
   - `SafeFrame(type, parent, template, proof)`: a template that may be missing returns a bare
     frame rather than throwing, so `proof` names a field the template would make.
 
@@ -302,6 +304,26 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - Time text shows on rows at least 8 px tall.
   - **Colours:** `castColors` keys `swingMH`, `swingOH`, `swingRanged`. The option is
     `db.swingTimer` (saved only when off).
+- **`FiveSecond.lua`** (#94): the five-second rule, for mana users only (none for warriors or rogues).
+  - **The strip:** 2 px red along the bottom of the player's power bar, or of the druid mana strip in
+    a form (chosen by power token; `UNIT_DISPLAYPOWER` re-picks it). An `OverlayBar` inside the
+    bar's rounded mask. It drains (`RemainingTime`) for the 5 s after a likely spend, then hides.
+  - **No tick timer.** Forever's regen is continuous (measured, #108). While regenerating, about 7
+    `UNIT_POWER_FREQUENT` per second arrive: one per mana point at 6.5/s, 14–15 between two
+    `UNIT_POWER_UPDATE`s. None arrive inside the 5 s, and they restart about 5.0–5.2 s after the
+    last spend. The ~2 s UPDATE cadence is the server's sync, not a tick.
+  - **Mana is secret** in and out of combat (measured), so it's never read. **A spend:** a player
+    `UNIT_SPELLCAST_SUCCEEDED` whose `C_Spell.GetSpellPowerCost` (measured plain) has a mana
+    entry with a cost or `costPerSec` > 0, or a secret amount. The whole traversal is under
+    `pcall`, secrecy-checked step by step; unknown is not a spend. A new spend restarts it.
+  - **Ending it:** the window's timer (generation-checked), combat exit (regen was measured
+    resuming about 2 s after a killing spend), death, and the option off.
+  - **Full mana** hides it through `API.ManaAlpha` on the strip's clip frame, refreshed on
+    `UNIT_POWER_UPDATE("MANA")`.
+  - **Its own event frame:** the order of SUCCEEDED and combat changes matters, so it doesn't go
+    through Engine.
+  - **Options:** `db.fiveSecondRule` and `db.fsrCombatOnly` (on by default, each saved only when
+    off), on the main page, only for mana users.
 - **`Zoom.lua`** (#89): combat zoom, per bar (player, target, focus, pet, swing), off by default.
   - **What it does:** in combat, a bar is laid out **detached at its zoom spot** (x, y, scale) and
     goes home when combat ends.
@@ -410,7 +432,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
