@@ -365,11 +365,13 @@ SlashCmdList.GLASSUNITFRAMES("track 0.8")
 eq(p.health.track._vertex[4], 0.8, "track retuned live")
 eq(p.health.track._vertex[1], 1, "track keeps the bar colour")
 eq(GlassUnitFramesDB.track, 0.8, "track saved")
+-- LibGlass r8: the fill's opacity is in its gradient (a gradient ignores
+-- SetAlpha): colour alpha x fill (0.5 here), x fade at the moving edge.
 local fg = p.health:GetStatusBarTexture()._gradient
-check(fg and fg[1] == "HORIZONTAL" and fg[2].a == 1 and fg[3].a == 1 and fg[3].r == 1,
-      "fill even by default (fade off), in the bar's colour")
+check(fg and fg[1] == "HORIZONTAL" and fg[2].a == 0.5 and fg[3].a == 0.5 and fg[3].r == 1,
+      "fill even by default (fade off), in the bar's colour, at the fill opacity")
 SlashCmdList.GLASSUNITFRAMES("fade 0.5")
-eq(p.health:GetStatusBarTexture()._gradient[3].a, 0.5, "fade retuned live")
+eq(p.health:GetStatusBarTexture()._gradient[3].a, 0.25, "fade retuned live (fill x fade at the edge)")
 eq(GlassUnitFramesDB.fade, 0.5, "fade saved")
 -- The track only shows past the fill: its clip starts at the fill's moving
 -- edge, so a full bar stays even and the ramp never sits under the fill.
@@ -390,7 +392,7 @@ p.health:SetStatusBarColor(0, 1, 0)
 eq(fillTex._alpha, 0.5, "fill opacity re-applied after a reset")
 -- A caller's alpha is honoured by the fill gradient.
 p.health:SetStatusBarColor(0, 1, 0, 0.5)
-eq(fillTex._gradient[2].a, 0.5, "SetStatusBarColor's alpha kept")
+eq(fillTex._gradient[2].a, 0.25, "SetStatusBarColor's alpha kept (x the fill opacity)")
 -- The same colour again does no work (painters recolour on every event).
 fillTex._gradient = nil
 p.health:SetStatusBarColor(0, 1, 0, 0.5)

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **See-through glass bars.** Health, power, cast and druid mana bars now let the scene show
+  through a little (they draw at 60% opacity), as the glass was always meant to: until now they
+  drew fully opaque. Prefer them solid? `/glass fill 1` (or "Bar fill opacity" in the options),
+  and the slider now really changes them. This comes with the glass library's update to LibGlass
+  r8, which your other glass addons pick up too: the newest copy installed is the one that runs.
 - **Preview every frame and bar.** `/glass preview`, or "Preview all frames" in the options, shows
   every frame with sample data, even with no target, focus or pet: the cast bars loop sample casts
   (with the latency block, pushback, the green and red flashes, a channel and a craft count), the
