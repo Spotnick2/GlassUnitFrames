@@ -35,7 +35,7 @@ local MANA_CLASSES = { DRUID = true, HUNTER = true, MAGE = true, PALADIN = true,
 FiveSecond.enabled = true       -- db.fiveSecondRule == false turns it off
 FiveSecond.combatOnly = true    -- db.fsrCombatOnly == false shows it out of combat too
 
-local S = { state = "idle", gen = 0 }   -- state: idle | window
+local S = { state = "idle", gen = 0 }   -- state: idle | window; preview: the sample loop (#109)
 local strips, dur, ev
 local class
 local combat = false
@@ -93,6 +93,8 @@ local function current()
 end
 
 local function setAlpha(s)
+    -- The preview shows at full mana too.
+    if S.preview then s.clip:SetAlpha(1) return end
     local ok, a = pcall(API.ManaAlpha, "player")
     if ok and (API.IsSecret(a) or type(a) == "number") then
         if attempt("fsr alpha", s.clip.SetAlpha, s.clip, a) then return end
@@ -103,7 +105,8 @@ end
 local function paint()
     if not strips then return end
     local cur = current()
-    local show = FiveSecond.enabled and S.state == "window" and cur ~= nil and (combat or not FiveSecond.combatOnly)
+    local show = FiveSecond.enabled and S.state == "window" and cur ~= nil
+        and (S.preview or combat or not FiveSecond.combatOnly)
     for _, s in pairs(strips) do
         if s ~= cur or not show then s.clip:Hide() end
     end
@@ -149,6 +152,14 @@ local UNIT_EVENTS = { "UNIT_SPELLCAST_SUCCEEDED", "UNIT_POWER_UPDATE", "UNIT_DIS
 local EVENTS = { "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD", "PLAYER_DEAD" }
 
 local function onEvent(_, event, a1, a2, a3)
+    if S.preview then
+        -- The sample owns the strip; combat is still tracked, so a real
+        -- spend right after the preview knows where it stands.
+        if event == "PLAYER_REGEN_DISABLED" then combat = true
+        elseif event == "PLAYER_REGEN_ENABLED" then combat = false
+        elseif event == "PLAYER_ENTERING_WORLD" then readCombat() end
+        return
+    end
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         -- a1 = unit, a2 = castGUID, a3 = spellID
         if costsMana(a3) then startWindow(GetTime()) end
@@ -228,6 +239,24 @@ function FiveSecond.SetCombatOnly(on)
     return strips ~= nil
 end
 
+-- Preview (#109): the red window, 1 s empty, again; shown out of combat and
+-- at full mana. Every switch bumps the generation: no real window's timer
+-- ends a sample one, and no sample timer outlives the preview.
+local function sampleLoop()
+    local gen = setState("window", GetTime(), WINDOW)
+    after(WINDOW, gen, function()
+        after(1, setState("idle"), sampleLoop)
+    end)
+end
+
+function FiveSecond.SetPreview(on)
+    S.preview = on and true or false
+    if not strips then return false end
+    if S.preview and FiveSecond.enabled then sampleLoop() else toIdle() end
+    return true
+end
+
 FiveSecond._test = { state = S, strips = function() return strips end, dur = function() return dur end,
                      costsMana = costsMana, current = current,
+                     onEvent = onEvent, combat = function() return combat end,
                      reset = function() S.state = "idle"; S.gen = S.gen + 1; combat = false end }

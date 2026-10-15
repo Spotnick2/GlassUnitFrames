@@ -726,6 +726,8 @@ function Castbar.Place(c)
     GlassUF.Zoom.Cancel(c.unit)   -- any placement stops a glide: it snaps (#89)
     if c.place then c.place(c) else placeCast(c) end   -- the swing rows place themselves (#87)
     GlassUF.Zoom.Placed(c.unit)   -- its combat outline follows a new size (#89)
+    local P = GlassUF.Preview
+    if P and P.active then P.Placed(c) end   -- a sample follows a new size or side (#109)
 end
 
 function placeCast(c)
@@ -1078,6 +1080,60 @@ function Castbar.SetOption(key, on)
     if key == "craftMerge" and not on and p and p.craft then p.craft.merged, p.craft.holding = false, nil end
     Engine.RepaintChannel("cast")
     return true
+end
+
+--------------------------------------------------------------------------------
+-- Preview (#109): a sample cast on a bar, never the unit's
+--------------------------------------------------------------------------------
+
+-- Forget every cast state, entering and leaving a preview: a real cast, its
+-- pending flash, a batch, the player's tracking. A repaint afterwards shows
+-- what the unit is casting now.
+function Castbar.ResetForPreview(c)
+    c.token = c.token + 1   -- a pending flash's hide never lands
+    Castbar.TokenChanged(c)
+    c.duration, c.channel, c.merged, c.delay, c.chanEnd = nil, nil, false, nil, nil
+    c.castTarget, c.sentTarget, c.sentGUID, c.succeededGUID, c.flashedGUID = nil, nil, nil, nil, nil
+    c.craft, c.craftHold = nil, nil
+    hideLag(c)
+    c.host:Hide()
+end
+
+-- showCast's look from a sample { name, icon, channel, delay, target, count }
+-- and a duration we own: every value plain.
+function Castbar.ShowSample(c, s, d)
+    c.token = c.token + 1
+    c.flashing, c.merged = false, false
+    if not attempt("cast timer", c.bar.SetTimerDuration, c.bar, d, nil, API.TimerDirection(s.channel)) then
+        c.duration = nil
+        hideLag(c)
+        c.host:Hide()
+        return
+    end
+    local col = Castbar.colors[s.channel and "channel" or "cast"]
+    c.bar:SetStatusBarColor(col[1], col[2], col[3])
+    c.duration, c.channel, c.delay = d, s.channel or false, s.delay
+    if s.target and Castbar.options.targetName then c.spell:SetFormattedText("%s -> %s", s.name, s.target)
+    elseif s.count and Castbar.options.craftCount then c.spell:SetFormattedText("%s (%d/%d)", s.name, s.count[1], s.count[2])
+    else c.spell:SetText(s.name) end
+    c.icon:SetTexture(s.icon)
+    c.icon:SetShown(c.iconSide ~= "none")
+    c.spark:SetShown(Castbar.colors.spark[4] > 0)
+    if not attempt("cast latency", paintLag, c, d, s.channel) then hideLag(c) end
+    c.host:Show()
+end
+
+-- A sample's end: the real flash, green or red (no guid: nothing remembered).
+-- A channel, or "complete" with that option off, just hides, as a real one does.
+function Castbar.SampleEnd(c, failed, channel)
+    if failed then flash(c, "Interrupted")
+    elseif not channel and Castbar.options.complete then flash(c, nil, nil, "complete")
+    else
+        c.token = c.token + 1
+        c.duration = nil
+        hideLag(c)
+        c.host:Hide()
+    end
 end
 
 Castbar._test = { lat = lat, mayFlash = mayFlash, SAMPLES = SAMPLES, STALE = STALE, geometry = geometry }

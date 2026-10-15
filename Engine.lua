@@ -72,6 +72,9 @@ end
 local function paint(frame, channel, event, ...)
     local fn = painters[channel]
     if not (fn and frame.channels[channel]) then return end
+    -- Preview mode (#109): a sample owns it, and a repaint with no event
+    -- refreshes the sample instead (Preview.Owns).
+    if Engine.Owned and Engine.Owned(frame, channel, event) then return end
     local ok, err = pcall(fn, frame, event, ...)
     if not ok then API.Fail("painter " .. channel, err) end
 end

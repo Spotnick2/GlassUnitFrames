@@ -454,8 +454,15 @@ function GetTime() return WoW.now end
 function GetNetStats() return unpack(WoW.netStats) end
 function IsShiftKeyDown() return WoW.shift end
 function IsAltKeyDown() return WoW.alt == true end
-function RegisterUnitWatch(frame) WoW.unitWatch[frame] = true end
-function UnregisterUnitWatch(frame) WoW.unitWatch[frame] = nil; frame._unwatched = true end
+-- The client refuses both under lockdown: recorded in WoW.blocked, not applied.
+function RegisterUnitWatch(frame)
+    if WoW.combat then table.insert(WoW.blocked, (frame._name or frame._type) .. ":RegisterUnitWatch") return end
+    WoW.unitWatch[frame] = true
+end
+function UnregisterUnitWatch(frame)
+    if WoW.combat then table.insert(WoW.blocked, (frame._name or frame._type) .. ":UnregisterUnitWatch") return end
+    WoW.unitWatch[frame] = nil; frame._unwatched = true
+end
 
 -- Post-hook a method, as the client does: the original runs first.
 function hooksecurefunc(t, name, fn)

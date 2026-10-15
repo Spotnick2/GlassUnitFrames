@@ -43,7 +43,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 ## Layout
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `FiveSecond.lua` → `Zoom.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `FiveSecond.lua` → `Zoom.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -352,6 +352,27 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     "Reset frame positions" also resets the zoom spots of the edited table.
   - **Options:** its own sub-page, "Combat zoom" (registered after Cast bars): per bar, "zoom in
     combat" and a combat scale; this character's role.
+- **`Preview.lua`** (#109): every frame and bar with sample data, out of combat, session-only
+  (`/glass preview`, a button on the main, Cast bars and Combat zoom pages that closes Settings, and
+  a switch on the unlock dialog). DBM's simulated test bars were the idea.
+  - **Frames:** every unit button but the player's leaves its unit watch (`UnregisterUnitWatch`,
+    `Show`) and shows `Frames.SAMPLES` through `Frames.PaintSample` (plain values: name, health,
+    power, text in the frame's format, level, loss segment, heal prediction, a skull, happiness,
+    three combo pips). The portrait honours the applied mode: the player's model or 2D portrait.
+    The player's frame stays live but for its cast bar and druid mana strip.
+  - **One gate:** Engine's `paint` asks `Engine.Owned` (= `Preview.Owns`) first. A repaint with no
+    event (a setting changed, a frame shown) refreshes the sample instead, so settings changes show
+    on it. `Castbar.Place` calls `Preview.Placed`. `Engine.OnTokenChanged` doesn't reset a sample bar.
+  - **Cast bars** loop `Preview.CYCLES` on durations we own: `Castbar.ShowSample` (showCast's look),
+    `Castbar.SampleEnd` (the real flash, no guid), one generation per bar. `Castbar.ResetForPreview`
+    clears every cast state on the way in and out.
+  - **Swing** and **FiveSecond** have `SetPreview`: their event handlers ignore real events (FiveSecond
+    still tracks combat), the swing range hook and its queued callback make no call, and the strip
+    shows out of combat and at full mana.
+  - **Ending it:** the toggle, `PLAYER_REGEN_DISABLED` (first in the dispatcher, before Movers: the
+    lockdown isn't on yet there), `PLAYER_ENTERING_WORLD`. Stop hides the frames whose unit is
+    plainly gone, re-registers the unit watch (queued under `WhenOutOfCombat("preview")` if the
+    lockdown is somehow on), resets the bars and repaints everything for real.
 - **`Auras.lua`**: the target's buffs and debuffs, drawn by Blizzard's managed aura container
   (`CreateFrame("AuraContainer", …, "CustomAuraContainerTemplate")`, from load-on-demand
   `Blizzard_AuraContainer`). The client picks, sorts and draws the auras, so secret aura data

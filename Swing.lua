@@ -35,7 +35,11 @@ Swing.DETACHED_GAP = DETACHED_GAP   -- the zoom outline sizes the pill from it (
 
 Swing.enabled = true       -- db.swingTimer == false turns the rows off
 Swing.sample = false       -- unlock mode: a detached pill shows every row, idle
+Swing.preview = false      -- preview mode (#109): every row loops a sample swing
+-- Each row's sample: its swing length, and how far into it the loop starts.
+local PREVIEW = { { 2.6, 0 }, { 2.6, 1.3 }, { 2.0, 0 } }
 local c                    -- the swing "bar" (Castbar.bars.swing)
+local sampleSwing
 local byType = {}          -- swing type -> row
 local pending = {}         -- swing type -> a deferred range re-enable is queued
 
@@ -152,6 +156,19 @@ local function start(row, dur)
     c.ticker:Show()
 end
 
+-- A preview swing (#109): `ago` seconds into its sample length. No range
+-- check: the preview never touches the client's range flags.
+sampleSwing = function(row, ago)
+    local len = PREVIEW[row.index][1]
+    local now = GetTime()
+    if not attempt("swing timer", function()
+        row.dur:SetTimeFromStart(now - ago, len)
+        row.bar:SetTimerDuration(row.dur, nil, API.TimerDirection(false))
+    end) then return end
+    row.live, row.endTime = true, now - ago + len
+    c.ticker:Show()
+end
+
 --------------------------------------------------------------------------------
 -- Events
 --------------------------------------------------------------------------------
@@ -160,7 +177,7 @@ local EVENTS = { "PLAYER_SWING", "PLAYER_SWING_RANGE_UPDATE", "PLAYER_TARGET_CHA
                  "PLAYER_ENTERING_WORLD", "PLAYER_DEAD", "PLAYER_IN_COMBAT_CHANGED", "CVAR_UPDATE" }
 
 local function onEvent(_, event, a1, a2, a3)
-    if not (c and Swing.enabled) then return end
+    if not (c and Swing.enabled) or Swing.preview then return end
     if event == "PLAYER_SWING" then
         -- a1 = duration, a2 = type: both plain, a finite duration > 0.
         if not (plain(a1) and plain(a2)) then return end
@@ -198,14 +215,14 @@ end
 -- never inside Blizzard's call: one queued callback per type, and only while
 -- the rows are on and that row still shows.
 local function onRangeCheck(t, on)
-    if not (plain(on) and plain(t)) or on ~= false or pending[t] then return end
+    if Swing.preview or not (plain(on) and plain(t)) or on ~= false or pending[t] then return end
     local row = byType[t]
     if not (Swing.enabled and row and row.visible) then return end
     pending[t] = true
     C_Timer.After(0, function()
         pending[t] = nil
         local r = byType[t]
-        if Swing.enabled and r and r.visible then enableRange(t) end
+        if Swing.enabled and not Swing.preview and r and r.visible then enableRange(t) end
     end)
 end
 
@@ -295,6 +312,8 @@ function Swing.Build(b, db)
                 local left = row.endTime - now
                 if left <= 0 then
                     setIdle(row)
+                    -- Preview: the sample swings again.
+                    if Swing.preview then sampleSwing(row, 0); any = true end
                 else
                     any = true
                     if row.text:IsShown() then row.text:SetFormattedText("%.1f", left) end
@@ -343,6 +362,29 @@ end
 function Swing.SetSample(on)
     Swing.sample = on and true or false
     layout()
+end
+
+-- Preview mode (#109): every row shows, looping its sample swing, in range.
+-- Off: every row idle and gone (the preview runs out of combat), whatever the
+-- combat check says; the unlock sample (Swing.sample) is left as it is.
+function Swing.SetPreview(on)
+    Swing.preview = on and true or false
+    if not c then return false end
+    for _, row in ipairs(c.rows) do
+        if Swing.preview then
+            if Swing.enabled then
+                row.visible = true
+                setOutOfRange(row, false)
+                sampleSwing(row, PREVIEW[row.index][2])
+            end
+        else
+            setIdle(row)
+            row.visible = false
+        end
+    end
+    if not Swing.preview then c.ticker:Hide() end
+    layout()
+    return true
 end
 
 -- Blizzard's own swing bars: its "Enable Swing Timer" option (a CVar). Read

@@ -529,7 +529,7 @@ local function makeDialog()
     local d = CreateFrame("Frame", nil, UIParent)
     d:SetFrameStrata("DIALOG")
     d:SetFrameLevel(90)   -- under the nudge panel (100), over the movers (10)
-    d:SetSize(460, 66)
+    d:SetSize(560, 66)
     d:SetPoint("TOP", UIParent, "TOP", 0, -40)
     d:SetClampedToScreen(true)
     d:EnableMouse(true)
@@ -552,6 +552,11 @@ local function makeDialog()
     d.snapAlign:SetPoint("LEFT", d.snapGrid, "RIGHT", 82, 0)
     d.mirror = makeToggle(d, "Mirror player / target", Movers.mirror, function(on) GlassUF.Settings.SetMirror(on) end)
     d.mirror:SetPoint("LEFT", d.snapAlign, "RIGHT", 92, 0)
+    -- Preview (#109): place frames and bars while they animate.
+    d.preview = makeToggle(d, "Preview", GlassUF.Preview.active, function(on)
+        d.preview:SetChecked(GlassUF.Settings.SetPreview(on))
+    end)
+    d.preview:SetPoint("LEFT", d.mirror, "RIGHT", 140, 0)
     d:Hide()
     return d
 end
@@ -682,6 +687,7 @@ function Movers.Unlock()
         movers[id] = movers[id] or makeMover(src)
         movers[id]:Show()
     end
+    Movers.SyncPreview()
     dialog:Show()
     select_("target")
     return true
@@ -723,6 +729,11 @@ function Movers.Load(db)
     Movers.snapGrid = db.snapGrid ~= false
     Movers.snapAlign = db.snapAlign ~= false
     Movers.mirror = db.mirror ~= false
+end
+
+-- The preview went on or off (GlassUF.Settings.SetPreview): the dialog's switch follows.
+function Movers.SyncPreview()
+    if dialog and dialog.preview then dialog.preview:SetChecked(GlassUF.Preview.active) end
 end
 
 -- Mirroring on or off (GlassUF.Settings.SetMirror saves it).
