@@ -1,7 +1,0 @@
-## Interface: 16001
-## Title: GlassProbe
-## Notes: Throwaway visual probe for the GlassUnitFrames liquid-glass material. /gprobe help
-## Author: Spotnick
-## Version: dev
-
-GlassProbe.lua

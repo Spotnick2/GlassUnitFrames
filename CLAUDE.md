@@ -481,11 +481,15 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   `RegisterCanvasLayoutSubcategory`, right after the main page, and hidden at creation. The column helpers take the page they lay out on (`column(x, y, parent)`),
   and `slider` takes `{ label, min, max, step, get, set }` (`tunableSlider` for the material
   knobs).
-- **`tests/`**: see Testing. `Tools/GlassProbe/` is the throwaway material probe;
-  `Tools/CastProbe/` is the throwaway cast/swing event trace for #72 and the later cast-bar PRs
-  (deployed with `Tools\deploy.ps1 -CastProbe`). Typed `/cprobe` didn't dispatch in game,
-  although `SlashCmdList.CASTPROBE` was registered (cause unknown), so drive it with
-  `/run SlashCmdList.CASTPROBE("status")` (or `hier`, `mark <text>`, `dump`).
+- **`tests/`**: see Testing. `Tools/CastProbe/` is the throwaway probe: the cast, swing, craft and
+  mana event trace behind #72–#108. It's a **ForeverProbe module** (#112; the shared host at
+  `..\ForeverProbe`, `C:\Projects\WoW\References\PROBES.md`): `/fp cast` lists its commands
+  (`status`, `mark <text>`, `cd`, `hier`, `clear`), its lines go to the `/fp` console and
+  `CastProbeDB.log`, never chat. Deploy it with `Tools\deploy.ps1 -Probe` (the host first). A
+  new in-game experiment is a guided procedure (`Probe:Steps`), not a chat checklist. Its test
+  (`test_castprobe.lua`) loads the host from the checkout, so it runs locally only (CI sets
+  `FOREVERPROBE_OPTIONAL=1`). GlassProbe, the material probe from before LibGlass, was retired in
+  #112 (LibGlass's own probe, `/fp lg`, replaced it; its files are in history).
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla
 content and the Retail API. `WOW_PROJECT_ID == WOW_PROJECT_MAINLINE`. Advice that cites a TBC or
@@ -585,17 +589,17 @@ not a newer Lua that may be first on `PATH`.
 & 'C:\Program Files (x86)\Lua\5.1\luac.exe' -p File.lua             # syntax check; silent on success
 pwsh tests\run.ps1                                                   # luac -p on our TOC files + every tests\test_*.lua
 & 'C:\Program Files (x86)\Lua\5.1\lua.exe' tests\test_frames.lua    # one test, run from the repo root
-pwsh Tools\deploy.ps1                                                # the addon + its LibGlass into AddOns (-Probe adds GlassProbe)
+pwsh Tools\deploy.ps1                                                # the addon + its LibGlass into AddOns (-Probe adds CastProbe + ForeverProbe)
 bash tests/fetch_libglass.sh <dir>                                   # clone LibGlass at the .pkgmeta pin (what CI does)
 ```
 
 The tests and the deploy need a LibGlass checkout: `..\LibGlass`, or `$env:LIBGLASS`. Without one
-they fail loudly rather than skip.
+they fail loudly rather than skip. The probe's test and `-Probe` also need a ForeverProbe checkout
+(`..\ForeverProbe`, or `$env:FOREVERPROBE`).
 
-`Tools\GlassProbe\` is the throwaway material probe (`/gprobe help` in game). Its earlier rim and
-sheen iterations live in `Tools\GlassProbe\Media\` as frozen artefacts (the generator that made
-them is in history at `09b6f0d`); its deploy adds LibGlass's current textures. Textures are
-generated, never hand-edited: LibGlass's `Tools\make_textures.py`. On 70009 a **new texture file
+The retired GlassProbe's rim and sheen iterations are frozen in history (`Tools\GlassProbe\Media\`
+before #112; the generator that made them at `09b6f0d`). Textures are generated, never
+hand-edited: LibGlass's `Tools\make_textures.py`. On 70009 a **new texture file
 loads after `/reload`** (measured, `docs\FOREVER-PROBE.md`); only a brand-new addon folder needs
 a full client restart.
 

@@ -47,6 +47,8 @@ jobs:
 
       # Without the API dump (local only), test_methods skips the method check.
       - name: Unit tests
+        env:
+          FOREVERPROBE_OPTIONAL: "1"   # ForeverProbe is private and local: the probe test runs locally
         run: |
           for f in tests/test_*.lua; do
             echo "-- $f"
