@@ -354,6 +354,8 @@ function Swing.SetEnabled(on)
         end
         c.ticker:Hide()
     end
+    -- On again during a preview (#109): its sample rows run again.
+    if Swing.enabled and Swing.preview then return Swing.SetPreview(true) end
     layout()
     return true
 end

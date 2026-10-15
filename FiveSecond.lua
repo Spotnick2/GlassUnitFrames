@@ -229,6 +229,8 @@ function FiveSecond.SetEnabled(on)
     FiveSecond.enabled = on and true or false
     if not strips then return false end
     if FiveSecond.enabled then register(); readCombat() else ev:UnregisterAllEvents() end
+    -- On again during a preview (#109): the sample loop restarts.
+    if FiveSecond.enabled and S.preview then return FiveSecond.SetPreview(true) end
     toIdle()
     return true
 end

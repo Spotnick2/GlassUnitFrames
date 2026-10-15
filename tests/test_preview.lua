@@ -158,6 +158,27 @@ adv(0.5)
 WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-3-1", MANA_SPELL)
 eq(F._test.dur()._start, sampleStart, "a real spend doesn't restart the sample window")
 
+-- The swing timer and the five-second rule turned off and on during the
+-- preview: off hides their samples, on brings them back looping.
+S.SetSwingTimer(false)
+for i, row in ipairs(rows) do check(not row.bar._shown, "swing off: row " .. i .. " gone") end
+S.SetSwingTimer(true)
+for i, row in ipairs(rows) do check(row.bar._shown and row.live, "swing on again: row " .. i .. " runs") end
+S.SetFiveSecond(false)
+check(not strip.clip._shown, "five-second rule off: hidden")
+S.SetFiveSecond(true)
+check(strip.clip._shown and F._test.state.state == "window", "on again: the sample window")
+adv(6.1)
+check(strip.clip._shown, "and it loops")
+-- Off before the preview starts, on during it: the same.
+S.SetPreview(false)
+S.SetSwingTimer(false); S.SetFiveSecond(false)
+S.SetPreview(true)
+check(not rows[1].bar._shown and not strip.clip._shown, "off at the start: no sample")
+S.SetSwingTimer(true); S.SetFiveSecond(true)
+check(rows[1].bar._shown and rows[1].live and strip.clip._shown, "turned on during the preview: both samples run")
+while not loops.player.showing do adv(0.125) end
+
 -- Settings changed during the preview: the sample follows, its step kept.
 while not loops.player.showing do adv(0.125) end
 local stepDur = loops.player.dur
