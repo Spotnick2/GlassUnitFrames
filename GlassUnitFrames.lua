@@ -216,6 +216,7 @@ local HELP = {
     "mirror on|off  - unlock mode: moving the player or target frame mirrors the other (saved)",
     "snap grid|align on|off  - unlock mode: snap to the grid / align to other frames (saved)",
     "unlock | lock  - move frames: drag (the target carries its group, the player its pet), click to nudge x/y",
+    "preview  - every frame and bar with sample data, on or off (out of combat; combat ends it)",
     "reset  - move frames back to the default layout (after combat if in combat)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
@@ -284,6 +285,25 @@ function Settings_.Unlock()
         say("can't unlock frames in combat")
     end
     return ok
+end
+
+-- Preview mode (#109): every frame and bar with sample data. Refused in
+-- combat; never saved. Returns whether it is on afterwards.
+function Settings_.SetPreview(on)
+    local P = GlassUF.Preview
+    if on and not P.active then
+        local ok, why = P.Start()
+        if ok then
+            say("preview on: every frame and bar shows sample data. /glass preview again to stop; combat stops it")
+        elseif why == "combat" then
+            say("can't preview in combat")
+        end
+    elseif not on and P.active then
+        P.Stop()
+        say("preview off")
+    end
+    GlassUF.Movers.SyncPreview()
+    return P.active
 end
 
 -- Unlock-mode snapping ("snapGrid" / "snapAlign"), saved only when off.
@@ -540,6 +560,8 @@ local function slash(msg)
         else
             say("snap grid|align on|off  (Alt while dragging places freely)")
         end
+    elseif cmd == "preview" then
+        Settings_.SetPreview(not GlassUF.Preview.active)
     elseif cmd == "lock" then
         Settings_.Lock()
         say("frames locked")
@@ -596,6 +618,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             if db.hideBlizzard and t and t.combo then Blizzard.HideFrame("ComboFrame") end
         end, "frames will appear when combat ends")
     elseif event == "PLAYER_ENTERING_WORLD" then
+        GlassUF.Preview.OnCombat()   -- a loading screen ends the preview (#109)
         -- The combat zoom's starting state (a /reload in combat, #89).
         GlassUF.Zoom.OnCombat(InCombatLockdown())
         -- arg1 = isInitialLogin: warn at a real login, never on /reload. Dev
@@ -605,6 +628,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
                 .. GlassUF.MEASURED_ON_BUILD .. "). Things may misbehave until it is re-checked.")
         end
     elseif event == "PLAYER_REGEN_DISABLED" then
+        -- The preview first (#109): its unit buttons get their watch back while
+        -- the lockdown isn't on yet (measured: false inside this handler).
+        GlassUF.Preview.OnCombat()
         GlassUF.Movers.OnCombat()   -- unlock mode ends: protected frames can't move in combat
         GlassUF.Zoom.OnCombat(true)   -- then the bars go to their combat spots (#89)
     elseif event == "PLAYER_REGEN_ENABLED" then

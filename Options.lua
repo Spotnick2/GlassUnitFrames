@@ -98,6 +98,7 @@ end
 local function place(col, region, height, indent)
     region:SetPoint("TOPLEFT", col.parent, "TOPLEFT", col.x + (indent or 0), col.y)
     col.y = col.y - height
+    return region
 end
 
 local function header(col, text)
@@ -270,19 +271,26 @@ end
 -- Shipped look back (knobs and font), saved values forgotten.
 function Options.ResetLook() GlassUF.Settings.ResetLook() end
 
+-- Close through the panel's own Close (it commits or prompts for other
+-- pages' changes), not a bare hide. Close(true) skips the transition back to
+-- the Game Menu: plain Close() reopens it from our (tainted) call, and its Esc
+-- handler's protected SpellStopCasting is then blamed on us
+-- (ADDON_ACTION_FORBIDDEN, measured in game by GlassRaidFrames and by the
+-- owner here).
+local function closeSettings()
+    local sp = rawget(_G, "SettingsPanel")
+    if sp and type(sp.Close) == "function" then pcall(sp.Close, sp, true)
+    elseif sp and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, sp) end
+end
+
 -- Unlock, closing the Settings window, or the movers would sit behind it.
 function Options.Unlock()
-    if GlassUF.Settings.Unlock() then
-        -- Close through the panel's own Close (it commits or prompts for
-        -- other pages' changes), not a bare hide. Close(true) skips the
-        -- transition back to the Game Menu: plain Close() reopens it from our
-        -- (tainted) call, and its Esc handler's protected SpellStopCasting is
-        -- then blamed on us (ADDON_ACTION_FORBIDDEN, measured in game by
-        -- GlassRaidFrames and by the owner here).
-        local sp = rawget(_G, "SettingsPanel")
-        if sp and type(sp.Close) == "function" then pcall(sp.Close, sp, true)
-        elseif sp and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, sp) end
-    end
+    if GlassUF.Settings.Unlock() then closeSettings() end
+end
+
+-- Preview (#109), closing the Settings window, or the frames would sit behind it.
+function Options.Preview()
+    if GlassUF.Settings.SetPreview(true) then closeSettings() end
 end
 
 local function build()
@@ -393,6 +401,7 @@ local function build()
 
     header(right, "Positions")
     place(right, button(content, "Unlock frames", 190, Options.Unlock), 30, 4)
+    controls.preview = place(right, button(content, "Preview all frames", 190, Options.Preview), 30, 4)
     place(right, button(content, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
 
     -- Tall enough for the taller column; the scroll bar appears once that
@@ -553,6 +562,7 @@ local function buildCast()
 
     header(left, "Positions")
     place(left, button(castPage, "Unlock frames", 190, Options.Unlock), 30, 4)
+    controls.castPreview = place(left, button(castPage, "Preview all bars", 190, Options.Preview), 30, 4)
     note(left, "Drag a detached bar; its panel sets X / Y, size and scale, or Attach.", 340)
 
     -- The swing timer (#87): ours, and Blizzard's own option (a CVar, clicked only).
@@ -698,6 +708,7 @@ local function buildZoom()
     note(right, "Pick a role here to edit its settings.", 330)
     header(right, "Combat spots")
     place(right, button(zoomPage, "Unlock frames", 190, Options.Unlock), 30, 4)
+    place(right, button(zoomPage, "Preview all bars", 190, Options.Preview), 30, 4)
     note(right, "Each bar that zooms shows a yellow outline at its combat spot: drag it.", 330)
 end
 

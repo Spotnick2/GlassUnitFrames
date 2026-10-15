@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Preview every frame and bar.** `/glass preview`, or "Preview all frames" in the options, shows
+  every frame with sample data, even with no target, focus or pet: the cast bars loop sample casts
+  (with the latency block, pushback, the green and red flashes, a channel and a craft count), the
+  swing timer runs all three rows, and the five-second line drains. So you can check a colour, a
+  size or a spot without setting up the fight that shows it. Your own frame keeps its real numbers.
+  It works with unlock mode (a Preview switch on the unlock box), and a fight or a loading screen
+  ends it. Out of combat only.
 - **The five-second rule on your mana bar.** A thin red line along the bottom of your mana bar
   drains through the 5 seconds after a spell that costs mana, while your spirit regen is paused.
   When it's gone, regen is back. It hides at full mana. As a druid in bear or cat form, it shows

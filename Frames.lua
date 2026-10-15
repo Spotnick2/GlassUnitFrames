@@ -709,6 +709,127 @@ Engine.SetPainter("heal", function(f)
 end)
 
 --------------------------------------------------------------------------------
+-- Preview (#109): sample data on a frame, plain values only
+--------------------------------------------------------------------------------
+
+-- Each frame's sample: a name, a colour (or a class), level, health and power.
+Frames.SAMPLES = {
+    target = { name = "Sample Target", color = HOSTILE, level = "60 Elite", hp = 8400, maxHp = 12000,
+               pow = 2700, maxPow = 6000, mark = 8 },
+    focus = { name = "Sample Focus", color = FRIENDLY, level = "60", hp = 7650, maxHp = 9000, pow = 3600, maxPow = 6000 },
+    pet = { name = "Sample Pet", color = FRIENDLY, level = "58", hp = 2700, maxHp = 3000, pow = 1400, maxPow = 2000 },
+    targettarget = { name = "Sample ToT", class = "PRIEST", hp = 4000, maxHp = 4000 },
+    targettargettarget = { name = "Sample ToTT", class = "MAGE", hp = 3500, maxHp = 3500 },
+    focustarget = { name = "Sample Focus Target", class = "WARRIOR", hp = 5000, maxHp = 6000 },
+}
+
+-- Frames.TEXT's formats, from plain numbers.
+local function pct(cur, max) return max > 0 and cur / max * 100 or 0 end
+local SAMPLE_TEXT = {
+    perhp = function(fs, cur, max) fs:SetFormattedText("%.0f%%", pct(cur, max)) end,
+    curhp = function(fs, cur) fs:SetText(AbbreviateNumbers(cur)) end,
+    curmaxhp = function(fs, cur, max) fs:SetFormattedText("%s/%s", AbbreviateNumbers(cur), AbbreviateNumbers(max)) end,
+    curmaxhp_perhp = function(fs, cur, max)
+        fs:SetFormattedText("%s/%s | %.0f%%", AbbreviateNumbers(cur), AbbreviateNumbers(max), pct(cur, max))
+    end,
+}
+SAMPLE_TEXT.perpp, SAMPLE_TEXT.curpp, SAMPLE_TEXT.curmaxpp = SAMPLE_TEXT.perhp, SAMPLE_TEXT.curhp, SAMPLE_TEXT.curmaxhp
+
+local function sampleText(fs, kind, cur, max)
+    if not fs then return end
+    local fn = kind and SAMPLE_TEXT[kind]
+    if fn then fn(fs, cur, max) else fs:SetText("") end
+end
+
+-- The portrait in the frame's applied mode: the player's model (or 2D
+-- portrait), as SUF's config mode does; nothing with no tile.
+local function samplePortrait(f)
+    if not f.model then return end
+    f.portraitToken = (f.portraitToken or 0) + 1   -- a pending real retry never lands
+    if f.portraitMode == "none" then return end
+    if f.portraitMode == "2d" then show2D(f, "player") return end
+    if attempt("portrait", function()
+        f.model:ClearModel()
+        f.model:SetUnit("player")
+        f.model:SetPortraitZoom(1)
+        f.model:SetPosition(0, 0, 0)
+    end) then show3D(f) end
+end
+
+Frames.SamplePortrait = samplePortrait
+
+-- The whole sample (the portrait too with `portrait`: a model load, so only
+-- when the preview starts or the portrait channel asks).
+function Frames.PaintSample(f, portrait)
+    local s = Frames.SAMPLES[f.unit]
+    if not s then return end
+    local col = s.color
+    if s.class then
+        local r, g, b = API.ClassColor(s.class)
+        col = r and { r, g, b } or FRIENDLY
+    end
+    Glass.SetBar(f.health, s.maxHp, s.hp, true)
+    f.health:SetStatusBarColor(col[1], col[2], col[3])
+    -- A real loss already queued applies nothing (its timer reads lossPending).
+    f.lossPending = nil
+    if f.lossBar then
+        f.lossBar:SetMinMaxValues(0, s.maxHp)
+        f.lossBar:SetValue(s.maxHp * 0.8)
+    end
+    if f.healPred then Glass.SetBar(f.healPred, s.maxHp, s.maxHp * 0.15, true) end
+    local pos = f.levelText and Frames.LevelPosOf(f)
+    local lvl = (pos == "name" and s.level) and (s.level .. " ") or ""
+    f.nameText:SetFormattedText("%s%s", lvl, s.name)
+    if f.levelText then
+        f.levelText:SetText(pos == "power" and s.level or "")
+        if f.levelOnTile then f.levelOnTile:SetText(pos == "portrait" and s.level or "") end
+    end
+    sampleText(f.valueText, Frames.healthFormat[f.unit] or (f.layout.text and f.layout.text.healthRight), s.hp, s.maxHp)
+    if f.power and s.maxPow then
+        Glass.SetBar(f.power, s.maxPow, s.pow, true)
+        local pc = POWER_COLORS.MANA
+        f.power:SetStatusBarColor(pc[1], pc[2], pc[3])
+        local t = f.layout.text or {}
+        sampleText(f.powerLeftText, t.powerLeft, s.pow, s.maxPow)
+        sampleText(f.powerText, t.powerRight, s.pow, s.maxPow)
+        for _, region in ipairs(f.powerRegions) do region:SetAlpha(1) end
+    end
+    if portrait then samplePortrait(f) end
+    local ind = f.indicators
+    if ind then
+        if ind.raidTarget then
+            if s.mark and pcall(ind.raidTarget.SetSpriteSheetCell, ind.raidTarget, s.mark, 4, 4) then
+                ind.raidTarget:Show()
+            else
+                ind.raidTarget:Hide()
+            end
+            anchorName(f, ind.raidTarget:IsShown())
+        end
+        for _, k in ipairs({ "leader", "masterLoot", "pvp", "resting" }) do
+            if ind[k] then ind[k]:Hide() end
+        end
+        if ind.happiness then
+            local cell = HAPPINESS_CELLS[3]
+            ind.happiness:SetTexCoord(cell[1], cell[2], 0, 0.359375)
+            ind.happiness:Show()
+        end
+    end
+    -- Combo points (rogue, druid): three of five.
+    if f.combo then
+        f.combo.holder:Show()
+        for i, pip in ipairs(f.combo.pips) do pip:SetAlpha(i <= 3 and 1 or 0) end
+    end
+end
+
+-- The player's druid mana strip, shown at 60% whatever the form.
+function Frames.PaintDruidManaSample(f)
+    local d = f.druidMana
+    if not d then return end
+    d.host:Show()
+    Glass.SetBar(d.bar, 100, 60, true)
+end
+
+--------------------------------------------------------------------------------
 -- Building
 --------------------------------------------------------------------------------
 
@@ -1340,7 +1461,8 @@ end
 -- target's cast flash.
 Engine.OnTokenChanged = function(base)
     local f = Frames.byUnit[base]
-    if f and f.cast then GlassUF.Castbar.TokenChanged(f.cast) end   -- the old unit's cast state is not the new one's
+    -- The old unit's cast state is not the new one's; a preview's sample is its own (#109).
+    if f and f.cast and not GlassUF.Preview.active then GlassUF.Castbar.TokenChanged(f.cast) end
     if base ~= "target" then return end
     local t = f
     if t and t.auraContainers then GlassUF.Auras.Refresh(t) end

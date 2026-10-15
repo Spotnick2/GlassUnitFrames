@@ -14,6 +14,7 @@ Castbar.lua
 Swing.lua
 FiveSecond.lua
 Zoom.lua
+Preview.lua
 Auras.lua
 Blizzard.lua
 Movers.lua
