@@ -1,5 +1,5 @@
 <#
-    deploy.ps1 - Copy GlassUnitFrames (and optionally GlassProbe) into the Forever AddOns folder.
+    deploy.ps1 - Copy GlassUnitFrames (and optionally its probe) into the Forever AddOns folder.
 
     The repo keeps "## Version: @project-version@" for the packager; the deployed
     copy gets "dev". The repo copy is never modified.
@@ -10,19 +10,21 @@
     checkout, copies only the shipped files and prints its commit. The checkout
     is $env:LIBGLASS, else ..\LibGlass.
 
+    The probe, CastProbe, is a ForeverProbe module (#112): its host is deployed
+    first from the ForeverProbe checkout ($env:FOREVERPROBE, else ..\ForeverProbe),
+    by that checkout's own deploy.ps1.
+
     Usage:
         pwsh Tools/deploy.ps1               # GlassUnitFrames + its LibGlass
-        pwsh Tools/deploy.ps1 -Probe        # ...and GlassProbe
-        pwsh Tools/deploy.ps1 -ProbeOnly    # just GlassProbe
-        pwsh Tools/deploy.ps1 -CastProbe    # ...and CastProbe (the #72 event trace)
+        pwsh Tools/deploy.ps1 -Probe        # ...and CastProbe, with ForeverProbe
+        pwsh Tools/deploy.ps1 -ProbeOnly    # just CastProbe, with ForeverProbe
         pwsh Tools/deploy.ps1 -AddOnsPath "D:\...\_classic_beta_\Interface\AddOns"
 #>
 
 param(
     [string]$AddOnsPath = "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns",
     [switch]$Probe,
-    [switch]$ProbeOnly,
-    [switch]$CastProbe
+    [switch]$ProbeOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -88,39 +90,34 @@ function Deploy-Addon {
     }
 }
 
-# The probe is standalone (its own MEDIA path): it gets its 12 legacy textures
-# from Tools\GlassProbe\Media and the 15 current ones from the LibGlass checkout.
-function Deploy-Probe {
-    $dest = Join-Path $AddOnsPath "GlassProbe"
-    Write-Host "Deploying GlassProbe -> $dest" -ForegroundColor Cyan
-    New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\GlassProbe") -File | ForEach-Object {
-        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dest $_.Name) -Force
-        Write-Host "  $($_.Name)"
-    }
-    $media = Join-Path $dest "Media"
-    New-Item -ItemType Directory -Force -Path $media | Out-Null
-    $textures = @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\GlassProbe\Media") -Filter "*.tga") +
-                @(Get-ChildItem -LiteralPath (Join-Path $LibGlass "Media") -Filter "*.tga")
-    foreach ($t in $textures) { Copy-Item -LiteralPath $t.FullName -Destination (Join-Path $media $t.Name) -Force }
-    Write-Host "  Media\  ($($textures.Count) textures)"
-}
+# CastProbe: the host first (its deploy checks the checkout and may refuse,
+# and a refusal leaves the probe as it was), then the module's two files.
+$ForeverProbe = if ($env:FOREVERPROBE) { $env:FOREVERPROBE } else { Join-Path (Split-Path -Parent $RepoRoot) "ForeverProbe" }
 
-# CastProbe is a plain event trace: two files, no media, no library.
-function Deploy-CastProbe {
+function Deploy-Probe {
+    if (-not (Test-Path -LiteralPath (Join-Path $ForeverProbe "Tools\deploy.ps1"))) {
+        Write-Error "ForeverProbe checkout not found at $ForeverProbe (or set `$env:FOREVERPROBE)"; exit 1
+    }
+    & pwsh -NoProfile -File (Join-Path $ForeverProbe "Tools\deploy.ps1") -AddOnsPath $AddOnsPath
+    if ($LASTEXITCODE -ne 0) { Write-Error "ForeverProbe deploy refused; CastProbe was not touched"; exit 1 }
     $dest = Join-Path $AddOnsPath "CastProbe"
     Write-Host "Deploying CastProbe -> $dest" -ForegroundColor Cyan
     New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\CastProbe") -File | ForEach-Object {
-        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dest $_.Name) -Force
-        Write-Host "  $($_.Name)"
+    Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\CastProbe") -File |
+        Where-Object { $_.Extension -in ".toc", ".lua" } | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dest $_.Name) -Force
+            Write-Host "  $($_.Name)"
+        }
+    # GlassProbe was retired (#112); an old deployed copy would still load.
+    $old = Join-Path $AddOnsPath "GlassProbe"
+    if (Test-Path -LiteralPath $old) {
+        Write-Host "  NOTE: $old is the retired GlassProbe; delete it when convenient" -ForegroundColor DarkYellow
     }
 }
 
 if (-not $ProbeOnly) { Deploy-Addon }
 if ($Probe -or $ProbeOnly) { Deploy-Probe }
-if ($CastProbe) { Deploy-CastProbe }
 
 Write-Host ""
-Write-Host "Changed or new files: /reload is enough (measured on 70009). A brand-new addon folder needs a client restart." -ForegroundColor Yellow
+Write-Host "/reload loads changed files and new addon folders alike (ForeverProbe guide, section 7)." -ForegroundColor Yellow
 Write-Host "In game:  /console scriptErrors 1   then   /glass help" -ForegroundColor Green

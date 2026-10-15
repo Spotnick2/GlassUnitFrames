@@ -452,6 +452,8 @@ function GetBuildInfo() return "1.60.1", "70338", "Oct  9 2026", 16001 end
 function InCombatLockdown() return WoW.combat end
 function GetTime() return WoW.now end
 function GetNetStats() return unpack(WoW.netStats) end
+-- Plain out of combat (6.501, 0.001 on a level-10 druid), secret in combat: measured, #94.
+function GetManaRegen() return 6.501, 0.001 end
 function IsShiftKeyDown() return WoW.shift end
 function IsAltKeyDown() return WoW.alt == true end
 -- The client refuses both under lockdown: recorded in WoW.blocked, not applied.

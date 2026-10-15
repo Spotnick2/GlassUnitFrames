@@ -1,27 +1,28 @@
--- CastProbe: the phase-0 event trace for GlassUnitFrames #72 (cast latency and
--- pushback), plus the cheap checks later cast-bar PRs are gated on (swing
--- events, the shared range check, tradeskill requests, a UIParent cast host
--- anchored to the secure player button). Throwaway, never shipped (.pkgmeta
--- ignores Tools). Every client value is classified before it is printed:
--- S = secret; nothing secret is compared, formatted or concatenated.
+-- CastProbe: the event trace behind GlassUnitFrames' cast bars (#72 latency
+-- and pushback), and the checks later PRs were gated on: swing events, the
+-- shared range check, tradeskill batches (#91), mana and the five-second rule
+-- (#94, #108), a UIParent cast host anchored to the secure player button.
+-- Throwaway, never shipped (.pkgmeta ignores Tools). Every client value is
+-- classified before it is logged: S = secret; nothing secret is compared,
+-- formatted or concatenated.
 --
--- /cprobe help
+-- A ForeverProbe module (#112): its lines go to the /fp console and its own
+-- saved log, never to chat. /fp cast lists the commands.
 
-CastProbeDB = CastProbeDB or {}
-
+local ADDON, NS = ...
 local LOG_MAX = 4000
-local PREFIX = "|cffffb347CastProbe|r "
+
+local Probe = ForeverProbe:Module("CastProbe", { api = 1, cmd = "cast" })
 
 local isSecretFn = rawget(_G, "issecretvalue")
 local function secret(v) return isSecretFn ~= nil and isSecretFn(v) == true end
 
-local chat = true        -- echo to chat as well as the log
 local cdEvents = false   -- SPELL_UPDATE_COOLDOWN is noisy: off until asked for
 local lastT
 local sent = {}          -- castGUID -> GetTime() at SENT (plain guids only)
 local failed = {}        -- registrations or hooks that didn't take
 
-local function say(msg) print(PREFIX .. msg) end
+local function say(msg) Probe:Say(msg) end
 
 local function fmt(v)
     local ok, s = pcall(function()
@@ -50,15 +51,13 @@ local function fmtArgs(a, first)
     return table.concat(out, " ")
 end
 
+-- A trace line: the host stamps the time; the gap since the previous trace
+-- line goes first, which is what reading an event order needs.
 local function log(line)
     local now = GetTime()
     local dt = lastT and string.format("+%.3f", now - lastT) or "     "
     lastT = now
-    local full = string.format("%.3f %s %s", now, dt, line)
-    local L = CastProbeDB.log
-    L[#L + 1] = full
-    if #L > LOG_MAX then table.remove(L, 1) end
-    if chat then say(full) end
+    say(dt .. " " .. line)
 end
 
 -- A plain string, or nil (secret or not a string): safe to use as a key.
@@ -128,8 +127,8 @@ local UNIT_EVENTS = {
     "UNIT_POWER_FREQUENT",
 }
 local WORLD_EVENTS = {
+    -- ADDON_ACTION_BLOCKED / FORBIDDEN: the host's baseline logs them.
     "CURRENT_SPELL_CAST_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
-    "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN",
     "PLAYER_SWING", "PLAYER_SWING_RANGE_UPDATE", "WEAPON_SLOT_CHANGED",
     "MIRROR_TIMER_START", "MIRROR_TIMER_PAUSE", "MIRROR_TIMER_STOP",
     "SPELL_UPDATE_COOLDOWN",
@@ -178,7 +177,7 @@ local function onEvent(_, event, ...)
             sent[guid] = GetTime()
         elseif (event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START") and guid then
             local s = sent[guid]
-            line = line .. (s and string.format(" |cffff6060sent->start=%dms|r", (GetTime() - s) * 1000) or " (no SENT for this guid)")
+            line = line .. (s and string.format(" sent->start=%dms", (GetTime() - s) * 1000) or " (no SENT for this guid)")
             sent[guid] = nil
         elseif (event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_FAILED_QUIET") and guid then
             sent[guid] = nil
@@ -243,19 +242,18 @@ local function onEvent(_, event, ...)
         end
         log(line)
     end)
-    if not ok then log("|cffff6060handler ERR|r " .. event .. ": " .. tostring(err)) end
+    if not ok then log("handler ERR " .. event .. ": " .. tostring(err)) end
 end
 f:SetScript("OnEvent", onEvent)
 
+-- World events through the host's helper (it logs a throw or a refusal);
+-- unit events by hand: the host has no RegisterUnitEvent.
 local function register()
     for _, e in ipairs(UNIT_EVENTS) do
         local ok, res = pcall(f.RegisterUnitEvent, f, e, "player")
         if not ok or res == false then failed[#failed + 1] = e .. (ok and " refused" or (": " .. tostring(res))) end
     end
-    for _, e in ipairs(WORLD_EVENTS) do
-        local ok, res = pcall(f.RegisterEvent, f, e)
-        if not ok or res == false then failed[#failed + 1] = e .. (ok and " refused" or (": " .. tostring(res))) end
-    end
+    if not Probe:RegisterEvents(f, WORLD_EVENTS) then failed[#failed + 1] = "a world event (see the lines above)" end
 end
 
 -- Post-hooks: they observe, never replace. A missing namespace is a failure line.
@@ -298,12 +296,12 @@ end
 
 local function step(name, fn)
     local ok, err = pcall(fn)
-    log(string.format("hier %s: %s", name, ok and "ok" or ("|cffff6060ERR|r " .. tostring(err))))
+    log(string.format("hier %s: %s", name, ok and "ok" or ("ERR " .. tostring(err))))
 end
 
 local function runHier()
     if not hier then
-        if InCombatLockdown() then say("build it once out of combat first: /cprobe hier") return end
+        if InCombatLockdown() then say("build it once out of combat first: /fp cast hier") return end
         hier = buildHier()
         if not hier then return end
     end
@@ -343,62 +341,43 @@ local function status()
     log(table.concat(parts, " "))
     log("snapshot " .. castSnapshot())
     if #failed > 0 then
-        for _, e in ipairs(failed) do log("|cffff6060not registered|r " .. e) end
+        for _, e in ipairs(failed) do log("not registered " .. e) end
     else
         log("all events and hooks registered")
     end
 end
 
-local HELP = {
-    "/cprobe status   build, cast secrecy policy, GetNetStats, swing CVar, attack speeds, failures",
-    "/cprobe mark <text>   label the next test case in the log",
-    "/cprobe chat   toggle the chat echo (the log keeps everything)",
-    "/cprobe cd   toggle SPELL_UPDATE_COOLDOWN logging (noisy)",
-    "/cprobe hier   PR 2 gate: move/scale/hide a UIParent host anchored to GlassUF_player (run in combat too)",
-    "/cprobe dump [n]   print the last n log lines (default 30)",
-    "/cprobe clear   empty the log",
-    "The log is CastProbeDB.log in SavedVariables (written on /reload or logout).",
-}
-
-SLASH_CASTPROBE1 = "/cprobe"
-SlashCmdList.CASTPROBE = function(msg)
-    local cmd, rest = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
-    cmd = (cmd or ""):lower()
-    if cmd == "status" then
-        status()
-    elseif cmd == "mark" then
-        log("|cff7fd4ff==== " .. (rest ~= "" and rest or "mark") .. " ====|r")
-    elseif cmd == "chat" then
-        chat = not chat
-        say("chat echo " .. (chat and "on" or "off"))
-    elseif cmd == "cd" then
-        cdEvents = not cdEvents
-        say("SPELL_UPDATE_COOLDOWN logging " .. (cdEvents and "on" or "off"))
-    elseif cmd == "hier" then
-        runHier()
-    elseif cmd == "dump" then
-        local n = tonumber(rest) or 30
-        local L = CastProbeDB.log
-        for i = math.max(1, #L - n + 1), #L do print(L[i]) end
-    elseif cmd == "clear" then
-        CastProbeDB.log = {}
-        say("log cleared")
-    else
-        for _, line in ipairs(HELP) do say(line) end
-    end
-end
+Probe:Command("status", status, "build, cast secrecy policy, GetNetStats, swing CVar, attack speeds, failures")
+Probe:Command("mark", function(args)
+    log("==== " .. ((args and args ~= "") and args or "mark") .. " ====")
+end, "<text>: label the next test case in the log")
+Probe:Command("cd", function()
+    cdEvents = not cdEvents
+    say("SPELL_UPDATE_COOLDOWN logging " .. (cdEvents and "on" or "off"))
+end, "toggle SPELL_UPDATE_COOLDOWN logging (noisy)")
+Probe:Command("hier", runHier, "move/scale/hide a UIParent host anchored to GlassUF_player (run it in combat too)")
+Probe:Command("clear", function()
+    Probe:ClearLog()
+    say("log cleared")
+end, "empty the saved log (CastProbeDB.log, written on /reload or logout)")
 
 local boot = CreateFrame("Frame")
-boot:RegisterEvent("ADDON_LOADED")
+Probe:RegisterEvents(boot, { "ADDON_LOADED" })
 boot:SetScript("OnEvent", function(self, _, name)
-    if name ~= "CastProbe" then return end
+    if name ~= ADDON then return end
     self:UnregisterEvent("ADDON_LOADED")
-    CastProbeDB.log = CastProbeDB.log or {}
+    Probe:Ready()
+    -- Saved tables only now: the client loads SavedVariables after our files.
+    if type(rawget(_G, "CastProbeDB")) ~= "table" then CastProbeDB = {} end
+    if type(CastProbeDB.log) ~= "table" then CastProbeDB.log = {} end
+    Probe:UseLog(CastProbeDB.log, LOG_MAX)
     register()
     hook("C_SwingTimer", "EnableRangeCheck", "EnableRangeCheck")
     hook("C_TradeSkillUI", "CraftRecipe", "CraftRecipe")
     hook("C_TradeSkillUI", "CraftEnchant", "CraftEnchant")
     hook("C_TradeSkillUI", "StopRecipeRepeat", "StopRecipeRepeat")
-    log("|cff7fd4ff==== session start ====|r")
-    say("loaded. /cprobe help, then /cprobe status. " .. (#failed > 0 and (#failed .. " registration(s) failed, see status") or "all registered"))
+    log("==== session start ====")
+    say("loaded. /fp cast for the commands. " .. (#failed > 0 and (#failed .. " registration(s) failed, see /fp cast status") or "all registered"))
 end)
+
+NS._test = { Probe = Probe, onEvent = onEvent, failed = failed }

@@ -1,8 +1,10 @@
 ## Interface: 16001
 ## Title: CastProbe
-## Notes: Throwaway event trace for GlassUnitFrames #72 (cast latency/pushback) and the later cast-bar PRs. /cprobe help
+## Notes: Throwaway probe for GlassUnitFrames: cast, swing, craft and mana event traces. A ForeverProbe module: /fp cast
 ## Author: Spotnick
 ## Version: dev
+## Dependencies: ForeverProbe
+## OptionalDeps: GlassUnitFrames
 ## SavedVariables: CastProbeDB
 
 CastProbe.lua
