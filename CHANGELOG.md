@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Glass library updated to LibGlass r7.** No change to how these frames look. Your other glass
+  addons pick up its fixes too: the newest copy installed is the one that runs.
 - **Preview every frame and bar.** `/glass preview`, or "Preview all frames" in the options, shows
   every frame with sample data, even with no target, focus or pet: the cast bars loop sample casts
   (with the latency block, pushback, the green and red flashes, a channel and a craft count), the

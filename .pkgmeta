@@ -18,7 +18,7 @@ manual-changelog:
 externals:
   Libs/LibGlass-1.0:
     url: https://github.com/Spotnick2/LibGlass
-    tag: r6
+    tag: r7
 
 # YAML list, not markdown bullets. Every pattern matches the WHOLE path from
 # the package root (release.sh's match_pattern is a shell `case`), so the
