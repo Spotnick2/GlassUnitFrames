@@ -207,6 +207,7 @@ local HELP = {
     "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
     "look classic|clean  - the glass: classic, or LibGlass's clean preset (after /reload, saved)",
+    "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
     "level power|name|portrait  - where the target's level goes (saved)",
     "portrait player|target|pet 3d|2d|none  - a frame's portrait (saved; none waits for combat to end)",
@@ -257,6 +258,19 @@ function Settings_.SetLook(look)
     return true
 end
 
+-- Where a bar's empty-part ramp lies (#117): across the whole bar (the
+-- default, not saved) or from the fill's moving edge over RAMP_LENGTH of the
+-- bar ("edge", saved). Live, on every bar. Needs LibGlass r10's
+-- SetTrackLength: with an older copy winning, refused.
+GlassUF.RAMP_LENGTH = 0.05
+GlassUF.RAMPS = { whole = true, edge = true }
+function Settings_.SetTrackRamp(mode)
+    if not GlassUF.RAMPS[mode] or not Glass.SetTrackLength then return false end
+    if not Glass.SetTrackLength(mode == "edge" and GlassUF.RAMP_LENGTH or 0) then return false end
+    GlassUnitFramesDB.trackRamp = mode == "edge" and "edge" or nil
+    return true
+end
+
 -- A material knob (a Glass.TUNABLES entry), saved only once set.
 function Settings_.SetTunable(t, v)
     if not t.set(v) then return false end
@@ -274,6 +288,7 @@ function Settings_.ResetLook()
     Settings_.SetFont(DEFAULTS.font)
     Settings_.SetLook("classic")   -- the glass look too (after /reload, #102)
     Settings_.SetGlassBody("clear")   -- and its body (#101)
+    Settings_.SetTrackRamp("whole")   -- and the bars' ramp (#117)
 end
 
 -- Unlock mode (movers + nudge panel). Unlock is refused in combat, never queued.
@@ -529,6 +544,14 @@ local function slash(msg)
         else
             say("body clear|smoked (now " .. GlassUF.body .. ")")
         end
+    elseif cmd == "ramp" then
+        if Settings_.SetTrackRamp(arg) then
+            say("empty bar ramp: " .. arg)
+        elseif not Glass.SetTrackLength then
+            say("ramp: needs LibGlass r10 (a newer copy of the library)")
+        else
+            say("ramp whole|edge (now " .. (GlassUnitFramesDB.trackRamp or "whole") .. ")")
+        end
     elseif cmd == "look" then
         if Settings_.SetLook(arg) then
             say("look " .. arg .. ": takes effect after /reload")
@@ -605,6 +628,10 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         end
         local db = ensureDefaults()
         Glass.SetFont(db.font)
+        -- Before the build, so every bar is born with its ramp (#117). Junk is
+        -- forgotten; a saved "edge" an older winning LibGlass can't draw is kept.
+        if not GlassUF.RAMPS[db.trackRamp] then db.trackRamp = nil end
+        if db.trackRamp then Settings_.SetTrackRamp(db.trackRamp) end
         -- Secure frames cannot be set up under lockdown. Loading normally runs
         -- before it applies, but do not bet the whole addon on that.
         whenOutOfCombat("build", function()

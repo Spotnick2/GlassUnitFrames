@@ -79,14 +79,15 @@ local POWER_COLORS = {
 local HOSTILE, NEUTRAL, FRIENDLY = { 0.85, 0.22, 0.22 }, { 0.92, 0.76, 0.22 }, { 0.26, 0.74, 0.32 }
 local GREY, DEFAULT = { 0.50, 0.50, 0.52 }, { 0.56, 0.34, 0.92 }
 
--- A power bar's empty part: the material's colour ramp (in the bar's colour,
--- fading to clear across the bar) at this fraction of its strength. At full
--- strength a 9% mana bar read as half full; health keeps the full ramp.
--- SetAlpha on the track multiplies the material's own alpha, so /glass track
--- still scales it (LibGlass lets consumers re-alpha bar.track).
-local POWER_TRACK = 0.25
+-- A health or power bar's empty part: the material's colour ramp (in the
+-- bar's colour, fading to clear across the bar) at this fraction of its
+-- strength. At full strength a 9% mana bar read as half full.
+-- The alpha goes on the track's clip frame (it holds only the track), so it
+-- multiplies the material's own and /glass track still scales it. Not on the
+-- track texture: a texture's SetAlpha drew nothing different in game (#117).
+local QUIET_TRACK = 0.25
 local function quietTrack(bar)
-    if bar.track then bar.track:SetAlpha(POWER_TRACK) end
+    if bar.trackClip then bar.trackClip:SetAlpha(QUIET_TRACK) end
 end
 
 -- First result of fn(...) if it is plain; nil on error or when secret.
@@ -1364,6 +1365,7 @@ local function build(unit)
     local gap = large and 4 or 2
     local healthH = hasPower and (large and 34 or 17) or (L.h - 2 * inset)
     b.health = Glass.Bar(body, healthH)
+    quietTrack(b.health)
     b.healthWidth = L.w - 2 * inset   -- the health bar's width (anchored inset on both sides)
     b.health:SetPoint("TOPLEFT", body, "TOPLEFT", inset, -inset)
     b.health:SetPoint("TOPRIGHT", body, "TOPRIGHT", -inset, -inset)

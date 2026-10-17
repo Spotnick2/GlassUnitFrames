@@ -314,6 +314,10 @@ local function build()
     radios(left, "Font", { { "arial", "Arial Narrow" }, { "friz", "Friz Quadrata" } },
         function() return Glass.fontKey end,
         GlassUF.Settings.SetFont)
+    -- A bar's empty part (#117): live.
+    controls.trackRamp = radioRow(left, "Fade", { { "whole", "Whole bar" }, { "edge", "Past the fill" } },
+        function() return (GlassUnitFramesDB and GlassUnitFramesDB.trackRamp) or "whole" end,
+        GlassUF.Settings.SetTrackRamp, 60, { 0, 84 })
     left.y = left.y - 6
     for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key] = tunableSlider(left, t) end
     place(left, button(content, "Reset look to defaults", 190, function()
