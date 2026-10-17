@@ -657,6 +657,18 @@ end
 
 castPage:SetScript("OnShow", function(self)
     if not self.built then
+        -- Built once the frames are (#120): opened while the startup build waits
+        -- for combat to end, its picker would offer no bars for the session.
+        if not next(GlassUF.Frames.byUnit) then
+            if not self.waiting then
+                self.waiting = label(castPage, "The frames are built when combat ends: open this page again then.",
+                    "GameFontHighlightSmall")
+                self.waiting:SetPoint("TOPLEFT", castPage, "TOPLEFT", 16, -16)
+            end
+            self.waiting:Show()
+            return
+        end
+        if self.waiting then self.waiting:Hide() end
         self.built = true
         buildCast()
     end
