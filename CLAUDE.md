@@ -88,7 +88,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     the whole bar is the default) moves the ramp to the fill's moving edge over
     `GlassUF.RAMP_LENGTH` (5%) of the bar, live, through LibGlass r10's `SetTrackLength`
     (`Settings.SetTrackRamp`, `/glass ramp whole|edge`, the main page's Fade radio). With an
-    older LibGlass winning it's refused, and a saved "edge" is kept.
+    older LibGlass winning, "edge" is refused and a saved "edge" is kept, but "whole" (and Reset
+    look) still clears it: that copy draws the whole bar anyway.
 - **`Engine.lua`**: who gets painted and when:
   - one tracker per unit (`RegisterUnitEvent`);
   - events grouped into channels (name, color, health, heal, power, portrait, indicators,

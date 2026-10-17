@@ -260,13 +260,18 @@ end
 
 -- Where a bar's empty-part ramp lies (#117): across the whole bar (the
 -- default, not saved) or from the fill's moving edge over RAMP_LENGTH of the
--- bar ("edge", saved). Live, on every bar. Needs LibGlass r10's
--- SetTrackLength: with an older copy winning, refused.
+-- bar ("edge", saved). Live, on every bar. "edge" needs LibGlass r10's
+-- SetTrackLength: with an older copy winning it's refused, but "whole" (what
+-- that copy draws anyway) still clears a choice saved under r10.
 GlassUF.RAMP_LENGTH = 0.05
 GlassUF.RAMPS = { whole = true, edge = true }
 function Settings_.SetTrackRamp(mode)
-    if not GlassUF.RAMPS[mode] or not Glass.SetTrackLength then return false end
-    if not Glass.SetTrackLength(mode == "edge" and GlassUF.RAMP_LENGTH or 0) then return false end
+    if not GlassUF.RAMPS[mode] then return false end
+    if Glass.SetTrackLength then
+        if not Glass.SetTrackLength(mode == "edge" and GlassUF.RAMP_LENGTH or 0) then return false end
+    elseif mode == "edge" then
+        return false
+    end
     GlassUnitFramesDB.trackRamp = mode == "edge" and "edge" or nil
     return true
 end
