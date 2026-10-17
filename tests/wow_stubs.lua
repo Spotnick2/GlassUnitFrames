@@ -242,6 +242,11 @@ end
 
 -- Scripts and events.
 function Methods.SetScript(w, name, fn) w._scripts[name] = fn end
+function Methods.HookScript(w, name, fn)
+    w._hooks = w._hooks or {}
+    w._hooks[name] = w._hooks[name] or {}
+    table.insert(w._hooks[name], fn)
+end
 function Methods.GetScript(w, name) return w._scripts[name] end
 function Methods.SetFrameStrata(w, st) w._strata = st end
 function Methods.GetFrameStrata(w) return w._strata or "MEDIUM" end

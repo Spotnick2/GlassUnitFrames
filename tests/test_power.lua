@@ -67,4 +67,15 @@ WoW.SetUnit("target", { name = "Undercity Guardian", player = false, level = 55,
 WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
 check(WoW.IsSecret(t.power._alpha), "an NPC target still takes the curve's alpha")
 
+-- The empty part of a power bar: the material's ramp, quieted, so a low bar
+-- reads low. Health too; /glass track still scales both.
+local p = button("player")
+eq(p.power.trackClip._alpha, 0.25, "power track at a quarter of the ramp (on its clip frame)")
+eq(p.health.trackClip._alpha, 0.25, "health track too")
+eq(button("targettarget").health.trackClip._alpha, 0.25, "on every frame")
+SlashCmdList.GLASSUNITFRAMES("track 0.4")
+eq(p.power.track._vertex[4], 0.4, "the global track still reaches the power bar")
+eq(p.power.trackClip._alpha, 0.25, "and keeps its quieting")
+check(p.power.track._alpha == nil or p.power.track._alpha == 1, "never the texture's own SetAlpha (no effect in game)")
+
 done("test_power")

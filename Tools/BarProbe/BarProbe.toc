@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: BarProbe
+## Notes: Throwaway probe for GlassUnitFrames: sample glass bars at fixed percentages, to tune how a bar's empty part reads (#117). A ForeverProbe module: /fp bar
+## Author: Spotnick
+## Version: dev
+## Dependencies: ForeverProbe, GlassUnitFrames
+## SavedVariables: BarProbeDB
+
+BarProbe.lua

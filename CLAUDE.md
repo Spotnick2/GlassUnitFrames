@@ -81,6 +81,15 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     `/reload`. `GlassUF.UseLook(look, body)` builds one instance with both.
   - The instance's functions are closures bound to it, so forwarding is enough.
   - Never keep `Glass.TUNABLES` / `STYLE` from file load: read them when used.
+  - **A bar's empty part** (#117). LibGlass's track ramp (the bar's colour fading to clear across
+    the bar) made a 9% mana bar read as half full. Every health and power bar draws it at 0.25
+    (`Frames.lua`'s `QUIET_TRACK`) through **the track's clip frame** (`bar.trackClip:SetAlpha`):
+    the track texture's own `SetAlpha` changed nothing in game. `db.trackRamp` ("edge", saved;
+    the whole bar is the default) moves the ramp to the fill's moving edge over
+    `GlassUF.RAMP_LENGTH` (5%) of the bar, live, through LibGlass r10's `SetTrackLength`
+    (`Settings.SetTrackRamp`, `/glass ramp whole|edge`, the main page's Fade radio). With an
+    older LibGlass winning, "edge" is refused and a saved "edge" is kept, but "whole" (and Reset
+    look) still clears it: that copy draws the whole bar anyway.
 - **`Engine.lua`**: who gets painted and when:
   - one tracker per unit (`RegisterUnitEvent`);
   - events grouped into channels (name, color, health, heal, power, portrait, indicators,
@@ -453,11 +462,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames
@@ -471,7 +480,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
   `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`,
   `SetCastOption`, `SetCastDetached`, `SetCastScale`, `CenterCast`, `SetCastSize`, `SetCastIcon`,
-  `SetCastColor`, `ResetCastColors`, `SetCastPrecision`). The cast bars have their
+  `SetCastColor`, `ResetCastColors`, `SetCastPrecision`, `SetTrackRamp`). The cast bars have their
   own **sub-page**, "Cast bars": one set of per-bar controls behind a "Settings for" picker
   (Detached, icon side, width, height, scale, Center), and the shared text, colour and extras
   sections. Colour swatches open `ColorPickerFrame:SetupColorPickerAndShow` (DinoUF's way on
@@ -488,7 +497,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   `CastProbeDB.log`, never chat. Deploy it with `Tools\deploy.ps1 -Probe` (the host first). A
   new in-game experiment is a guided procedure (`Probe:Steps`), not a chat checklist. Its test
   (`test_castprobe.lua`) loads the host from the checkout, so it runs locally only (CI sets
-  `FOREVERPROBE_OPTIONAL=1`). GlassProbe, the material probe from before LibGlass, was retired in
+  `FOREVERPROBE_OPTIONAL=1`). `Tools/BarProbe/` (`/fp bar`, #117) shows sample glass frames at
+  5–80% with live controls for the empty part's strength and ramp, applied to the real bars too
+  and saved in `BarProbeDB.settings` (re-applied at login while it's deployed); `/fp bar reset`
+  (or Forget) drops them, and `/reload` gives the bars back to GUF. Same host, same local-only test (`test_barprobe.lua`).
+  GlassProbe, the material probe from before LibGlass, was retired in
   #112 (LibGlass's own probe, `/fp lg`, replaced it; its files are in history).
 
 Forever is **Vanilla content running on Blizzard's Retail (Mainline) codebase**: assume Vanilla
@@ -618,8 +631,8 @@ a full client restart.
 - One plain `GlassUnitFrames.toc`, with no `_Forever` or `_Camelot` suffix, because the client
   ignores `_Forever`. Use `## Interface: 16001` (`%d%02d%02d` of 1.60.1). **`11601` is a
   transposed-digit bug** seen in the wild.
-- One global namespace table. Every file starts `GlassUnitFrames = GlassUnitFrames or {}`, and
-  the TOC order is the load order.
+- One global namespace table, `GlassUF`. Every file starts `GlassUF = GlassUF or {}`, and the
+  TOC order is the load order.
 - Put a compat or adapter layer first (like the siblings' `Compat.lua` → `<Addon>.API`) for any
   API that moved from Classic. Consumers reach it through the namespace, not by injecting
   globals into `_G`. Read the porting guide's "False friends" section before aliasing anything:

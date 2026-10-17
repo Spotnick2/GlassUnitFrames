@@ -16,8 +16,8 @@
 
     Usage:
         pwsh Tools/deploy.ps1               # GlassUnitFrames + its LibGlass
-        pwsh Tools/deploy.ps1 -Probe        # ...and CastProbe, with ForeverProbe
-        pwsh Tools/deploy.ps1 -ProbeOnly    # just CastProbe, with ForeverProbe
+        pwsh Tools/deploy.ps1 -Probe        # ...and the probes (CastProbe, BarProbe), with ForeverProbe
+        pwsh Tools/deploy.ps1 -ProbeOnly    # just the probes, with ForeverProbe
         pwsh Tools/deploy.ps1 -AddOnsPath "D:\...\_classic_beta_\Interface\AddOns"
 #>
 
@@ -90,8 +90,9 @@ function Deploy-Addon {
     }
 }
 
-# CastProbe: the host first (its deploy checks the checkout and may refuse,
-# and a refusal leaves the probe as it was), then the module's two files.
+# The probes (CastProbe, BarProbe): the host first (its deploy checks the
+# checkout and may refuse, and a refusal leaves the probes as they were), then
+# each module's files.
 $ForeverProbe = if ($env:FOREVERPROBE) { $env:FOREVERPROBE } else { Join-Path (Split-Path -Parent $RepoRoot) "ForeverProbe" }
 
 function Deploy-Probe {
@@ -99,15 +100,17 @@ function Deploy-Probe {
         Write-Error "ForeverProbe checkout not found at $ForeverProbe (or set `$env:FOREVERPROBE)"; exit 1
     }
     & pwsh -NoProfile -File (Join-Path $ForeverProbe "Tools\deploy.ps1") -AddOnsPath $AddOnsPath
-    if ($LASTEXITCODE -ne 0) { Write-Error "ForeverProbe deploy refused; CastProbe was not touched"; exit 1 }
-    $dest = Join-Path $AddOnsPath "CastProbe"
-    Write-Host "Deploying CastProbe -> $dest" -ForegroundColor Cyan
-    New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\CastProbe") -File |
-        Where-Object { $_.Extension -in ".toc", ".lua" } | ForEach-Object {
-            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dest $_.Name) -Force
-            Write-Host "  $($_.Name)"
-        }
+    if ($LASTEXITCODE -ne 0) { Write-Error "ForeverProbe deploy refused; the probes were not touched"; exit 1 }
+    foreach ($name in @("CastProbe", "BarProbe")) {
+        $dest = Join-Path $AddOnsPath $name
+        Write-Host "Deploying $name -> $dest" -ForegroundColor Cyan
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\$name") -File |
+            Where-Object { $_.Extension -in ".toc", ".lua" } | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dest $_.Name) -Force
+                Write-Host "  $($_.Name)"
+            }
+    }
     # GlassProbe was retired (#112); an old deployed copy would still load.
     $old = Join-Path $AddOnsPath "GlassProbe"
     if (Test-Path -LiteralPath $old) {
