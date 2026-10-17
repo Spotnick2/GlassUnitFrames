@@ -207,7 +207,7 @@ local HELP = {
     "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
     "look classic|clean  - the glass: classic, or LibGlass's clean preset (after /reload, saved)",
-    "timer on|off  - the combat timer bar (move it in unlock mode; saved)",
+    "timer on|off  - the combat timer over your portrait (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
     "level power|name|portrait  - where the target's level goes (saved)",

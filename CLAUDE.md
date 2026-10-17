@@ -313,24 +313,21 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - Time text shows on rows at least 8 px tall.
   - **Colours:** `castColors` keys `swingMH`, `swingOH`, `swingRanged`. The option is
     `db.swingTimer` (saved only when off).
-- **`Timer.lua`** (#120): the combat timer, a glass pill with the fight's time (`00:07`,
-  `1:00:05` past an hour), from our own `GetTime()` stamp (plain). A bar of the cast family like
-  the swing rows: `Castbar.bars.timer`, `db.castBars.timer`, its own `place` / `paintColors`
-  (the cast bars' `time` and `background` colours), mover `cast:timer`, "Timer" on the Cast bars
-  page's picker (a second row: a sixth choice would hit the right column). No combat zoom.
-  - **Detached by default**, the first bar so: `Castbar.DEFAULT_DETACHED = { timer = true }`.
-    `geometry()` takes a saved boolean, anything else is the bar's default; `SetDetached` saves
-    only a departure from it (the timer saves `false` when attached). At (0, 180), 80×22: top
-    centre, where the owner's waypoint arrow sits. Docked: 60×18 just above the player button's
-    top-left, 10 up (clear of the leader crown, 7 above the body's edge).
-  - **What shows** is one resolver over independent inputs: off → hidden; preview (counts from
-    00:00) → sample (unlock: `00:42`) → live (combat) → hidden. Combat is recorded whatever
-    shows, so the dispatcher's order (Preview stop, Movers' lock, the timer's own frame) never
-    loses a start. A `/reload` mid-fight counts from the reload; a loading screen inside a timed
-    fight keeps its start (`live = live or GetTime()`). The clock is an OnUpdate inside the host
-    (rests while the player frame is hidden), writing once per second.
+- **`Timer.lua`** (#120): the combat timer, a small glass pill (52×18) **over the player's
+  portrait** with the fight's time (`00:07`, `1:00:05` past an hour), from our own `GetTime()`
+  stamp (plain). With the portrait set to "none", over the frame's top-left, 10 up (clear of the
+  leader crown); `applyPortrait` calls `Timer.Place()`. Not movable: a detached timer is a
+  GlassPanel plugin's business.
+  - **It opens** when combat starts (0.25 s ease-out: a circle growing into the pill, fading in)
+    and **closes** the same way when it ends, frozen on the fight's final time. A fight starting
+    mid-close reopens it from where it was. One OnUpdate inside the host drives the animation and
+    the clock (written once per second), and rests while the player frame is hidden.
+  - **What shows** is one resolver over independent inputs: off -> closed; preview (counts from
+    00:00) -> combat -> closed. Combat is recorded whatever shows, so the dispatcher's order
+    (Preview stop, the timer's own frame) never loses a start. A `/reload` mid-fight counts from
+    the reload; a loading screen inside a timed fight keeps its start (`live = live or GetTime()`).
   - **Option:** `db.combatTimer` (saved only when off), `Settings.SetCombatTimer`, `/glass timer
-    on|off`, a checkbox on the Cast bars page. Idempotent; off → on in a fight starts counting
+    on|off`, a checkbox on the Cast bars page. Idempotent; off -> on in a fight starts counting
     from now.
   - `Timer.enabled` is public: ForeverCombatAssistant hides its own timer while it's true.
 - **`FiveSecond.lua`** (#94): the five-second rule, for mana users only (none for warriors or rogues).
