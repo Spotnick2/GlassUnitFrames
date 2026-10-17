@@ -129,4 +129,22 @@ check(WoW.chat[#WoW.chat]:find("frames are shown", 1, true), "status: shown: " .
 SlashCmdList.GLASSUNITFRAMES("blizzard show")
 eq(GlassUnitFramesDB.hideBlizzardCast, nil, "'show' clears the cast bar setting too")
 
+-- The Cast bars page doesn't scroll: everything on it stays inside the
+-- Settings canvas (about 601 units tall on 70450, Blizzard_SettingsPanel.xml),
+-- leaving room for a 26-unit control (#120: a new switch once spilled out).
+local castPage = O._test.castPage
+castPage:Show()
+local lowest, lowestName = 0, nil
+local function scan(name, w)
+    local pt = type(w) == "table" and w._points and w._points[1]
+    if pt and pt[2] == castPage and type(pt[5]) == "number" and pt[5] < lowest then lowest, lowestName = pt[5], name end
+end
+for k, v in pairs(controls) do
+    scan(k, v)
+    if type(v) == "table" and not v._points then for k2, v2 in pairs(v) do scan(k .. "." .. tostring(k2), v2) end end
+end
+check(lowest < -500, "the scan found the page's lower controls (" .. tostring(lowestName) .. " at " .. lowest .. ")")
+check(lowest >= -601 + 26, "the lowest, " .. tostring(lowestName) .. ", sits inside the canvas (" .. lowest .. ")")
+castPage:Hide()
+
 done("test_options")

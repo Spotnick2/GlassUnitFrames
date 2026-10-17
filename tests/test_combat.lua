@@ -67,9 +67,21 @@ eq(#WoW.blocked, 0, "nothing blocked while deferring the build")
 -- Review #3: a reset queued behind the deferred build must not run first
 -- (it needs Frames.db) and must not lose the build.
 SlashCmdList.GLASSUNITFRAMES("reset")
+-- #120: the Cast bars page opened before the build waits for it, so its
+-- picker isn't built without the bars for the rest of the session.
+local castPage = GlassUF.Options._test.castPage
+castPage:Show()
+eq(GlassUF.Options._test.controls.castBarRow, nil, "the Cast bars page isn't built before the frames")
+check(castPage.waiting and castPage.waiting:IsShown(), "it says why")
+castPage:Hide()
 WoW.combat = false
 WoW.fire("PLAYER_REGEN_ENABLED")
 check(button("player") ~= nil, "frames built once combat ends")
+castPage:Show()
+local row = GlassUF.Options._test.controls.castBarRow
+check(row and #row >= 4, "opened again after the build: the picker offers the bars")
+check(not castPage.waiting:IsShown(), "and the note is gone")
+castPage:Hide()
 check(button("target") ~= nil, "all frames built, not just some")
 -- Review #3: PLAYER_ENTERING_WORLD fired before the build, so without a
 -- first paint at registration these would still be blank.

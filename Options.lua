@@ -388,6 +388,13 @@ local function build()
         GlassUF.Settings.SetAggroRed)
     note(right, "While they fight you or your group.", 270)
 
+    -- The combat timer (#120): a pill over the player's portrait. Here, not on
+    -- the Cast bars page: that page doesn't scroll and is full.
+    header(right, "Combat timer")
+    controls.combatTimer = checkbox(right, "Show it over your portrait in a fight",
+        function() return GlassUF.Timer.enabled end,
+        GlassUF.Settings.SetCombatTimer)
+
     -- The five-second rule (#94): mana users only.
     if GlassUF.FiveSecond.Built() then
         header(right, "Five-second rule")
@@ -657,6 +664,18 @@ end
 
 castPage:SetScript("OnShow", function(self)
     if not self.built then
+        -- Built once the frames are (#120): opened while the startup build waits
+        -- for combat to end, its picker would offer no bars for the session.
+        if not next(GlassUF.Frames.byUnit) then
+            if not self.waiting then
+                self.waiting = label(castPage, "The frames are built when combat ends: open this page again then.",
+                    "GameFontHighlightSmall")
+                self.waiting:SetPoint("TOPLEFT", castPage, "TOPLEFT", 16, -16)
+            end
+            self.waiting:Show()
+            return
+        end
+        if self.waiting then self.waiting:Hide() end
         self.built = true
         buildCast()
     end
