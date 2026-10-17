@@ -327,7 +327,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     (Preview stop, the timer's own frame) never loses a start. A `/reload` mid-fight counts from
     the reload; a loading screen inside a timed fight keeps its start (`live = live or GetTime()`).
   - **Option:** `db.combatTimer` (saved only when off), `Settings.SetCombatTimer`, `/glass timer
-    on|off`, a checkbox on the Cast bars page. Idempotent; off -> on in a fight starts counting
+    on|off`, a checkbox on the main page (the Cast bars page doesn't scroll and is full: a test keeps
+    its controls inside the canvas). Idempotent; off -> on in a fight starts counting
     from now.
   - `Timer.enabled` is public: ForeverCombatAssistant hides its own timer while it's true.
 - **`FiveSecond.lua`** (#94): the five-second rule, for mana users only (none for warriors or rogues).

@@ -162,9 +162,9 @@ after(0)
 eq(textOf(text), "01:05", "the right time when it's back")
 fight(false); settle()
 
--- Options: the switch on the Cast bars page.
+-- Options: the switch on the main page (it scrolls; the Cast bars page doesn't).
 local O = GlassUF.Options
-O._test.castPage:Show()
+O._test.panel:Show()
 local c = O._test.controls
 check(c.combatTimer ~= nil, "a Combat timer switch")
 c.combatTimer:SetChecked(false)

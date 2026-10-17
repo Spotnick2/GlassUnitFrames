@@ -388,6 +388,13 @@ local function build()
         GlassUF.Settings.SetAggroRed)
     note(right, "While they fight you or your group.", 270)
 
+    -- The combat timer (#120): a pill over the player's portrait. Here, not on
+    -- the Cast bars page: that page doesn't scroll and is full.
+    header(right, "Combat timer")
+    controls.combatTimer = checkbox(right, "Show it over your portrait in a fight",
+        function() return GlassUF.Timer.enabled end,
+        GlassUF.Settings.SetCombatTimer)
+
     -- The five-second rule (#94): mana users only.
     if GlassUF.FiveSecond.Built() then
         header(right, "Five-second rule")
@@ -612,12 +619,6 @@ local function buildCast()
         if i % 2 == 0 or i == #SWING_SWATCHES then left.y = left.y - 26 end
         controls.castSwatches[o[1]] = sw
     end
-
-    -- The combat timer (#120): a pill over the player's portrait.
-    header(left, "Combat timer")
-    controls.combatTimer = checkbox(left, "Combat timer over your portrait",
-        function() return GlassUF.Timer.enabled end,
-        function(v) S.SetCombatTimer(v) end)
 
     -- Every bar.
     header(right, "Text")
