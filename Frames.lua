@@ -79,6 +79,16 @@ local POWER_COLORS = {
 local HOSTILE, NEUTRAL, FRIENDLY = { 0.85, 0.22, 0.22 }, { 0.92, 0.76, 0.22 }, { 0.26, 0.74, 0.32 }
 local GREY, DEFAULT = { 0.50, 0.50, 0.52 }, { 0.56, 0.34, 0.92 }
 
+-- A power bar's empty part: the material's colour ramp (in the bar's colour,
+-- fading to clear across the bar) at this fraction of its strength. At full
+-- strength a 9% mana bar read as half full; health keeps the full ramp.
+-- SetAlpha on the track multiplies the material's own alpha, so /glass track
+-- still scales it (LibGlass lets consumers re-alpha bar.track).
+local POWER_TRACK = 0.25
+local function quietTrack(bar)
+    if bar.track then bar.track:SetAlpha(POWER_TRACK) end
+end
+
 -- First result of fn(...) if it is plain; nil on error or when secret.
 local function plain(fn, ...)
     if not fn then return nil end
@@ -1169,6 +1179,7 @@ local function buildDruidMana(b, body, L)
     Glass.Apply(host, "small")
     local inset = Glass.Inset("small")
     local bar = Glass.Bar(host, 16 - 2 * inset)
+    quietTrack(bar)
     bar:SetPoint("TOPLEFT", host, "TOPLEFT", inset, -inset)
     bar:SetPoint("TOPRIGHT", host, "TOPRIGHT", -inset, -inset)
     bar:SetFrameLevel(Glass.ContentLevel(host))
@@ -1359,6 +1370,7 @@ local function build(unit)
     b.health:SetFrameLevel(Glass.ContentLevel(body))
     if hasPower then
         b.power = Glass.Bar(body, L.h - 2 * inset - healthH - gap)
+        quietTrack(b.power)
         b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -gap)
         b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -gap)
         b.power:SetFrameLevel(Glass.ContentLevel(body))
