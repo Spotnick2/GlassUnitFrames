@@ -530,6 +530,14 @@ local function buildCast()
         function() return castUnit end,
         function(unit) castUnit = unit end,
         84, { 0, 48, 110, 166, 214 })
+    -- The combat timer (#120) on a row of its own: a sixth choice would run
+    -- into the right column. The same selection, so one of the six is checked.
+    if Castbar.bars.timer then
+        controls.castBarRow2 = radioRow(left, "", { { "timer", "Timer" } },
+            function() return castUnit end,
+            function(unit) castUnit = unit end,
+            84, { 0 })
+    end
     controls.castDetach = checkbox(left, "Detached",
         function() return Castbar.IsDetached(castUnit) end,
         function(v)
@@ -540,9 +548,9 @@ local function buildCast()
         function() return Castbar.IconSide(castUnit) end,
         function(side) S.SetCastIcon(castUnit, side) end,
         84, { 0, 60, 128 })
-    -- The swing rows have no spell icon.
+    -- The swing rows and the combat timer have no spell icon.
     controls[#controls + 1] = function()
-        for _, rb in ipairs(controls.castIcon) do rb:SetEnabled(castUnit ~= "swing") end
+        for _, rb in ipairs(controls.castIcon) do rb:SetEnabled(castUnit ~= "swing" and castUnit ~= "timer") end
     end
     controls.castWidth = slider(left, { label = "Width (detached)", min = 80, max = 800, step = 1, fmt = "%d",
         get = function() return (Castbar.SizeOf(castUnit)) end,
@@ -612,6 +620,12 @@ local function buildCast()
         if i % 2 == 0 or i == #SWING_SWATCHES then left.y = left.y - 26 end
         controls.castSwatches[o[1]] = sw
     end
+
+    -- The combat timer (#120): placed and sized with the bars above ("Timer").
+    header(left, "Combat timer")
+    controls.combatTimer = checkbox(left, "Glass combat timer (counts up in combat)",
+        function() return GlassUF.Timer.enabled end,
+        function(v) S.SetCombatTimer(v) end)
 
     -- Every bar.
     header(right, "Text")

@@ -12,6 +12,7 @@ Engine.lua
 Frames.lua
 Castbar.lua
 Swing.lua
+Timer.lua
 FiveSecond.lua
 Zoom.lua
 Preview.lua

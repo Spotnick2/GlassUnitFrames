@@ -1508,6 +1508,8 @@ function Frames.Build(db)
     for _, unit in ipairs(Frames.ORDER) do build(unit) end
     -- The swing rows (#87): in the player's frame, after its cast bar.
     if Frames.byUnit.player then attempt("build swing", GlassUF.Swing.Build, Frames.byUnit.player, db) end
+    -- The combat timer (#120): a bar of the cast family, the player's frame its parent.
+    if Frames.byUnit.player then attempt("build timer", GlassUF.Timer.Build, Frames.byUnit.player, db) end
     -- The five-second rule (#94): on the player's mana bar and druid strip.
     if Frames.byUnit.player then attempt("build fsr", GlassUF.FiveSecond.Build, Frames.byUnit.player, db) end
 end

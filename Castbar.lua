@@ -617,7 +617,11 @@ Castbar.DETACHED = { player = { x = 0, y = -47, w = 340, h = 20, scale = 1 },
                      focus  = { x = 0, y = 1, w = 340, h = 16, scale = 1 },
                      pet    = { x = 0, y = -71, w = 220, h = 16, scale = 1 },
                      -- #87: the swing rows' pill (h = one row), under the player's bar.
-                     swing  = { x = 0, y = -66, w = 340, h = 6, scale = 1 } }
+                     swing  = { x = 0, y = -66, w = 340, h = 6, scale = 1 },
+                     -- #120: the combat timer, top centre (the owner's waypoint arrow).
+                     timer  = { x = 0, y = 180, w = 80, h = 22, scale = 1 } }
+-- Bars detached unless set otherwise (#120); every other bar is docked by default.
+Castbar.DEFAULT_DETACHED = { timer = true }
 Castbar.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, w = { 80, 800 }, h = { 12, 40 },
                    scale = { 0.5, 2 } }
 -- A bar's own limits where they differ (the swing rows: h is one thin row).
@@ -644,14 +648,17 @@ local function saved(unit)
     return type(e) == "table" and e or nil
 end
 
--- x, y, w, h (each valid, else its default), whether it's detached, and its scale.
+-- x, y, w, h (each valid, else its default), whether it's detached, and its
+-- scale. A saved true or false wins; anything else is the bar's default.
 local function geometry(unit)
     local d, e = Castbar.DETACHED[unit] or OTHER, saved(unit) or {}
     local function pick(k)
         if inLimits(e[k], k, unit) then return e[k] end
         return d[k]
     end
-    return pick("x"), pick("y"), pick("w"), pick("h"), e.detached == true, pick("scale")
+    local detached = e.detached
+    if type(detached) ~= "boolean" then detached = Castbar.DEFAULT_DETACHED[unit] == true end
+    return pick("x"), pick("y"), pick("w"), pick("h"), detached, pick("scale")
 end
 Castbar.Geometry = geometry   -- the swing rows (Swing.lua) place themselves from it
 
@@ -774,7 +781,13 @@ end
 function Castbar.SetDetached(unit, on)
     local c = Castbar.bars[unit]
     if not c then return false end
-    entry(unit).detached = on and true or nil
+    -- Saved only when it departs from the bar's default (#120: the timer saves false).
+    on = on and true or false
+    if on == (Castbar.DEFAULT_DETACHED[unit] == true) then
+        entry(unit).detached = nil
+    else
+        entry(unit).detached = on
+    end
     prune(unit)
     Castbar.Place(c)
     -- The ms text follows the mode mid-cast: this bar's frame only.
@@ -949,7 +962,7 @@ end
 -- The unlock-mode source for a detached bar (Movers.lua: id, label, frame,
 -- rel, position, set, save, reset, follows; plus size, setSize and attach).
 local LABELS = { player = "Player cast bar", target = "Target cast bar", focus = "Focus cast bar", pet = "Pet cast bar",
-                 swing = "Swing timer" }
+                 swing = "Swing timer", timer = "Combat timer" }
 function Castbar.MoverSource(unit)
     local c = Castbar.bars[unit]
     if not c then return nil end

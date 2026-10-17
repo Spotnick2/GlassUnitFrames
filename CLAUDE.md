@@ -43,7 +43,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 ## Layout
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `FiveSecond.lua` → `Zoom.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `FiveSecond.lua` → `Zoom.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -313,6 +313,26 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - Time text shows on rows at least 8 px tall.
   - **Colours:** `castColors` keys `swingMH`, `swingOH`, `swingRanged`. The option is
     `db.swingTimer` (saved only when off).
+- **`Timer.lua`** (#120): the combat timer, a glass pill with the fight's time (`00:07`,
+  `1:00:05` past an hour), from our own `GetTime()` stamp (plain). A bar of the cast family like
+  the swing rows: `Castbar.bars.timer`, `db.castBars.timer`, its own `place` / `paintColors`
+  (the cast bars' `time` and `background` colours), mover `cast:timer`, "Timer" on the Cast bars
+  page's picker (a second row: a sixth choice would hit the right column). No combat zoom.
+  - **Detached by default**, the first bar so: `Castbar.DEFAULT_DETACHED = { timer = true }`.
+    `geometry()` takes a saved boolean, anything else is the bar's default; `SetDetached` saves
+    only a departure from it (the timer saves `false` when attached). At (0, 180), 80×22: top
+    centre, where the owner's waypoint arrow sits. Docked: 60×18 just above the player button's
+    top-left, 10 up (clear of the leader crown, 7 above the body's edge).
+  - **What shows** is one resolver over independent inputs: off → hidden; preview (counts from
+    00:00) → sample (unlock: `00:42`) → live (combat) → hidden. Combat is recorded whatever
+    shows, so the dispatcher's order (Preview stop, Movers' lock, the timer's own frame) never
+    loses a start. A `/reload` mid-fight counts from the reload; a loading screen inside a timed
+    fight keeps its start (`live = live or GetTime()`). The clock is an OnUpdate inside the host
+    (rests while the player frame is hidden), writing once per second.
+  - **Option:** `db.combatTimer` (saved only when off), `Settings.SetCombatTimer`, `/glass timer
+    on|off`, a checkbox on the Cast bars page. Idempotent; off → on in a fight starts counting
+    from now.
+  - `Timer.enabled` is public: ForeverCombatAssistant hides its own timer while it's true.
 - **`FiveSecond.lua`** (#94): the five-second rule, for mana users only (none for warriors or rogues).
   - **The strip:** 2 px red along the bottom of the player's power bar, or of the druid mana strip in
     a form (chosen by power token; `UNIT_DISPLAYPOWER` re-picks it). An `OverlayBar` inside the
@@ -462,11 +482,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames
@@ -480,7 +500,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
   `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`,
   `SetCastOption`, `SetCastDetached`, `SetCastScale`, `CenterCast`, `SetCastSize`, `SetCastIcon`,
-  `SetCastColor`, `ResetCastColors`, `SetCastPrecision`, `SetTrackRamp`). The cast bars have their
+  `SetCastColor`, `ResetCastColors`, `SetCastPrecision`, `SetTrackRamp`, `SetCombatTimer`). The cast bars have their
   own **sub-page**, "Cast bars": one set of per-bar controls behind a "Settings for" picker
   (Detached, icon side, width, height, scale, Center), and the shared text, colour and extras
   sections. Colour swatches open `ColorPickerFrame:SetupColorPickerAndShow` (DinoUF's way on

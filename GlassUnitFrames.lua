@@ -207,6 +207,7 @@ local HELP = {
     "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
     "look classic|clean  - the glass: classic, or LibGlass's clean preset (after /reload, saved)",
+    "timer on|off  - the combat timer bar (move it in unlock mode; saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
     "level power|name|portrait  - where the target's level goes (saved)",
@@ -442,6 +443,13 @@ function Settings_.SetSwingTimer(on)
     return true
 end
 
+-- The combat timer (#120): db.combatTimer = false when off.
+function Settings_.SetCombatTimer(on)
+    if not GlassUF.Timer.SetEnabled(on) then return false end
+    if on then GlassUnitFramesDB.combatTimer = nil else GlassUnitFramesDB.combatTimer = false end
+    return true
+end
+
 -- The five-second rule strip (#94): db.fiveSecondRule = false when off,
 -- db.fsrCombatOnly = false to show it out of combat too.
 function Settings_.SetFiveSecond(on)
@@ -548,6 +556,12 @@ local function slash(msg)
             say("glass body " .. arg .. ": takes effect after /reload")
         else
             say("body clear|smoked (now " .. GlassUF.body .. ")")
+        end
+    elseif cmd == "timer" then
+        if (arg == "on" or arg == "off") and Settings_.SetCombatTimer(arg == "on") then
+            say("combat timer " .. arg)
+        else
+            say("timer on|off (now " .. (GlassUF.Timer.enabled and "on" or "off") .. ")")
         end
     elseif cmd == "ramp" then
         if Settings_.SetTrackRamp(arg) then
