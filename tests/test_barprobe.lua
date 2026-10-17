@@ -40,8 +40,10 @@ eq(button("target").health.trackClip._alpha, 0.5, "the target's as well")
 eq(p.power.trackClip._alpha, 0.25, "power keeps its own")
 
 -- The edge ramp: on the fill's moving edge, only the fade part of the texture.
+T.S.health = 0.6; T.applyAll(); BarProbeDB.settings = { health = 0.6 }
 fp("bar reset")
-eq(BarProbeDB.settings.health, 0.25, "reset is saved")
+eq(BarProbeDB.settings, nil, "reset forgets the saved tuning (nothing re-applied at login)")
+eq(T.S.health, 0.25, "and the controls show the defaults")
 T.S.ramp, T.S.length = "edge", 0.1
 s1.health:SetWidth(288)
 T.applyAll()

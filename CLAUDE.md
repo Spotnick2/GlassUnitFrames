@@ -499,7 +499,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   `FOREVERPROBE_OPTIONAL=1`). `Tools/BarProbe/` (`/fp bar`, #117) shows sample glass frames at
   5–80% with live controls for the empty part's strength and ramp, applied to the real bars too
   and saved in `BarProbeDB.settings` (re-applied at login while it's deployed); `/fp bar reset`
-  goes back to the shipped values. Same host, same local-only test (`test_barprobe.lua`).
+  (or Forget) drops them, and `/reload` gives the bars back to GUF. Same host, same local-only test (`test_barprobe.lua`).
   GlassProbe, the material probe from before LibGlass, was retired in
   #112 (LibGlass's own probe, `/fp lg`, replaced it; its files are in history).
 

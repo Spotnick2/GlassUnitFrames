@@ -84,6 +84,15 @@ local function changed()
     say("now: " .. describe())
 end
 
+-- Forget the tuning: nothing is re-applied at login, and /reload hands the
+-- bars back to GlassUnitFrames (its strength and its Fade option).
+local function forget()
+    BarProbeDB.settings = nil
+    for k, v in pairs(DEFAULTS) do S[k] = v end
+    if panel then panel.sync() end
+    say("tuning forgotten: /reload hands the bars back to GlassUnitFrames")
+end
+
 local function load(saved)
     for k, v in pairs(DEFAULTS) do S[k] = v end
     if type(saved) ~= "table" then return end
@@ -196,9 +205,7 @@ local function buildPanel()
     ramp:SetScript("OnClick", function()
         S.ramp = (S.ramp == "edge") and "whole" or "edge"; changed()
     end)
-    local reset = button(panel, "Reset", 70, function()
-        load(nil); changed(); say("reset to Frames.lua's values")
-    end)
+    local reset = button(panel, "Forget", 70, forget)
     reset:SetPoint("TOPLEFT", panel, "TOPLEFT", 6, -70)
     local shot = button(panel, "Shot", 70, function() Probe:Screenshot(describe()) end)
     shot:SetPoint("LEFT", reset, "RIGHT", 4, 0)
@@ -227,7 +234,7 @@ end
 Probe:Command("show", show, "show the sample bars and the controls")
 Probe:Command("hide", function() if panel then panel:Hide() end end, "hide the panel (settings stay applied)")
 Probe:Command("state", function() say(describe()) end, "print the current settings")
-Probe:Command("reset", function() load(nil); changed() end, "back to Frames.lua's values (0.25, whole bar)")
+Probe:Command("reset", function() forget() end, "forget the tuning; /reload gives the bars back to GlassUnitFrames")
 Probe:Command("clear", function() Probe:ClearLog(); say("log cleared") end, "empty the saved log")
 
 Probe:Steps("tune", {
