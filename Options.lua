@@ -114,6 +114,7 @@ local function note(col, text, width)
     local h = fs:GetStringHeight()
     if type(h) ~= "number" or h ~= h or h <= 0 then h = 14 end
     place(col, fs, math.max(18, math.ceil(h) + 4), 4)
+    return fs
 end
 
 local function button(parent, text, width, onClick)
@@ -303,10 +304,13 @@ local function build()
     local left, right = column(16, -72), column(400, -72)
 
     header(left, "Look")
+    -- Following Glass UI (#129): said here, and the look controls are off for the session.
+    local suiteStatus = GlassUF.SuiteStatus()
+    if suiteStatus then controls.suiteNote = note(left, suiteStatus, 340) end
     -- The glass (#102): saved now, built after /reload.
-    controls.look = radioRow(left, "Glass", { { "classic", "Classic" }, { "clean", "Clean" } },
-        function() return (GlassUnitFramesDB and GlassUnitFramesDB.look) or "classic" end,
-        GlassUF.Settings.SetLook, 60, { 0, 84 })
+    controls.look = radioRow(left, "Glass", { { "pearl", "Pearl" }, { "clean", "Clean" }, { "classic", "Classic" } },
+        function() return (GlassUnitFramesDB and GlassUnitFramesDB.look) or GlassUF.DEFAULT_LOOK end,
+        GlassUF.Settings.SetLook, 60, { 0, 84, 168 })
     controls.glassBody = radioRow(left, "Body", { { "clear", "Clear" }, { "smoked", "Smoked" } },
         function() return (GlassUnitFramesDB and GlassUnitFramesDB.glassBody) or "clear" end,
         GlassUF.Settings.SetGlassBody, 60, { 0, 84 })
@@ -320,10 +324,18 @@ local function build()
         GlassUF.Settings.SetTrackRamp, 60, { 0, 84 })
     left.y = left.y - 6
     for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key] = tunableSlider(left, t) end
-    place(left, button(content, "Reset look to defaults", 190, function()
+    controls.resetLook = button(content, "Reset look to defaults", 190, function()
         Options.ResetLook()
         controls.refreshAll()
-    end), 30, 4)
+    end)
+    place(left, controls.resetLook, 30, 4)
+    if GlassUF.following then
+        for _, group in ipairs({ controls.look, controls.glassBody, controls.trackRamp }) do
+            for _, rb in ipairs(group) do rb:SetEnabled(false) end
+        end
+        for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key]:SetEnabled(false) end
+        controls.resetLook:SetEnabled(false)
+    end
 
     -- Health text per frame: one row each, the formats side by side.
     header(left, "Health text")

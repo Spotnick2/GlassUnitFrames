@@ -3,7 +3,9 @@ dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
 standardUnits()
-loadAddon()
+-- The classic look: these numbers (rims, track tint, the rows' heights) are its
+-- own. Pearl, the default, is test_look's (#129).
+loadAddon({ db = { look = "classic" } })
 -- The Quartz extras (#78) have their own test: off here, so these keep
 -- testing the plain bar ("1.2s", the spell name alone, hidden on STOP).
 GlassUF.Castbar.options.totalTime, GlassUF.Castbar.options.targetName, GlassUF.Castbar.options.complete = false, false, false
@@ -393,10 +395,17 @@ eq(fillTex._alpha, 0.5, "fill opacity re-applied after a reset")
 -- A caller's alpha is honoured by the fill gradient.
 p.health:SetStatusBarColor(0, 1, 0, 0.5)
 eq(fillTex._gradient[2].a, 0.25, "SetStatusBarColor's alpha kept (x the fill opacity)")
--- The same colour again does no work (painters recolour on every event).
-fillTex._gradient = nil
+-- The same colour again (painters recolour on every event): the client's
+-- SetStatusBarColor drops the fill's gradient, so LibGlass r11 paints it back
+-- every time, and re-tints the track only on a change (LibGlass#64).
+local track = p.health.track
+fillTex._gradient = nil   -- whatever the stub models: only a repaint sets it
+track._vertex, track._gradient = nil, nil
 p.health:SetStatusBarColor(0, 1, 0, 0.5)
-eq(fillTex._gradient, nil, "unchanged colour: no re-tint")
+check(fillTex._gradient ~= nil, "unchanged colour: the fill's gradient painted back")
+eq(fillTex._gradient and fillTex._gradient[2].a, 0.25, "at the fill opacity x the colour's alpha")
+eq(track._vertex, nil, "unchanged colour: the track isn't re-tinted")
+eq(track._gradient, nil, "nor its gradient")
 SlashCmdList.GLASSUNITFRAMES("fill 3")
 eq(GlassUnitFramesDB.fill, 0.5, "out-of-range fill rejected")
 SlashCmdList.GLASSUNITFRAMES("font comic")

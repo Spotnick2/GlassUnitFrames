@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Pearl is the new default look.** The Glass addons' suite glass, now the frames' own default.
+  If you never picked a look, your frames switch to Pearl at your next `/reload`. A saved Clean or
+  Classic stays as it is. Choose under Options > AddOns > Glass Unit Frames > Look (Pearl, Clean,
+  Classic), or with `/glass look pearl|clean|classic`.
+- **Follow Glass UI's theme.** With Glass UI installed, turn on **Follow Glass UI** for Glass Unit
+  Frames there, and after a `/reload` your frames use the suite's Pearl glass. Your own look,
+  body, fade and material sliders are kept and come back when you stop following; until then
+  they're greyed out and say "set in Glass UI". Your font, cast bar colours and aggro red still
+  apply. Without Glass UI, nothing changes.
+- Fixed: health and power fills drew solid after their first colour change instead of at their
+  fill opacity (the "Bar fill opacity" slider). They're see-through again.
 - **See your next 2 seconds of mana regen.** A faint segment just past your mana bar's fill shows
   how much mana the next 2 seconds will give you, so you can tell whether to wait or drink. It
   shrinks to almost nothing during the five-second rule, hides at full mana, and sits on the

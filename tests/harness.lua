@@ -116,6 +116,7 @@ function loadAddon(opts)
         end
     end
     if opts.db then GlassUnitFramesDB = opts.db end
+    if opts.beforeLoaded then opts.beforeLoaded() end   -- after the files, before ADDON_LOADED
     WoW.fire("ADDON_LOADED", "GlassUnitFrames")
     WoW.fire("PLAYER_LOGIN")
     WoW.fire("PLAYER_ENTERING_WORLD", opts.initialLogin ~= false, false)

@@ -72,15 +72,46 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   It also holds `MEASURED_ON_BUILD`.
 - **`Glass.lua`**: `GlassUF.Glass`, this addon's instance of the embedded material (see below).
   Every call site dot-calls it (`Glass.Apply`, `Glass.Bar`, `Glass.MEDIA`, ...).
-  - It's a **forwarding handle** (#102) to the instance in use. `GlassUF.UseLook("clean")` picks
-    LibGlass r6's clean preset at ADDON_LOADED, before anything is built, from `db.look` (classic
-    is the default and isn't saved; `/glass look`, an options radio, after `/reload`).
+  - It's a **forwarding handle** (#102) to the instance in use. `GlassUF.UseLook(look, body)`
+    builds it at ADDON_LOADED, before anything is built, from `db.look` (`/glass look`, an options
+    radio, after `/reload`).
+  - **The looks** are LibGlass presets: **Pearl** (the default, not saved; owner, #129), **Clean**
+    and **Classic** (both saved). A profile that never chose a look gets Pearl; there's no
+    migration.
+    - Pearl needs LibGlass r11. With an older copy winning (MINOR below `GlassUF.PEARL_MINOR`),
+      or Pearl's `New` failing under pcall, the look is Clean.
+    - That case sets `GlassUF.lookFallback` ("Pearl needs LibGlass r11 or newer: Clean in use",
+      the same text as GRF), which is said once at load, on `/glass look` and under Look on the
+      options page.
+    - Classic omits the preset: r6-r10 refuse `"classic"`.
   - The glass body works the same way (#101), from `db.glassBody`. Clear is LibGlass's own
     default (tint alpha 0.24). "smoked" passes `bodyAlpha = GlassUF.SMOKED` (0.65, the middle of
     the 0.50–0.80 LibGlass explored). It's set with `/glass body` and a Body radio, after
     `/reload`. `GlassUF.UseLook(look, body)` builds one instance with both.
   - The instance's functions are closures bound to it, so forwarding is enough.
   - Never keep `Glass.TUNABLES` / `STYLE` from file load: read them when used.
+  - **Following Glass UI** (#129, the contract is GlassUI's `docs/SUITE.md`, API 1; don't
+    paraphrase or extend it). `GlassUF.UseSuite(ADDON)` runs first at ADDON_LOADED, once a session.
+    - **The check:** `rawget(_G, "GlassUI").Suite` must be a table with `API == 1` exactly, and
+      `Theme` / `Report` must be functions; anything else counts as absent. Then
+      `pcall(Theme, ADDON)`, and only an answer whose `preset` is `"pearl"` (read under pcall)
+      counts.
+    - **Told Pearl:**
+      - LibGlass's winning MINOR below `GlassUF.PEARL_MINOR` (11) is `"library-too-old"`, and
+        `New` is never asked.
+      - `pcall(lib.New, lib, { preset = "pearl" })` erroring is `"build-failed"`.
+      - Either failure leaves `GlassUF.suiteFailure` set and the local look built.
+      - Success sets `GlassUF.following = "pearl"`.
+    - **While following**, the look, body, ramp and knobs are suspended but kept:
+      - `ensureDefaults` neither applies nor prunes the knobs, and the saved ramp isn't applied.
+      - `Settings.SetLook`, `SetGlassBody`, `SetTrackRamp`, `SetTunable` and `ResetLook` refuse.
+      - `/glass look|body|ramp|<knob>` says `GlassUF.SuiteStatus()`.
+      - The options page shows that note and disables those controls.
+      - The font, cast colours and aggro red apply as usual.
+    - **Report:** under pcall, right after the build: `{ api = 1, built, reason, minor, options }`.
+    - **The TOC** has `## OptionalDeps: GlassUI`, so Glass UI's `Theme` is ready first.
+    - Glass UI's SkinProbe reads `GlassUF.Glass.preset` / `STYLE` and the saved look keys: keep
+      those names.
   - **A bar's empty part** (#117). LibGlass's track ramp (the bar's colour fading to clear across
     the bar) made a 9% mana bar read as half full. Every health and power bar draws it at 0.25
     (`Frames.lua`'s `QUIET_TRACK`) through **the track's clip frame** (`bar.trackClip:SetAlpha`):
@@ -506,7 +537,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
