@@ -208,6 +208,7 @@ local HELP = {
     "font arial|friz  - text font (saved)",
     "look classic|clean  - the glass: classic, or LibGlass's clean preset (after /reload, saved)",
     "timer on|off  - the combat timer over your portrait (saved)",
+    "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
     "level power|name|portrait  - where the target's level goes (saved)",
@@ -463,6 +464,13 @@ function Settings_.SetFiveSecondCombatOnly(on)
     return true
 end
 
+-- The regen segment (#118): db.manaRegen = false when off. Mana users only.
+function Settings_.SetManaRegen(on)
+    if not GlassUF.FiveSecond.SetRegen(on) then return false end
+    if on then GlassUnitFramesDB.manaRegen = nil else GlassUnitFramesDB.manaRegen = false end
+    return true
+end
+
 -- Blizzard's own swing bars: its "Enable Swing Timer" option (the
 -- showSwingTimer CVar). Only ever from a click, out of combat.
 function Settings_.SetBlizzardSwing(on) return GlassUF.Swing.SetBlizzardShown(on) end
@@ -562,6 +570,14 @@ local function slash(msg)
             say("combat timer " .. arg)
         else
             say("timer on|off (now " .. (GlassUF.Timer.enabled and "on" or "off") .. ")")
+        end
+    elseif cmd == "regen" then
+        if not GlassUF.FiveSecond.Built() then
+            say("regen: for mana users only")
+        elseif (arg == "on" or arg == "off") and Settings_.SetManaRegen(arg == "on") then
+            say("mana regen segment " .. arg)
+        else
+            say("regen on|off (now " .. (GlassUF.FiveSecond.regen and "on" or "off") .. ")")
         end
     elseif cmd == "ramp" then
         if Settings_.SetTrackRamp(arg) then

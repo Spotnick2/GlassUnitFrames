@@ -1186,7 +1186,7 @@ local function buildDruidMana(b, body, L)
     bar:SetFrameLevel(Glass.ContentLevel(host))
     bar:SetStatusBarColor(POWER_COLORS.MANA[1], POWER_COLORS.MANA[2], POWER_COLORS.MANA[3])
     host:Hide()
-    b.druidMana = { host = host, bar = bar }
+    b.druidMana = { host = host, bar = bar, width = L.w - 2 * inset }   -- the bar's width (#118)
     b.channels.druidmana = true
 end
 

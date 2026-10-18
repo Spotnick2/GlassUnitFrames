@@ -351,6 +351,27 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     through Engine.
   - **Options:** `db.fiveSecondRule` and `db.fsrCombatOnly` (on by default, each saved only when
     off), on the main page, only for mana users.
+  - **The regen segment** (#118), in the same file (it shares the window, the bar choice, the
+    events and preview): a faint bar past the mana fill as wide as the next 2 s of regen.
+    - **No arithmetic:** `GetManaRegen()` is secret in combat, so the bar is **twice the mana bar's
+      width** (`b.healthWidth`, the druid strip's `b.druidMana.width`) with the range
+      `(0, UnitPowerMax)` and the rate as its value: it draws `rate / max * 2W`. Anchored to the
+      fill's moving edge, top and bottom (it follows `ReflowRows`), clipped at the bar's end
+      (`Frames.OverlayBar`, level +3).
+    - **The rate:** inside the window `castingManaRegen`, else `baseManaRegen`, chosen by an
+      explicit `if` on our plain state (never `a and secret or b`).
+    - Hidden at full mana (`API.ManaAlpha`, no preview override: it's past the end anyway), when
+      dead or a ghost, and on the druid strip during a preview (that strip is sampled at 60%).
+      In a preview its own events (mana and max mana updates, form, death, alive) still repaint
+      it.
+    - Repaints on `UNIT_POWER_UPDATE` / `UNIT_MAXPOWER` ("MANA"), form changes, the window,
+      `PLAYER_ALIVE` / `PLAYER_UNGHOST`.
+    - **Tracking vs showing:** the events and the window serve both, kept while either is on.
+      The last one off unregisters and idles; the first one on registers, re-reads combat and
+      idles; otherwise the window is kept. The strip turned off during a preview still ends its
+      sample loop.
+    - `db.manaRegen` (saved only when off), `Settings.SetManaRegen`, `/glass regen on|off`, a
+      checkbox in the main page's "Mana" section.
 - **`Zoom.lua`** (#89): combat zoom, per bar (player, target, focus, pet, swing), off by default.
   - **What it does:** in combat, a bar is laid out **detached at its zoom spot** (x, y, scale) and
     goes home when combat ends.
@@ -480,11 +501,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `look` (#102, "clean" or nil), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|regen on|off`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames
@@ -498,7 +519,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
   `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`,
   `SetCastOption`, `SetCastDetached`, `SetCastScale`, `CenterCast`, `SetCastSize`, `SetCastIcon`,
-  `SetCastColor`, `ResetCastColors`, `SetCastPrecision`, `SetTrackRamp`, `SetCombatTimer`). The cast bars have their
+  `SetCastColor`, `ResetCastColors`, `SetCastPrecision`, `SetTrackRamp`, `SetCombatTimer`, `SetManaRegen`). The cast bars have their
   own **sub-page**, "Cast bars": one set of per-bar controls behind a "Settings for" picker
   (Detached, icon side, width, height, scale, Center), and the shared text, colour and extras
   sections. Colour swatches open `ColorPickerFrame:SetupColorPickerAndShow` (DinoUF's way on
