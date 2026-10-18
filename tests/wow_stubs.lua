@@ -15,7 +15,7 @@
 --   so test_methods.lua can check each against the dump's widget methods.
 
 WoW = {}
-local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/WoW/References/forever-api-1.60.1.70338.md"
+local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70338.md"
 
 --------------------------------------------------------------------------------
 -- Secrets
