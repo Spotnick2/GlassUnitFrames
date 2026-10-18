@@ -531,7 +531,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   knobs).
 - **`tests/`**: see Testing. `Tools/CastProbe/` is the throwaway probe: the cast, swing, craft and
   mana event trace behind #72–#108. It's a **ForeverProbe module** (#112; the shared host at
-  `..\ForeverProbe`, `C:\Projects\WoW\References\PROBES.md`): `/fp cast` lists its commands
+  `..\ForeverProbe`, `C:\Projects\WoW\References\Docs\PROBES.md`): `/fp cast` lists its commands
   (`status`, `mark <text>`, `cd`, `hier`, `clear`), its lines go to the `/fp` console and
   `CastProbeDB.log`, never chat. Deploy it with `Tools\deploy.ps1 -Probe` (the host first). A
   new in-game experiment is a guided procedure (`Probe:Steps`), not a chat checklist. Its test
@@ -549,10 +549,10 @@ Classic API is usually stale.
 
 ## References: read these before touching an unfamiliar API
 
-- `C:\Projects\WoW\References\PORTING-TBC-TO-FOREVER.md` holds the canonical addon-agnostic field
+- `C:\Projects\WoW\References\Docs\PORTING-TBC-TO-FOREVER.md` holds the canonical addon-agnostic field
   notes, measured on the live client. Treat them as fact; don't re-derive them. Other sessions
   edit this file, so write new addon-agnostic findings there, not into a copy in this repo.
-- `C:\Projects\WoW\References\forever-api-1.60.1.70338.md` is the full API dump for the current
+- `C:\Projects\WoW\References\Forever\api\forever-api-1.60.1.70450.md` is the full API dump for the current
   build: documented functions and events, enums, **widget methods** (the only list of those), and
   the `_G` walk. It proves a name exists, not that it works. **Presence is not a contract.**
 - For a live check in game: `/api search <name>`, `/api system list`, `/api <system> list`
@@ -589,7 +589,7 @@ contract (the API, region fields and texture names only grow; instances; upgrade
 
 ## Reference addons
 
-These live in `C:\Projects\WoW\References`. They show what works on this client *in practice*,
+These live in `C:\Projects\WoW\References\Addons` (its `INDEX.md` lists versions). They show what works on this client *in practice*,
 which the dump can't tell you. Reason about what they do rather than copying it. **None is
 licensed for reuse:** SUF and DinoUF ship no license, and EllesmereUI is "all rights reserved".
 Write our own code.
@@ -599,7 +599,7 @@ Write our own code.
   `classic` branch). It's the source of truth for *what* a unit frame addon does and how SUF
   structures it. It doesn't run on Forever: `units.lua` uses `SecureHandlerBaseTemplate`,
   `WrapScript` and `RegisterStateDriver`, which are all broken here.
-- **`DinoUnitFrames_Forever_Beta_v3.0` is the Forever reference.** It's SUF's classic branch
+- **`UnitFrames\DinoUnitFrames-Forever` is the Forever reference.** It's SUF's classic branch
   (`ShadowUF` namespace) ported to this client. Read it for *how* to make each SUF piece work on
   Forever; diff it against upstream to isolate the port. There's one module per element in
   `DinoUnitFrames\modules\`: `units.lua` handles frame lifecycle and headers, plus
@@ -614,7 +614,7 @@ Write our own code.
     and obsolete now that SavedVariables work.
   - The `1.42` "render correction" scales frames to match imported TBC profiles, not a
     property of the client.
-- **`EllesmereUI-v9.3` is for inspiration** on architecture and visual style. It's a
+- **`UISuites\EllesmereUI-9.3` is for inspiration** on architecture and visual style. It's a
   Retail-first suite with Forever support (`## Interface: …, 16001`, `EllesmereUI.IS_FOREVER`
   from `EllesmereUI_ClientGate.lua`). The useful part is `EllesmereUIUnitFrames\`, especially
   `EUI_UnitFrames_Engine.lua`, a clean update engine:
@@ -626,7 +626,7 @@ Write our own code.
   `EllesmereUIRaidFrames\` covers party and raid frames. `EllesmereUI_ForeverLayout.lua` shows
   default positions coexisting with Edit Mode.
 
-Keep a `MEASURED_ON_BUILD` constant in the source, matching the dump's build (`1.60.1.70338`),
+Keep a `MEASURED_ON_BUILD` constant in the source, matching the dump's build (`1.60.1.70450`),
 and warn at login when `GetBuildInfo()` differs, **dev copies only** (`API.IsDevBuild`: version
 `dev`, the unreplaced packager keyword, or unreadable), as AltStable does. Bump it only after
 re-measuring in game. Matching dumps don't prove runtime behaviour.

@@ -2,7 +2,7 @@
 
 Runtime measurements on the live client, recorded with the build number. The API dump says what
 exists; this file says what works. Addon-agnostic findings also belong in
-`C:\Projects\WoW\References\PORTING-TBC-TO-FOREVER.md`.
+`C:\Projects\WoW\References\Docs\PORTING-TBC-TO-FOREVER.md`.
 
 The probe now is `Tools/CastProbe`, a ForeverProbe module (`/fp cast`, #112). GlassProbe, the
 instrument of probe 1 below, was retired in #112; its files are in history.
