@@ -191,7 +191,7 @@ local function radioRow(col, rowLabel, options, get, set, labelWidth, offsets)
     local fs = label(col.parent, rowLabel)
     fs:SetWidth(labelWidth)
     place(col, fs, 0, 4)
-    local group = {}
+    local group = { label = fs }
     for i, o in ipairs(options) do
         local rb = checkButton(o[2], true, col.parent)
         rb.value = o[1]
@@ -229,6 +229,7 @@ local function slider(col, t)
     value:SetPoint("LEFT", fs, "LEFT", SLIDER_W + 12, 0)
     place(col, fs, 18, 4)
     local s = CreateFrame("Slider", nil, parent)
+    s.label, s.valueText = fs, value
     s:SetSize(SLIDER_W, 16)
     s:SetOrientation("HORIZONTAL")
     s:SetMinMaxValues(t.min, t.max)
@@ -307,6 +308,12 @@ local function build()
     -- Following Glass UI (#129): said here, and the look controls are off for the session.
     local suiteStatus = GlassUF.SuiteStatus()
     if suiteStatus then controls.suiteNote = note(left, suiteStatus, 340) end
+    -- Where the suite look is set (and Follow turned on or off), when Glass UI
+    -- can open it: GRF's button, same label.
+    if GlassUF.CanOpenSuite() then
+        controls.openSuite = button(content, "Glass UI settings", 160, function() GlassUF.OpenSuite() end)
+        place(left, controls.openSuite, 30, 4)
+    end
     -- The glass (#102): saved now, built after /reload.
     controls.look = radioRow(left, "Glass", { { "pearl", "Pearl" }, { "clean", "Clean" }, { "classic", "Classic" } },
         function() return (GlassUnitFramesDB and GlassUnitFramesDB.look) or GlassUF.DEFAULT_LOOK end,
@@ -330,11 +337,25 @@ local function build()
     end)
     place(left, controls.resetLook, 30, 4)
     if GlassUF.following then
-        for _, group in ipairs({ controls.look, controls.glassBody, controls.trackRamp }) do
-            for _, rb in ipairs(group) do rb:SetEnabled(false) end
+        -- Disabled, and seen to be: the labels are our own font strings and
+        -- the radio art has no disabled look (GRF measured both staying bright).
+        local function off(widget, ...)
+            widget:SetEnabled(false)
+            widget:SetAlpha(0.5)
+            for i = 1, select("#", ...) do
+                local fs = select(i, ...)
+                if fs then fs:SetTextColor(0.5, 0.5, 0.5) end
+            end
         end
-        for _, t in ipairs(Glass.TUNABLES) do controls["slider_" .. t.key]:SetEnabled(false) end
-        controls.resetLook:SetEnabled(false)
+        for _, group in ipairs({ controls.look, controls.glassBody, controls.trackRamp }) do
+            group.label:SetTextColor(0.5, 0.5, 0.5)
+            for _, rb in ipairs(group) do off(rb, rb.label) end
+        end
+        for _, t in ipairs(Glass.TUNABLES) do
+            local sl = controls["slider_" .. t.key]
+            off(sl, sl.label, sl.valueText)
+        end
+        off(controls.resetLook)
     end
 
     -- Health text per frame: one row each, the formats side by side.

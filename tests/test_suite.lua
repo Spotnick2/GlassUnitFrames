@@ -234,6 +234,21 @@ for _, name in ipairs({ "look", "glassBody", "trackRamp" }) do
     for _, rb in ipairs(controls[name]) do check(not rb:IsEnabled(), "options: " .. name .. " radio off") end
 end
 for _, t in ipairs(Glass.TUNABLES) do check(not controls["slider_" .. t.key]:IsEnabled(), "options: slider off: " .. t.key) end
+-- And seen to be off: the controls dimmed, their labels grey.
+for _, name in ipairs({ "look", "glassBody", "trackRamp" }) do
+    local group = controls[name]
+    eq(group.label._textColor and group.label._textColor[1], 0.5, "options: " .. name .. " row label grey")
+    for _, rb in ipairs(group) do
+        eq(rb._alpha, 0.5, "options: " .. name .. " radio dimmed")
+        eq(rb.label._textColor and rb.label._textColor[1], 0.5, "options: " .. name .. " radio label grey")
+    end
+end
+for _, t in ipairs(Glass.TUNABLES) do
+    local sl = controls["slider_" .. t.key]
+    eq(sl._alpha, 0.5, "options: slider dimmed: " .. t.key)
+    eq(sl.label._textColor and sl.label._textColor[1], 0.5, "options: slider label grey: " .. t.key)
+    eq(sl.valueText._textColor and sl.valueText._textColor[1], 0.5, "options: slider value grey: " .. t.key)
+end
 check(not controls.resetLook:IsEnabled(), "options: Reset look off")
 untouched(db, savedLook(), "following, after the options page")
 
@@ -246,11 +261,42 @@ O = GlassUF.Options
 O._test.panel:Show()
 check(O._test.controls.suiteNote == nil, "not following: no note")
 check(O._test.controls.look[1]:IsEnabled(), "not following: the look radios work")
+check(O._test.controls.look[1]._alpha ~= 0.5, "not following: and aren't dimmed")
 rawset(_G, "GlassUI", nil)
 
 -- The TOC asks the client to load Glass UI first when it's enabled.
 local deps
 for line in io.lines("GlassUnitFrames.toc") do deps = deps or line:match("^## OptionalDeps:%s*(.-)%s*$") end
 eq(deps, "GlassUI", "## OptionalDeps: GlassUI")
+
+-- "Glass UI settings" (GlassUI bcbd20f; GRF's button and label): under Look
+-- whenever the Suite has Open, following or not; called under pcall.
+local function panelFor(theme, fields)
+    glassUI(theme, fields)
+    load(savedLook())
+    local O = GlassUF.Options._test
+    O.panel:Show()
+    return O.controls
+end
+local opened = {}
+local c = panelFor(pearl, { Open = function(...) opened[#opened + 1] = select("#", ...) return true end })
+check(c.openSuite ~= nil, "following with Open: the button")
+eq(c.openSuite._text or c.openSuite.Text and c.openSuite.Text._text, "Glass UI settings", "its label")
+c.openSuite._scripts.OnClick(c.openSuite)
+eq(#opened, 1, "a click opens Glass UI")
+eq(opened[1], 0, "with no arguments")
+check(GlassUF.OpenSuite(), "Open's answer is passed back")
+c = panelFor(pearl, { Open = function() error("Glass UI broke") end })
+check(pcall(c.openSuite._scripts.OnClick, c.openSuite), "an Open that throws never reaches the button")
+check(not GlassUF.OpenSuite(), "and counts as not opened")
+c = panelFor(pearl)
+check(c.openSuite == nil, "no Open (an older Glass UI): no button")
+c = panelFor(notFollowing, { Open = function() return true end })
+check(c.openSuite ~= nil, "not following: the button too (Follow is turned on there)")
+rawset(_G, "GlassUI", nil)
+load(savedLook())
+GlassUF.Options._test.panel:Show()
+check(GlassUF.Options._test.controls.openSuite == nil, "no Glass UI: no button")
+rawset(_G, "GlassUI", nil)
 
 done("test_suite")

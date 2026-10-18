@@ -121,6 +121,18 @@ function GlassUF.UseSuite(addon)
     return S, minor
 end
 
+-- Glass UI's settings page, when its Suite has Open (an addition to API 1,
+-- GlassUI bcbd20f): for the "Set in Glass UI" button under the suspended look.
+function GlassUF.CanOpenSuite()
+    local S = suite()
+    return S ~= nil and type(rawget(S, "Open")) == "function"
+end
+function GlassUF.OpenSuite()
+    if not GlassUF.CanOpenSuite() then return false end
+    local ok, opened = pcall(rawget(suite(), "Open"))
+    return ok and opened == true
+end
+
 -- What the player reads while the suite theme owns the look, or after it failed.
 function GlassUF.SuiteStatus()
     if GlassUF.following then return "Look: following Glass UI (Pearl), set in Glass UI" end

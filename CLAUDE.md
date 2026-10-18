@@ -106,7 +106,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       - `ensureDefaults` neither applies nor prunes the knobs, and the saved ramp isn't applied.
       - `Settings.SetLook`, `SetGlassBody`, `SetTrackRamp`, `SetTunable` and `ResetLook` refuse.
       - `/glass look|body|ramp|<knob>` says `GlassUF.SuiteStatus()`.
-      - The options page shows that note and disables those controls.
+      - The options page shows that note and disables those controls, dimmed (0.5) with grey labels:
+        `SetEnabled(false)` alone shows nothing (our labels are font strings), as GRF measured.
+    - **Glass UI settings**, a button under Look (`GlassUF.OpenSuite`), calls `Suite.Open()`
+      under pcall. It's shown whenever the Suite has `Open` (GlassUI bcbd20f, still API 1), following
+      or not: GRF's button, with the same label.
       - The font, cast colours and aggro red apply as usual.
     - **Report:** under pcall, right after the build: `{ api = 1, built, reason, minor, options }`.
     - **The TOC** has `## OptionalDeps: GlassUI`, so Glass UI's `Theme` is ready first.
