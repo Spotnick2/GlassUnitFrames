@@ -143,6 +143,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   post-hooks call Blizzard's `UnitFrame_OnEnter` / `UnitFrame_OnLeave` (they read `self.unit`),
   never on a forbidden `GameTooltip`, under `pcall` (an error goes to `API.Fail("tooltip")`),
   as SUF and DinoUF do.
+  **Click-casting** (#125): each button registers itself in Clique's `ClickCastFrames` table
+  (`registry[b] = true`, created with `rawset` only when absent), so GlassRaidFrames or Clique
+  binds it. The table is read at registration time, and the entry is a plain assignment, never
+  `rawset`: GlassRaidFrames sees entries only through its `__newindex`. It sets only
+  modifier-specific attributes, so `*type1` / `*type2` keep plain clicks.
 - **Portraits** (`Frames.lua`): the 3D model via SUF's sequence (`ClearModel`, `SetUnit`,
   `SetPortraitZoom(1)`, `SetPosition`).
   - Some units get **no model at all**. Measured on 70338 (#82): an Earthborer's
@@ -672,6 +677,8 @@ a full client restart.
   transposed-digit bug** seen in the wild.
 - One global namespace table, `GlassUF`. Every file starts `GlassUF = GlassUF or {}`, and the
   TOC order is the load order.
+  The one other global is `ClickCastFrames`, the name of a shared convention (Clique's), not an
+  API alias.
 - Put a compat or adapter layer first (like the siblings' `Compat.lua` → `<Addon>.API`) for any
   API that moved from Classic. Consumers reach it through the namespace, not by injecting
   globals into `_G`. Read the porting guide's "False friends" section before aliasing anything:

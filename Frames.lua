@@ -1346,6 +1346,15 @@ local function build(unit)
     b:SetAttribute("unit", unit)
     b:SetAttribute("*type1", "target")
     b:SetAttribute("*type2", "togglemenu")
+    -- Clique's convention (#125): a click-caster (GlassRaidFrames, Clique) finds
+    -- the button here. Read the table at registration time, never into a
+    -- file-load local: the click-caster may have put a watching table in its place.
+    local registry = rawget(_G, "ClickCastFrames")
+    if type(registry) ~= "table" then
+        registry = {}
+        rawset(_G, "ClickCastFrames", registry)
+    end
+    registry[b] = true   -- a plain assignment: the click-caster's __newindex must see it
     b:RegisterForClicks(API.UnitButtonClicks())
     b:HookScript("OnEnter", tooltipEnter)
     b:HookScript("OnLeave", tooltipLeave)
