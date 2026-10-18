@@ -45,3 +45,60 @@ function GlassUF.UseLook(look, body)
     GlassUF.look = opts.preset or "classic"
     GlassUF.body = opts.bodyAlpha and "smoked" or "clear"
 end
+
+-- The suite theme (#129, Glass UI's docs/SUITE.md, API 1). When the player
+-- turns Follow on in Glass UI, its Theme answer says "pearl" and this
+-- addon builds LibGlass's Pearl preset instead of its own look; its look,
+-- body, tunables and ramp are then suspended (refused, never written) but
+-- stay saved. Decided once, at ADDON_LOADED, before anything is built.
+GlassUF.following = nil      -- "pearl" while this session built the suite theme
+GlassUF.suiteFailure = nil   -- why Pearl was asked for and not built
+GlassUF.PEARL_MINOR = 11     -- LibGlass r11 brought preset = "pearl"
+
+-- Glass UI's Suite table, or nil: anything but API 1 exactly counts as absent
+-- (the released Glass UI has no Suite at all).
+local function suite()
+    local G = rawget(_G, "GlassUI")
+    if type(G) ~= "table" then return nil end
+    local S = rawget(G, "Suite")
+    if type(S) ~= "table" or rawget(S, "API") ~= 1 then return nil end
+    if type(rawget(S, "Theme")) ~= "function" or type(rawget(S, "Report")) ~= "function" then return nil end
+    return S
+end
+
+-- The answer's preset, read under pcall: a junk answer can't throw at us.
+local function presetOf(answer)
+    if type(answer) ~= "table" then return nil end
+    local ok, preset = pcall(function() return answer.preset end)
+    return ok and preset == "pearl" and preset or nil
+end
+
+-- Ask Glass UI and, when told Pearl, build it. Returns the Suite table (nil
+-- when Glass UI doesn't speak the API) and LibGlass's MINOR at the attempt.
+-- Afterwards GlassUF.following or GlassUF.suiteFailure says what happened.
+function GlassUF.UseSuite(addon)
+    local S = suite()
+    if not S then return nil end
+    local ok, answer = pcall(S.Theme, addon)
+    local preset = ok and presetOf(answer) or nil
+    local _, minor = LibStub:GetLibrary("LibGlass-1.0", true)
+    if not preset then return S, minor end
+    if type(minor) ~= "number" or minor < GlassUF.PEARL_MINOR then
+        GlassUF.suiteFailure = "library-too-old"
+        return S, minor
+    end
+    local built, inst = pcall(lib.New, lib, { preset = preset })
+    if not built then
+        GlassUF.suiteFailure = "build-failed"
+        return S, minor
+    end
+    current = inst
+    GlassUF.following = preset
+    return S, minor
+end
+
+-- What the player reads while the suite theme owns the look, or after it failed.
+function GlassUF.SuiteStatus()
+    if GlassUF.following then return "Look: following Glass UI (Pearl), set in Glass UI" end
+    if GlassUF.suiteFailure then return "own look: " .. GlassUF.suiteFailure end
+end

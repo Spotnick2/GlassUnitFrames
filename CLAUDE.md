@@ -81,6 +81,28 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     `/reload`. `GlassUF.UseLook(look, body)` builds one instance with both.
   - The instance's functions are closures bound to it, so forwarding is enough.
   - Never keep `Glass.TUNABLES` / `STYLE` from file load: read them when used.
+  - **Following Glass UI** (#129, the contract is GlassUI's `docs/SUITE.md`, API 1; don't
+    paraphrase or extend it). `GlassUF.UseSuite(ADDON)` runs first at ADDON_LOADED, once a session.
+    - **The check:** `rawget(_G, "GlassUI").Suite` must be a table with `API == 1` exactly, and
+      `Theme` / `Report` must be functions; anything else counts as absent. Then
+      `pcall(Theme, ADDON)`, and only an answer whose `preset` is `"pearl"` (read under pcall)
+      counts.
+    - **Told Pearl:**
+      - LibGlass's winning MINOR below `GlassUF.PEARL_MINOR` (11) is `"library-too-old"`, and
+        `New` is never asked.
+      - `pcall(lib.New, lib, { preset = "pearl" })` erroring is `"build-failed"`.
+      - Either failure leaves `GlassUF.suiteFailure` set and the local look built.
+      - Success sets `GlassUF.following = "pearl"`.
+    - **While following**, the look, body, ramp and knobs are suspended but kept:
+      - `ensureDefaults` neither applies nor prunes the knobs, and the saved ramp isn't applied.
+      - `Settings.SetLook`, `SetGlassBody`, `SetTrackRamp`, `SetTunable` and `ResetLook` refuse.
+      - `/glass look|body|ramp|<knob>` says `GlassUF.SuiteStatus()`.
+      - The options page shows that note and disables those controls.
+      - The font, cast colours and aggro red apply as usual.
+    - **Report:** under pcall, right after the build: `{ api = 1, built, reason, minor, options }`.
+    - **The TOC** has `## OptionalDeps: GlassUI`, so Glass UI's `Theme` is ready first.
+    - Glass UI's SkinProbe reads `GlassUF.Glass.preset` / `STYLE` and the saved look keys: keep
+      those names.
   - **A bar's empty part** (#117). LibGlass's track ramp (the bar's colour fading to clear across
     the bar) made a 9% mana bar read as half full. Every health and power bar draws it at 0.25
     (`Frames.lua`'s `QUIET_TRACK`) through **the track's clip frame** (`bar.trackClip:SetAlpha`):

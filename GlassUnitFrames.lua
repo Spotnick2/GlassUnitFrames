@@ -26,6 +26,8 @@ local function ensureDefaults()
     end
     if type(db.pos) ~= "table" then db.pos = {} end
     if not Glass.FONTS[db.font] then db.font = DEFAULTS.font end
+    -- Following Glass UI (#129): the saved knobs are kept, never applied or pruned.
+    if GlassUF.following then return db end
     for _, t in ipairs(tweaks()) do
         if db[t.key] ~= nil and not t.set(db[t.key]) then db[t.key] = nil end
     end
@@ -248,14 +250,16 @@ end
 -- Takes effect after /reload: LibGlass builds a look into each surface.
 -- The glass body (#101): "smoked" saved, clear the default (not saved).
 -- Takes effect after /reload, like the look.
+-- While following Glass UI (#129), the look, body, ramp and knobs are set
+-- there: every one of these refuses and writes nothing.
 function Settings_.SetGlassBody(body)
-    if not GlassUF.BODIES[body] then return false end
+    if GlassUF.following or not GlassUF.BODIES[body] then return false end
     GlassUnitFramesDB.glassBody = body ~= "clear" and body or nil
     return true
 end
 
 function Settings_.SetLook(look)
-    if not GlassUF.LOOKS[look] then return false end
+    if GlassUF.following or not GlassUF.LOOKS[look] then return false end
     GlassUnitFramesDB.look = look ~= "classic" and look or nil
     return true
 end
@@ -268,7 +272,7 @@ end
 GlassUF.RAMP_LENGTH = 0.05
 GlassUF.RAMPS = { whole = true, edge = true }
 function Settings_.SetTrackRamp(mode)
-    if not GlassUF.RAMPS[mode] then return false end
+    if GlassUF.following or not GlassUF.RAMPS[mode] then return false end
     if Glass.SetTrackLength then
         if not Glass.SetTrackLength(mode == "edge" and GlassUF.RAMP_LENGTH or 0) then return false end
     elseif mode == "edge" then
@@ -280,7 +284,7 @@ end
 
 -- A material knob (a Glass.TUNABLES entry), saved only once set.
 function Settings_.SetTunable(t, v)
-    if not t.set(v) then return false end
+    if GlassUF.following or not t.set(v) then return false end
     GlassUnitFramesDB[t.key] = v
     return true
 end
@@ -288,6 +292,7 @@ end
 -- Every knob and the font back to the shipped defaults, saved values
 -- forgotten so future default changes reach this player again.
 function Settings_.ResetLook()
+    if GlassUF.following then return false end
     for _, t in ipairs(Glass.TUNABLES) do
         t.set(t.default)
         GlassUnitFramesDB[t.key] = nil
@@ -296,6 +301,7 @@ function Settings_.ResetLook()
     Settings_.SetLook("classic")   -- the glass look too (after /reload, #102)
     Settings_.SetGlassBody("clear")   -- and its body (#101)
     Settings_.SetTrackRamp("whole")   -- and the bars' ramp (#117)
+    return true
 end
 
 -- Unlock mode (movers + nudge panel). Unlock is refused in combat, never queued.
@@ -559,6 +565,8 @@ local function slash(msg)
         else
             say("mark name|top|right (now " .. Frames.markPos .. ")")
         end
+    elseif GlassUF.following and (cmd == "body" or cmd == "ramp" or cmd == "look" or tweakByKey(cmd)) then
+        say(GlassUF.SuiteStatus())   -- set in Glass UI (#129)
     elseif cmd == "body" then
         if Settings_.SetGlassBody(arg) then
             say("glass body " .. arg .. ": takes effect after /reload")
@@ -591,7 +599,8 @@ local function slash(msg)
         if Settings_.SetLook(arg) then
             say("look " .. arg .. ": takes effect after /reload")
         else
-            say("look classic|clean (now " .. GlassUF.look .. ")")
+            local failed = GlassUF.SuiteStatus()
+            say("look classic|clean (now " .. GlassUF.look .. (failed and "; " .. failed or "") .. ")")
         end
     elseif tweakByKey(cmd) then
         local t = tweakByKey(cmd)
@@ -657,16 +666,26 @@ local boot = CreateFrame("Frame")
 boot:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then return end
-        -- The look first: the knobs, the font and every surface belong to its instance.
-        if type(GlassUnitFramesDB) == "table" then
+        -- The look first: the knobs, the font and every surface belong to its
+        -- instance. Glass UI's suite theme (#129) when following it, else our own.
+        local suite, minor = GlassUF.UseSuite(ADDON)
+        if not GlassUF.following and type(GlassUnitFramesDB) == "table" then
             GlassUF.UseLook(GlassUnitFramesDB.look, GlassUnitFramesDB.glassBody)
         end
         local db = ensureDefaults()
         Glass.SetFont(db.font)
         -- Before the build, so every bar is born with its ramp (#117). Junk is
         -- forgotten; a saved "edge" an older winning LibGlass can't draw is kept.
-        if not GlassUF.RAMPS[db.trackRamp] then db.trackRamp = nil end
-        if db.trackRamp then Settings_.SetTrackRamp(db.trackRamp) end
+        if not GlassUF.following then
+            if not GlassUF.RAMPS[db.trackRamp] then db.trackRamp = nil end
+            if db.trackRamp then Settings_.SetTrackRamp(db.trackRamp) end
+        end
+        -- What was built, for Glass UI's page: plain values only.
+        if suite then
+            pcall(suite.Report, ADDON, { api = 1, built = GlassUF.following, reason = GlassUF.suiteFailure,
+                                         minor = minor,
+                                         options = function() return GlassUF.Options and GlassUF.Options.Open() end })
+        end
         -- Secure frames cannot be set up under lockdown. Loading normally runs
         -- before it applies, but do not bet the whole addon on that.
         whenOutOfCombat("build", function()
