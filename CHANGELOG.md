@@ -2,11 +2,22 @@
 
 ## Unreleased
 
+- **Combat timer over your portrait.** A small glass pill above your portrait opens when a fight
+  starts and counts up (00:07), then closes when it ends, still showing how long the fight lasted.
+  With your portrait set to none, it sits above the frame instead. Turn it off under Options >
+  AddOns > Glass Unit Frames > Combat timer, or with `/glass timer off`.
+- **Low mana and health now look low.** The empty part of your health and power bars showed the
+  bar's colour fading across the whole bar, so 9% mana looked about half full. That colour is now
+  much fainter. A new **Fade** choice (Options > AddOns > Glass Unit Frames > Look, or
+  `/glass ramp edge`) puts it just past the fill instead, fading out over a short stretch.
+  "Whole bar" stays the default.
+- Fixed: opened during a fight right after logging in or reloading, the Cast bars options page
+  could show no bars to pick for the rest of the session.
 - **See-through glass bars.** Health, power, cast and druid mana bars now let the scene show
   through a little (they draw at 60% opacity), as the glass was always meant to: until now they
   drew fully opaque. Prefer them solid? `/glass fill 1` (or "Bar fill opacity" in the options),
   and the slider now really changes them. This comes with the glass library's update to LibGlass
-  r8, which your other glass addons pick up too: the newest copy installed is the one that runs.
+  r10, which your other glass addons pick up too: the newest copy installed is the one that runs.
 - **Preview every frame and bar.** `/glass preview`, or "Preview all frames" in the options, shows
   every frame with sample data, even with no target, focus or pet: the cast bars loop sample casts
   (with the latency block, pushback, the green and red flashes, a channel and a craft count), the
