@@ -208,7 +208,7 @@ end
 local HELP = {
     "options  - open the options panel (Options > AddOns > Glass Unit Frames)",
     "font arial|friz  - text font (saved)",
-    "look classic|clean  - the glass: classic, or LibGlass's clean preset (after /reload, saved)",
+    "look pearl|clean|classic  - the glass: LibGlass's Pearl (the default), Clean or Classic (after /reload, saved)",
     "timer on|off  - the combat timer over your portrait (saved)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
@@ -246,7 +246,7 @@ function Settings_.SetMark(pos)
     return true
 end
 
--- The glass look (#102): "clean" saved, classic the default (not saved).
+-- The glass look (#102, #129): Pearl the default (not saved), Clean or Classic saved.
 -- Takes effect after /reload: LibGlass builds a look into each surface.
 -- The glass body (#101): "smoked" saved, clear the default (not saved).
 -- Takes effect after /reload, like the look.
@@ -260,7 +260,7 @@ end
 
 function Settings_.SetLook(look)
     if GlassUF.following or not GlassUF.LOOKS[look] then return false end
-    GlassUnitFramesDB.look = look ~= "classic" and look or nil
+    GlassUnitFramesDB.look = look ~= GlassUF.DEFAULT_LOOK and look or nil
     return true
 end
 
@@ -298,7 +298,7 @@ function Settings_.ResetLook()
         GlassUnitFramesDB[t.key] = nil
     end
     Settings_.SetFont(DEFAULTS.font)
-    Settings_.SetLook("classic")   -- the glass look too (after /reload, #102)
+    Settings_.SetLook(GlassUF.DEFAULT_LOOK)   -- the glass look too (after /reload, #102)
     Settings_.SetGlassBody("clear")   -- and its body (#101)
     Settings_.SetTrackRamp("whole")   -- and the bars' ramp (#117)
     return true
@@ -600,7 +600,7 @@ local function slash(msg)
             say("look " .. arg .. ": takes effect after /reload")
         else
             local failed = GlassUF.SuiteStatus()
-            say("look classic|clean (now " .. GlassUF.look .. (failed and "; " .. failed or "") .. ")")
+            say("look pearl|clean|classic (now " .. GlassUF.look .. (failed and "; " .. failed or "") .. ")")
         end
     elseif tweakByKey(cmd) then
         local t = tweakByKey(cmd)
@@ -669,8 +669,10 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         -- The look first: the knobs, the font and every surface belong to its
         -- instance. Glass UI's suite theme (#129) when following it, else our own.
         local suite, minor = GlassUF.UseSuite(ADDON)
-        if not GlassUF.following and type(GlassUnitFramesDB) == "table" then
-            GlassUF.UseLook(GlassUnitFramesDB.look, GlassUnitFramesDB.glassBody)
+        if not GlassUF.following then
+            local saved = type(GlassUnitFramesDB) == "table" and GlassUnitFramesDB or {}
+            GlassUF.UseLook(saved.look, saved.glassBody)
+            if GlassUF.lookFallback then say("look: " .. GlassUF.lookFallback) end
         end
         local db = ensureDefaults()
         Glass.SetFont(db.font)

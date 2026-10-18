@@ -308,9 +308,9 @@ local function build()
     local suiteStatus = GlassUF.SuiteStatus()
     if suiteStatus then controls.suiteNote = note(left, suiteStatus, 340) end
     -- The glass (#102): saved now, built after /reload.
-    controls.look = radioRow(left, "Glass", { { "classic", "Classic" }, { "clean", "Clean" } },
-        function() return (GlassUnitFramesDB and GlassUnitFramesDB.look) or "classic" end,
-        GlassUF.Settings.SetLook, 60, { 0, 84 })
+    controls.look = radioRow(left, "Glass", { { "pearl", "Pearl" }, { "clean", "Clean" }, { "classic", "Classic" } },
+        function() return (GlassUnitFramesDB and GlassUnitFramesDB.look) or GlassUF.DEFAULT_LOOK end,
+        GlassUF.Settings.SetLook, 60, { 0, 84, 168 })
     controls.glassBody = radioRow(left, "Body", { { "clear", "Clear" }, { "smoked", "Smoked" } },
         function() return (GlassUnitFramesDB and GlassUnitFramesDB.glassBody) or "clear" end,
         GlassUF.Settings.SetGlassBody, 60, { 0, 84 })

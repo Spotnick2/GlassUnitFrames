@@ -6,7 +6,8 @@ dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
 standardUnits()
-loadAddon()
+-- The classic look: the docked rows' documented heights are its rim's (#129).
+loadAddon({ db = { look = "classic" } })
 local Swing, Castbar, S = GlassUF.Swing, GlassUF.Castbar, GlassUF.Settings
 local pl = button("player")
 local sw = Castbar.bars.swing

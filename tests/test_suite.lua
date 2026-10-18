@@ -169,7 +169,7 @@ eq(asked, 0, "newer copy later: Pearl never asked for")
 eq(GlassUF.look, "clean", "newer copy later: the instance is kept")
 eq(#calls.reports, 1, "newer copy later: no second report")
 check(GlassUF.Settings.SetLook("classic"), "too old: the local look is still ours to set")
-eq(db.look, nil, "and it saves")
+eq(db.look, "classic", "and it saves")
 restoreLib()
 
 -- r11, but New throws: build-failed.
