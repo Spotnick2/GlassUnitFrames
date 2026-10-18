@@ -399,7 +399,12 @@ function Methods.SetStatusBarTexture(b, file)
     return true
 end
 function Methods.GetStatusBarTexture(b) return b._fill end
-function Methods.SetStatusBarColor(b, r, g, bl) b._color = { r, g, bl } end
+-- The client sets the fill's vertex colour, which replaces the gradient that
+-- held the fill's opacity (measured in game, LibGlass#64).
+function Methods.SetStatusBarColor(b, r, g, bl, a)
+    b._color = { r, g, bl }
+    if b._fill then b._fill._gradient, b._fill._vertex = nil, { r, g, bl, a } end
+end
 function Methods.SetTextColor(fs, r, g, b, a) fs._textColor = { r, g, b, a } end
 function Methods.GetTextColor(fs) local c = fs._textColor or { 1, 1, 1, 1 }; return c[1], c[2], c[3], c[4] end
 function Methods.SetTimerDuration(b, d, interp, dir) b._timer = { duration = d, interp = interp, dir = dir } end
