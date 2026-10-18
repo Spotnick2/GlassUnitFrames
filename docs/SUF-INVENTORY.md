@@ -282,7 +282,7 @@ Legend.
 
 | Feature | Forever status | Effort | Glass |
 |---|---|---|---|
-| Clique (`ClickCastFrames`) | **partial**: table registration kept; header wiring skipped; Clique on Forever unmeasured | S | no |
+| Clique (`ClickCastFrames`) | **registered** (#125): every unit button is in the table (GlassRaidFrames click-casts on it); header wiring skipped | S | no |
 | LibSharedMedia | **works** | S | no |
 | LibDualSpec | **N/A** | – | no |
 | LibSpellRange | **unknown** | – | no |
