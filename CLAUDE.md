@@ -107,6 +107,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       - `Settings.SetLook`, `SetGlassBody`, `SetTrackRamp`, `SetTunable` and `ResetLook` refuse.
       - `/glass look|body|ramp|<knob>` says `GlassUF.SuiteStatus()`.
       - The options page shows that note and disables those controls.
+      - Under the note, a **Set in Glass UI** button (`GlassUF.OpenSuite`) calls `Suite.Open()` under
+        pcall, shown only when the Suite has `Open` (GlassUI bcbd20f, still API 1).
       - The font, cast colours and aggro red apply as usual.
     - **Report:** under pcall, right after the build: `{ api = 1, built, reason, minor, options }`.
     - **The TOC** has `## OptionalDeps: GlassUI`, so Glass UI's `Theme` is ready first.

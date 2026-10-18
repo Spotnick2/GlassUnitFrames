@@ -307,6 +307,10 @@ local function build()
     -- Following Glass UI (#129): said here, and the look controls are off for the session.
     local suiteStatus = GlassUF.SuiteStatus()
     if suiteStatus then controls.suiteNote = note(left, suiteStatus, 340) end
+    if GlassUF.following and GlassUF.CanOpenSuite() then
+        controls.openSuite = button(content, "Set in Glass UI", 140, function() GlassUF.OpenSuite() end)
+        place(left, controls.openSuite, 30, 4)
+    end
     -- The glass (#102): saved now, built after /reload.
     controls.look = radioRow(left, "Glass", { { "pearl", "Pearl" }, { "clean", "Clean" }, { "classic", "Classic" } },
         function() return (GlassUnitFramesDB and GlassUnitFramesDB.look) or GlassUF.DEFAULT_LOOK end,

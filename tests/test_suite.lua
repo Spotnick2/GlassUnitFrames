@@ -253,4 +253,30 @@ local deps
 for line in io.lines("GlassUnitFrames.toc") do deps = deps or line:match("^## OptionalDeps:%s*(.-)%s*$") end
 eq(deps, "GlassUI", "## OptionalDeps: GlassUI")
 
+-- "Set in Glass UI" (GlassUI bcbd20f): a button under the suspended look,
+-- only while following and only when the Suite has Open; called under pcall.
+local function panelFor(theme, fields)
+    glassUI(theme, fields)
+    load(savedLook())
+    local O = GlassUF.Options._test
+    O.panel:Show()
+    return O.controls
+end
+local opened = {}
+local c = panelFor(pearl, { Open = function(...) opened[#opened + 1] = select("#", ...) return true end })
+check(c.openSuite ~= nil, "following with Open: the button")
+eq(c.openSuite._text or c.openSuite.Text and c.openSuite.Text._text, "Set in Glass UI", "its label")
+c.openSuite._scripts.OnClick(c.openSuite)
+eq(#opened, 1, "a click opens Glass UI")
+eq(opened[1], 0, "with no arguments")
+check(GlassUF.OpenSuite(), "Open's answer is passed back")
+c = panelFor(pearl, { Open = function() error("Glass UI broke") end })
+check(pcall(c.openSuite._scripts.OnClick, c.openSuite), "an Open that throws never reaches the button")
+check(not GlassUF.OpenSuite(), "and counts as not opened")
+c = panelFor(pearl)
+check(c.openSuite == nil, "no Open (an older Glass UI): no button")
+c = panelFor(notFollowing, { Open = function() return true end })
+check(c.openSuite == nil, "not following: no button")
+rawset(_G, "GlassUI", nil)
+
 done("test_suite")
