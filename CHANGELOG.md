@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **See your next 2 seconds of mana regen.** A faint segment just past your mana bar's fill shows
+  how much mana the next 2 seconds will give you, so you can tell whether to wait or drink. It
+  shrinks to almost nothing during the five-second rule, hides at full mana, and sits on the
+  druid mana strip in bear or cat form. It's on by default: turn it off under Options > AddOns >
+  Glass Unit Frames > Mana, or with `/glass regen off`. Mana users only.
 - **Combat timer over your portrait.** A small glass pill above your portrait opens when a fight
   starts and counts up (00:07), then closes when it ends, still showing how long the fight lasted.
   With your portrait set to none, it sits above the frame instead. Turn it off under Options >

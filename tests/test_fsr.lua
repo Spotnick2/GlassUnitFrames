@@ -157,22 +157,40 @@ WoW.fire("PLAYER_DEAD")
 eq(st.state, "idle", "death: idle")
 check(not clip._shown, "and hidden")
 
--- The option off: idle, hidden, no events; saved only when off.
+-- The option off, the regen segment (#118) still on: hidden, but the window
+-- is still tracked (the segment needs it), with its own expiry; saved only
+-- when off.
 cast(MANA_SPELL)
+local gen = st.gen
 GlassUF.Settings.SetFiveSecond(false)
-eq(st.state, "idle", "off: idle")
+eq(st.state, "window", "off, the segment on: the window is kept")
+eq(st.gen, gen, "the same window")
 check(not clip._shown, "off: hidden")
 eq(GlassUnitFramesDB.fiveSecondRule, false, "saved when off")
-cast(MANA_SPELL)
-eq(st.state, "idle", "off: a spend does nothing")
 GlassUF.Settings.SetFiveSecond(true)
 eq(GlassUnitFramesDB.fiveSecondRule, nil, "on: not saved")
+check(clip._shown, "on again mid-window: shown")
+eq(bar._timer.duration, dur(), "the same duration: only its remaining time")
+adv(5.1)
+eq(st.state, "idle", "it ends on its original timer")
+settle()
+
+-- Both off: idle, hidden, no events.
+cast(MANA_SPELL)
+GlassUF.Settings.SetFiveSecond(false)
+GlassUF.Settings.SetManaRegen(false)
+eq(st.state, "idle", "both off: idle")
+check(not clip._shown, "both off: hidden")
+cast(MANA_SPELL)
+eq(st.state, "idle", "both off: a spend does nothing")
+GlassUF.Settings.SetFiveSecond(true)
 cast(MANA_SPELL)
 eq(st.state, "window", "back on: spends count again")
 check(clip._shown, "and show")
 settle()
 
--- Combat changing while it's off (no events): turning it on re-reads combat.
+-- Combat changing while nothing's tracked (no events): turning one on
+-- re-reads combat.
 GlassUF.Settings.SetFiveSecond(false)
 combat(true)
 GlassUF.Settings.SetFiveSecond(true)
@@ -186,6 +204,7 @@ GlassUF.Settings.SetFiveSecond(true)
 cast(MANA_SPELL)
 check(not clip._shown, "off in combat, on out of combat: hidden (combat only)")
 settle()
+GlassUF.Settings.SetManaRegen(true)
 
 -- The options page offers both switches to a mana user.
 local O = GlassUF.Options

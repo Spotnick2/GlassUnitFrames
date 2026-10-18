@@ -395,16 +395,20 @@ local function build()
         function() return GlassUF.Timer.enabled end,
         GlassUF.Settings.SetCombatTimer)
 
-    -- The five-second rule (#94): mana users only.
+    -- Mana users only: the five-second rule (#94) and the regen segment (#118).
     if GlassUF.FiveSecond.Built() then
-        header(right, "Five-second rule")
-        controls.fsr = checkbox(right, "Show it on your mana bar",
+        header(right, "Mana")
+        controls.fsr = checkbox(right, "Five-second rule on your mana bar",
             function() return GlassUF.FiveSecond.enabled end,
             GlassUF.Settings.SetFiveSecond)
-        controls.fsrCombat = checkbox(right, "Only in combat",
+        controls.fsrCombat = checkbox(right, "Five-second rule only in combat",
             function() return GlassUF.FiveSecond.combatOnly end,
             GlassUF.Settings.SetFiveSecondCombatOnly)
         note(right, "A red line drains through the 5 s after a spell that costs mana, while regen is paused.", 270)
+        controls.manaRegen = checkbox(right, "Next 2 s of regen past the fill",
+            function() return GlassUF.FiveSecond.regen end,
+            GlassUF.Settings.SetManaRegen)
+        note(right, "A faint segment: the mana the next 2 s will give (less inside the 5 s).", 270)
     end
 
     header(right, "Cast bars")
