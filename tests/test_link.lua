@@ -65,6 +65,21 @@ check(pt == "CENTER" and rel == UIParent and rpt == "CENTER" and x == -300 and y
 eq(lastReport().layout.linked, true, "Report: linked (on by default)")
 eq(lastReport().layout.placing, false, "Report: not placing")
 
+-- GRF announcing late (it waits for UIParent's real size, GlassUI#38): the
+-- session's first place still snaps, the cast bars too, even one on screen.
+grfState = nil
+boot({})
+GlassUF.Castbar.SetDetached("player", true)   -- a detached bar, shown (mid-cast)
+button("player").cast.host:Show()
+check(not GlassUF.Link.Placing(), "nothing yet")
+announce(HUD)
+check(GlassUF.Link.Placing(), "placed when GRF announces")
+eq(next(GlassUF.Link._test.glides), nil, "the first place: the frames snap")
+eq(next(GlassUF.Zoom._test.glides), nil, "and the cast bar snaps")
+local later = copy(HUD); later.l = 300
+announce(later)
+check(next(GlassUF.Link._test.glides) ~= nil and next(GlassUF.Zoom._test.glides) ~= nil, "the next place glides")
+
 -- GRF built first: its state is read after our build, and the first place snaps.
 grfState = HUD
 boot({})

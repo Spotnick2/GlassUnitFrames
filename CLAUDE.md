@@ -471,7 +471,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **The glide:** the buttons snap; each visible button's body and tile (one point on the button,
     `b.bodyPoint` / `b.tilePoint`) are offset by old minus new and eased to zero (0.3 s, cubic
     ease-out, the zoom's). The cast bars glide through the zoom's own controller (`Zoom.Move`). The
-    first place after the build snaps. Decorations anchor to visuals, never the button
+    session's first place snaps, frames and cast bars alike, however late GRF announces it
+    (GlassUI#38: no glide at login; GRF waits for UIParent's real size first). Decorations anchor to visuals, never the button
     (`Frames.EdgeVisual`: the right-hand raid mark, pet happiness, the portraitless timer), and no
     protected frame anchors to a visual. `Link.Snap(b)` (any other place) drops a glide.
   - **Our own announcement** (the plan's section 5b, GlassUI#33 and #34; GlassActionBars' stance
@@ -488,10 +489,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     checkbox and status under Positions; the Cast bars page dims the linked bar's place controls.
   - **Measuring:** `Tools/LayoutProbe` (`/fp steps layout glide`, M5) announces a fake layout
     through the real event; `/fp layout pet|stance <dx>|off` fakes our own announcement for GlassActionBars.
-    M5 on 70450 (2026-10-18, three runs, no target selected in any): the
-    player's frame, then a hunter's with its pet and the pet's happiness icon, glide like the zoom,
-    nothing covered, home exactly; horizontal only, the height held. Still to see: the target's
-    glide (step 1 now waits for a target). GlassActionBars' pet bar, under the player and pet
+    M5 passed on 70450 (2026-10-18, four runs): the player's frame, a hunter's pet with its
+    happiness icon, and (run #241, step 1 waiting for a target) the target's frame glide like the
+    zoom, nothing jumps or is covered, home exactly; horizontal only, the height held. GlassActionBars' pet bar, under the player and pet
     frames, stays put while they move (owner: a GlassActionBars question, not GUF's).
 - **`Preview.lua`** (#109): every frame and bar with sample data, out of combat, session-only
   (`/glass preview`, a button on the main, Cast bars and Combat zoom pages that closes Settings, and
