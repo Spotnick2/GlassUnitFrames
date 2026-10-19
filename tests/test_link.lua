@@ -31,7 +31,7 @@ local grfState
 local reports
 local heard   -- our own announcements (section 5b): GlassActionBars listens
 local function lastHeard() return heard[#heard] end
-local function boot(db, opts)
+local function boot(db, opts, loading)
     WoW.reset(); standardUnits(); GlassUF = nil
     WoW.layout = true
     UIParent._center, UIParent._width, UIParent._height = { 683, 384 }, 1366, 768
@@ -46,6 +46,12 @@ local function boot(db, opts)
     opts = opts or {}
     opts.db = db
     loadAddon(opts)
+    -- The loading screen lifts after the load, unless a test holds it up.
+    -- GRF announces again as it lifts (the party listed by then).
+    if not loading then
+        WoW.fire("LOADING_SCREEN_DISABLED")
+        if grfState then announce(grfState) end
+    end
 end
 local function combat(on)
     WoW.combat = on
@@ -79,6 +85,41 @@ eq(next(GlassUF.Zoom._test.glides), nil, "and the cast bar snaps")
 local later = copy(HUD); later.l = 300
 announce(later)
 check(next(GlassUF.Link._test.glides) ~= nil and next(GlassUF.Zoom._test.glides) ~= nil, "the next place glides")
+
+-- At login (GlassUI#39): GRF can announce a partial grid before the party is
+-- listed. Every place before the loading screen lifts snaps, and the first one
+-- after it; then they glide.
+grfState = nil
+boot({}, nil, true)
+local partial = copy(HUD); partial.l, partial.w = 600, 166   -- one cell: the party not listed yet
+announce(partial)
+check(GlassUF.Link.Placing(), "a partial grid places")
+eq(next(GlassUF.Link._test.glides), nil, "before the loading screen lifts: snaps")
+announce(HUD)
+eq(next(GlassUF.Link._test.glides), nil, "again before it lifts: snaps")
+WoW.fire("LOADING_SCREEN_DISABLED")
+local real = copy(HUD); real.l = 350
+announce(real)
+eq(next(GlassUF.Link._test.glides), nil, "the first place after it lifts: snaps")
+announce(HUD)
+check(next(GlassUF.Link._test.glides) ~= nil, "the next one glides")
+-- Any later loading screen (entering an instance) holds the glide again, and
+-- one starting mid-glide stops it, the followers' too (Codex, #137).
+local petBody = button("pet").body
+check(GlassUF.Link._test.glides[petBody] ~= nil, "the riding pet is mid-glide")
+WoW.fire("LOADING_SCREEN_ENABLED")
+announce(real)
+eq(next(GlassUF.Link._test.glides), nil, "behind a later loading screen: snaps, every glide stopped")
+check(petBody._points[1][2] == button("pet") and petBody._points[1][4] == 0 and petBody._points[1][5] == 0,
+      "the pet's body back on its button, no offset")
+announce(HUD)
+eq(next(GlassUF.Link._test.glides), nil, "every place while it's up")
+WoW.fire("LOADING_SCREEN_DISABLED")
+announce(real)
+eq(next(GlassUF.Link._test.glides), nil, "the first after it lifts")
+announce(HUD)
+check(next(GlassUF.Link._test.glides) ~= nil, "then they glide again")
+WoW.tick(1)
 
 -- GRF built first: its state is read after our build, and the first place snaps.
 grfState = HUD

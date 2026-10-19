@@ -235,10 +235,16 @@ Link._announce = announce
 -- Placing
 --------------------------------------------------------------------------------
 
--- The session's first place snaps, frames and cast bars alike (GlassUI#38: no
--- glide at login). Armed by the build, spent only by a real place, so a
--- layout GRF announces seconds later still snaps.
+-- No glide behind a loading screen (GlassUI#38, #39, and the plan's "no
+-- glide behind any loading screen", as GRF#74): every place while one is up
+-- snaps, and so does the first one after it lifts, frames and cast bars
+-- alike. At login GRF's first announcements can come before the party is
+-- listed, the real one ~1.7 s later as the screen lifts; entering an instance
+-- can change the layout behind the screen. The build and every
+-- LOADING_SCREEN_ENABLED arm snapNext; only a place with the screen gone
+-- spends it. The session starts behind one.
 local snapNext = false
+local screenUp = true
 
 -- Place everything for the current state. Out of combat (the queue's caller).
 local function reconcile()
@@ -251,7 +257,12 @@ local function reconcile()
     if changed then GlassUF.Movers.CancelDrag() end   -- a frame mid-drag is becoming the layout's, or its own
     local snap = snapNext
     local seen = (not snap) and capture() or {}
-    snapNext = false
+    if not screenUp then snapNext = false end
+    -- A snap stops every glide in flight, the followers' too: their buttons
+    -- follow the snapped leaders (Codex, #137).
+    if snap then
+        for _, b in pairs(Frames.byUnit) do Link.Snap(b) end
+    end
     Link.applied = want
     -- The leaders: their followers ride along through their anchors. An
     -- absolute follower save stays where it was saved (the owner's choice).
@@ -281,6 +292,13 @@ local function onLayout(_, role, l, b, w, h, top, base, mode)
     Link.latest = valid(role, l, b, w, h, top, base, mode)
     request()
 end
+
+local loading = CreateFrame("Frame")
+API.RegisterEvents(loading, { "LOADING_SCREEN_ENABLED", "LOADING_SCREEN_DISABLED" })
+loading:SetScript("OnEvent", function(_, event)
+    screenUp = event == "LOADING_SCREEN_ENABLED"
+    if screenUp then snapNext = true end
+end)
 
 local reg = rawget(_G, "EventRegistry")
 if type(reg) == "table" and type(reg.RegisterCallback) == "function" then
@@ -342,4 +360,5 @@ function Link.Status()
 end
 
 Link._test = { glides = glides, controller = controller, valid = valid, DURATION = DURATION,
-               reset = function() built, snapNext = false, false; Link.latest, Link.applied = nil, nil end }
+               reset = function() built, snapNext = false, false; Link.latest, Link.applied = nil, nil end,
+               screenUp = function() return screenUp end }
