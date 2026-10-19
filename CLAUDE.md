@@ -476,8 +476,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     protected frame anchors to a visual. `Link.Snap(b)` (any other place) drops a glide.
   - **Our own announcement** (the plan's section 5b, GlassUI#33 and #34; GlassActionBars' stance
     and pet bars follow the player and pet frames, GAB#30): `GlassUnitFrames.LayoutChanged(linked,
-    player l, b, w, h, pet l, b, w, h, dx, petDx)` on `EventRegistry`, after every reconcile and
-    width change (so out of combat; a place queued by combat announces once when it runs).
+    player l, b, w, h, pet l, b, w, h, dx, petDx)` on `EventRegistry`, after every reconcile, width
+    change and, while linked, pet position change (`Link.Moved`: a drop, a reset; Codex, #133), so
+    out of combat; a place queued by combat announces once when it runs.
     `GlassUF.LayoutState()` answers `{ linked, player = { l, b, w, h }, pet = { ... }, dx, petDx }`
     (fresh; nil before the build). Rects in UIParent units from its bottom-left. `dx` is the
     player's move: its linked centre x minus `Frames.OwnCenterX("player")`; `petDx` the pet's, `dx`

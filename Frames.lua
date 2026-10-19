@@ -1019,7 +1019,10 @@ function Frames.SetPosition(unit, x, y, live)
     GlassUF.Link.Snap(b)
     b:ClearAllPoints()
     b:SetPoint("CENTER", rf, "CENTER", x, y)
-    if not live then Frames.SavePosition(unit, x, y) end
+    if not live then
+        Frames.SavePosition(unit, x, y)
+        GlassUF.Link.Moved(unit)   -- a pet saved on the screen may ride the player now (#132)
+    end
     return true, x, y
 end
 
@@ -1047,6 +1050,7 @@ function Frames.ResetPosition(unit)
     if not b or InCombatLockdown() or GlassUF.Link.Owns(unit) then return false end
     Frames.db.pos[unit] = nil
     applyPosition(b)
+    GlassUF.Link.Moved(unit)
     return true
 end
 
@@ -1062,6 +1066,7 @@ function Frames.ResetPositions()
         local b = Frames.byUnit[unit]
         if b then applyPosition(b) end
     end
+    GlassUF.Link.Moved("pet")
 end
 
 -- Resting "zzz": Blizzard's own animated PlayerFrame flipbook when the client

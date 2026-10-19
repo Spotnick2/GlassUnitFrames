@@ -210,6 +210,23 @@ check(near(select(4, pointOf(pl)), 400 - 24 - 365 / 2), "after combat: placed")
 eq(#heard, n + 1, "announced once after combat")
 eq(lastHeard()[11], 0, "an absolute pet save: the link doesn't move it, petDx 0")
 check(near(lastHeard()[10], (400 - 24 - 365 / 2) - (10 + 365 / 2)), "while the player's dx is its own move (from its TOPLEFT save)")
+-- The pet's save reset (or moved) while linked: it rides the player now, and
+-- that's announced (Codex, #133).
+local playerDx = lastHeard()[10]
+n = #heard
+check(Frames.ResetPosition("pet"), "the pet's own position reset")
+check(#heard == n + 1 and near(lastHeard()[11], playerDx), "announced: the pet rides the player, petDx = dx")
+GlassUnitFramesDB.pos.pet = copy(savedPet); Frames.ApplyPosition("pet")
+n = #heard
+S.ResetPositions()
+check(#heard == n + 1 and near(lastHeard()[11], playerDx), "Reset frame positions: announced the same")
+GlassUnitFramesDB.pos.pet = copy(savedPet); Frames.ApplyPosition("pet")
+n = #heard
+check(Frames.SetPosition("pet", 0, -52), "the pet dropped on its leader")
+check(#heard == n + 1 and near(lastHeard()[11], playerDx), "a move on the leader: announced, petDx = dx")
+check(Frames.SetPosition("pet", 0, -60, true), "a drag in flight")
+eq(#heard, n + 1, "not announced until it's dropped")
+GlassUnitFramesDB.pos.pet = copy(savedPet); Frames.ApplyPosition("pet")
 
 -- Unlinking (GRF's layout off): each frame's original validated tuple, exactly.
 local legacy = copy(HUD)
@@ -248,6 +265,9 @@ check(not Link.Placing(), "/glass link off: own positions")
 eq(GlassUnitFramesDB.groupLink, false, "saved")
 eq(lastReport().layout.linked, false, "Report: not linked")
 check(Frames.SetPosition("player", -310, -110), "its own position is movable again")
+n = #heard
+check(Frames.SetPosition("pet", 0, -52), "the pet moved, unlinked")
+eq(#heard, n, "not linked: no announcement (the bars have nothing to follow)")
 SlashCmdList.GLASSUNITFRAMES("link on")
 check(Link.Placing(), "/glass link on: placed")
 eq(GlassUnitFramesDB.groupLink, nil, "on is the default, not saved")

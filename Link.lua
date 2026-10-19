@@ -310,6 +310,13 @@ function Link.WidthChanged(unit)
     announce()   -- the player's width moves the pet's dx too
 end
 
+-- A frame's own position changed (a drop, a reset; out of combat). While
+-- linked, the pet's tells GlassActionBars where it is and whether it rides the
+-- player now (Codex, #133: a reset pet save left petDx stale at 0).
+function Link.Moved(unit)
+    if unit == "pet" and Link.applied then announce() end
+end
+
 function Link.Configure(saved)
     db = saved
     Link.enabled = db.groupLink ~= false
