@@ -153,7 +153,13 @@ Probe:Steps("glide", {
 -- load would take), GRF absent, and a reload in combat.
 --------------------------------------------------------------------------------
 
-local loadedInCombat = InCombatLockdown()   -- this file loads with the addons
+-- Was this load a /reload mid-fight? The lockdown is OFF while addons load
+-- even then (run #278, 70450), so it can't say. A fight that ends after the
+-- load can; UnitAffectingCombat at load is logged to measure it as a signal.
+local lockdownAtLoad = InCombatLockdown()
+local okC, inFight = pcall(UnitAffectingCombat, "player")
+local fightAtLoad = okC and inFight == true
+local foughtAfterLoad = false               -- PLAYER_REGEN_ENABLED came since
 local blocked = {}                          -- protected calls refused this session
 
 -- Where GUF's frames are against GRF's state: the player's right edge 24 left
@@ -190,7 +196,7 @@ local function noTrouble()
 end
 
 Probe:Steps("real", {
-    rev = 1,
+    rev = 2,
     title = "Group layout: Glass Raid Frames' real layout",
     { text = "Make Glass Raid Frames show its centred layout: the healer role, or its HUD switch on for your role, with a party or its solo grid shown. This step goes on by itself once GlassUnitFrames places your frames beside it.",
       wait = function() return verify() end, timeout = 600, screenshot = "real hud" },
@@ -223,7 +229,9 @@ Probe:Steps("real", {
       check = function()
           local ok, d = verify()
           local fine, t = noTrouble()
-          return ok and fine and loadedInCombat, d .. "; " .. t .. "; loaded in combat: " .. tostring(loadedInCombat)
+          return ok and fine and foughtAfterLoad, string.format("%s; %s; the fight went on after the load: %s "
+              .. "(lockdown at load %s, in a fight at load %s)", d, t, tostring(foughtAfterLoad),
+              tostring(lockdownAtLoad), tostring(fightAtLoad))
       end,
       screenshot = "after combat reload" },
     { text = "Did your frames come back (when the fight ended at the latest) beside the grid, with no error on screen?", ask = true },
@@ -231,8 +239,9 @@ Probe:Steps("real", {
 })
 
 local boot = CreateFrame("Frame")
-Probe:RegisterEvents(boot, { "ADDON_LOADED", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN" })
+Probe:RegisterEvents(boot, { "ADDON_LOADED", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN", "PLAYER_REGEN_ENABLED" })
 boot:SetScript("OnEvent", function(_, event, name, fn)
+    if event == "PLAYER_REGEN_ENABLED" then foughtAfterLoad = true; return end
     if event ~= "ADDON_LOADED" then
         blocked[#blocked + 1] = event
         say(string.format("%s: %s %s", event, tostring(name), tostring(fn)))
@@ -243,7 +252,8 @@ boot:SetScript("OnEvent", function(_, event, name, fn)
     if type(rawget(_G, "LayoutProbeDB")) ~= "table" then LayoutProbeDB = {} end
     if type(LayoutProbeDB.log) ~= "table" then LayoutProbeDB.log = {} end
     Probe:UseLog(LayoutProbeDB.log, LOG_MAX)
-    say("loaded" .. (loadedInCombat and " in combat" or "") .. ". /fp steps layout glide | real (or /fp layout hud|wide|off|state)")
+    say(string.format("loaded (lockdown %s, in a fight %s). /fp steps layout glide | real (or /fp layout hud|wide|off|state)",
+        tostring(lockdownAtLoad), tostring(fightAtLoad)))
 end)
 
 NS._test = { Probe = Probe, state = state, announce = announce, describe = describe, fakePet = fakePet, fakeStance = fakeStance,

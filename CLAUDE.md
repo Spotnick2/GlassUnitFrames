@@ -494,7 +494,13 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     through the real event; `/fp layout pet|stance <dx>|off` fakes our own announcement for GlassActionBars.
     M5 passed on 70450 (2026-10-18, four runs): the player's frame, a hunter's pet with its
     happiness icon, and (run #241, step 1 waiting for a target) the target's frame glide like the
-    zoom, nothing jumps or is covered, home exactly; horizontal only, the height held. GlassActionBars' pet bar, under the player and pet
+    zoom, nothing jumps or is covered, home exactly; horizontal only, the height held.
+    The real layout (`/fp steps layout real`, GRF#72, run #274-278, 2026-10-19): placed exactly
+    (player right at `l - 24`, target left at `l + w + 24`) at load, after a reload, and after a
+    `/reload` mid-fight (placed, nothing blocked); with GRF turned off, own positions and nothing
+    blocked. GUF can't be loaded before GRF in game (by name); the reload covers the late
+    announcement that order relies on. A mid-fight `/reload` loads with the lockdown OFF (porting
+    guide). GlassActionBars' pet bar, under the player and pet
     frames, stays put while they move (owner: a GlassActionBars question, not GUF's).
 - **`Preview.lua`** (#109): every frame and bar with sample data, out of combat, session-only
   (`/glass preview`, a button on the main, Cast bars and Combat zoom pages that closes Settings, and
