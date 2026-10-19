@@ -471,8 +471,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **The glide:** the buttons snap; each visible button's body and tile (one point on the button,
     `b.bodyPoint` / `b.tilePoint`) are offset by old minus new and eased to zero (0.3 s, cubic
     ease-out, the zoom's). The cast bars glide through the zoom's own controller (`Zoom.Move`). The
-    session's first place snaps, frames and cast bars alike, however late GRF announces it
-    (GlassUI#38: no glide at login; GRF waits for UIParent's real size first). Decorations anchor to visuals, never the button
+    places while a loading screen is up snap, and so does the first one after it lifts, frames and
+    cast bars alike: no glide behind any loading screen (GlassUI#38, #39 and its follow-up; GRF#74
+    does the same). At login GRF's first announcements can come before the party is listed, the real
+    one ~1.7 s later; an instance can change the layout behind the screen. The build and every
+    `LOADING_SCREEN_ENABLED` arm `snapNext`; only a place with the screen gone spends it. Decorations anchor to visuals, never the button
     (`Frames.EdgeVisual`: the right-hand raid mark, pet happiness, the portraitless timer), and no
     protected frame anchors to a visual. `Link.Snap(b)` (any other place) drops a glide.
   - **Our own announcement** (the plan's section 5b, GlassUI#33 and #34; GlassActionBars' stance

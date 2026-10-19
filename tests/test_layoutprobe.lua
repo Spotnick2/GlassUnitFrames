@@ -6,6 +6,7 @@ dofile("tests/harness.lua")
 
 standardUnits()
 loadAddon()
+WoW.fire("LOADING_SCREEN_DISABLED")   -- long after login, as the probe runs
 UIParent._center, UIParent._width, UIParent._height = { 683, 384 }, 1366, 768
 WoW.layout = true
 local FP = loadForeverProbe()
