@@ -76,7 +76,7 @@ fight(false); settle()
 -- The portrait set to "none": over the frame's left edge, clear of the crown.
 check(S.SetPortraitMode("player", "none"), "portrait none")
 eq(host._points[1][1], "BOTTOMLEFT", "no tile: its bottom-left")
-eq(host._points[1][2], pl, "on the player button")
+eq(host._points[1][2], pl.body, "on the player's body (it rides the group layout's glide, #132)")
 eq(host._points[1][3], "TOPLEFT", "over its top-left")
 eq(host._points[1][5], 10, "10 above: clear of the leader crown")
 S.SetPortraitMode("player", "3d")

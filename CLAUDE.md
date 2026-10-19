@@ -34,16 +34,15 @@ totems were removed in #58: `TotemFrame` is a managed frame, see `Blizzard.lua` 
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
   druid mana strip (bear/cat).
-- **Parked:** #35, healer/DPS layouts by spec. It waits for GlassRaidFrames; the two addons
-  will need one role source and a way to talk (sketch on #35: a shared embedded role helper, and
-  Retail's `EventRegistry`).
+- **In progress:** #132, the group layout (`Link.lua`): it carries out #35's parked design, GRF
+  announcing its layout on `EventRegistry` and GUF placing player and target beside it.
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
 ## Layout
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `FiveSecond.lua` → `Zoom.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `FiveSecond.lua` → `Zoom.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -112,7 +111,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       under pcall. It's shown whenever the Suite has `Open` (GlassUI bcbd20f, still API 1), following
       or not: GRF's button, with the same label.
       - The font, cast colours and aggro red apply as usual.
-    - **Report:** under pcall, right after the build: `{ api = 1, built, reason, minor, options }`.
+    - **Report:** under pcall, right after the build: `{ api = 1, built, reason, minor, options,
+      layout = { linked, placing } }`. A report replaces the last, so `GlassUF.ReportSuite()` sends the
+      whole table again whenever the group layout's link changes (#132).
     - **The TOC** has `## OptionalDeps: GlassUI`, so Glass UI's `Theme` is ready first.
     - Glass UI's SkinProbe reads `GlassUF.Glass.preset` / `STYLE` and the saved look keys: keep
       those names.
@@ -440,6 +441,57 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     "Reset frame positions" also resets the zoom spots of the edited table.
   - **Options:** its own sub-page, "Combat zoom" (registered after Cast bars): per bar, "zoom in
     combat" and a combat scale; this character's role.
+- **`Link.lua`** (#132): the group layout. The plan is GlassUI's `docs/GROUP-LAYOUT.md` (sections 4
+  and 5, GlassUI#28; Codex consensus). Don't extend it here: changes go through the Glass UI session.
+  - **The state:** GRF announces `GlassRaidFrames.LayoutChanged(role, l, b, w, h, top, base, mode)`
+    on `EventRegistry` (never in combat), and answers `GlassRaidFrames.LayoutState()` (the same
+    fields, a fresh table, or nil before it built). UIParent units from its bottom-left; l, b, w, h
+    are the grid plus its pets, `top` the grid's own top. Subscribed at file load; read under pcall
+    after the (possibly deferred) build (`Link.Built`, the end of `Frames.Build`). Anything but a
+    valid state (finite, plain, w and h > 0, a mode) counts as none, and only `"hud"` places.
+  - **Placing** (`Link.applied`, a session-only override, never saved), out of combat through
+    `WhenOutOfCombat("link")`:
+    - **horizontal only** (GlassUI#32: at `base + 98` the player landed on the chat tabs, M5): the
+      player's centre x at `l - 24 - width/2` from UIParent's left, the target's at
+      `l + w + 24 + width/2`. The height stays the frame's own: `applyPosition` keeps its own
+      anchor's vertical part (saved or default; `TOP` / `BOTTOM` / middle on UIParent's
+      `TOPLEFT` / `BOTTOMLEFT` / `LEFT`, its own y), so it also follows a UI scale change.
+      `Frames.WidthOf` is 365 with the tile, 300 without, and a portrait change re-places
+      (`Link.WidthChanged`). Followers ride their leaders.
+    - the player and target cast bars: detached, 360x22, scale 1, centred on the union at
+      `top + 73` / `top + 41`: `Castbar.HomeGeometry` (the saves, or the link). `EffectiveGeometry`
+      puts the zoom on top: zoom, then link, then saves. `IsDetached`, `PositionOf`, `SizeOf` and
+      `ScaleOf` read the home.
+  - **Set aside, kept intact:** `Frames.ApplyPosition` asks `Link.PointOf` first. While linked,
+    `Frames.SetPosition` / `SavePosition` / `ResetPosition` and every cast-bar write but the icon
+    side are refused; `ResetPositions` keeps their saves; `NormalizeSaves` skips them, and a follower
+    saved on UIParent while its leader is linked (`Link.Carried`). Movers sources have `locked()`:
+    the mover selects but doesn't drag, and the panel says `Link.NOTE` with its buttons off.
+    Letting go re-applies each frame's own validated tuple (`applyPosition`).
+  - **The glide:** the buttons snap; each visible button's body and tile (one point on the button,
+    `b.bodyPoint` / `b.tilePoint`) are offset by old minus new and eased to zero (0.3 s, cubic
+    ease-out, the zoom's). The cast bars glide through the zoom's own controller (`Zoom.Move`). The
+    first place after the build snaps. Decorations anchor to visuals, never the button
+    (`Frames.EdgeVisual`: the right-hand raid mark, pet happiness, the portraitless timer), and no
+    protected frame anchors to a visual. `Link.Snap(b)` (any other place) drops a glide.
+  - **Our own announcement** (the plan's section 5b, GlassUI#33 and #34; GlassActionBars' stance
+    and pet bars follow the player and pet frames, GAB#30): `GlassUnitFrames.LayoutChanged(linked,
+    player l, b, w, h, pet l, b, w, h, dx, petDx)` on `EventRegistry`, after every reconcile and
+    width change (so out of combat; a place queued by combat announces once when it runs).
+    `GlassUF.LayoutState()` answers `{ linked, player = { l, b, w, h }, pet = { ... }, dx, petDx }`
+    (fresh; nil before the build). Rects in UIParent units from its bottom-left. `dx` is the
+    player's move: its linked centre x minus `Frames.OwnCenterX("player")`; `petDx` the pet's, `dx`
+    when it rides the player, 0 when it's saved on the screen (`Frames.RidesLeader`). Both 0 when
+    unlinked. Trailing arguments only grow.
+  - **Setting:** `db.groupLink` (false when off), `Settings.SetGroupLink`, `/glass link on|off`, a
+    checkbox and status under Positions; the Cast bars page dims the linked bar's place controls.
+  - **Measuring:** `Tools/LayoutProbe` (`/fp steps layout glide`, M5) announces a fake layout
+    through the real event; `/fp layout pet|stance <dx>|off` fakes our own announcement for GlassActionBars.
+    M5 on 70450 (2026-10-18, three runs, no target selected in any): the
+    player's frame, then a hunter's with its pet and the pet's happiness icon, glide like the zoom,
+    nothing covered, home exactly; horizontal only, the height held. Still to see: the target's
+    glide (step 1 now waits for a target). GlassActionBars' pet bar, under the player and pet
+    frames, stays put while they move (owner: a GlassActionBars question, not GUF's).
 - **`Preview.lua`** (#109): every frame and bar with sample data, out of combat, session-only
   (`/glass preview`, a button on the main, Cast bars and Combat zoom pages that closes Settings, and
   a switch on the unlock dialog). DBM's simulated test bars were the idea.
@@ -541,11 +593,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|regen on|off`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|regen on|off|link on|off`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames

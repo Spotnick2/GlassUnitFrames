@@ -154,7 +154,7 @@ eq(mk._points[1][2], tg.body, "top: centred on the frame's top edge")
 eq(tg.nameText._points[1][2], tg.health, "top: the name goes back to the bar's padding")
 eq(GlassUnitFramesDB.mark, "top", "placement saved")
 SlashCmdList.GLASSUNITFRAMES("mark right")
-eq(mk._points[1][2], tg, "right: anchored to the whole frame")
+eq(mk._points[1][2], tg.tile, "right: on the frame's right edge, the target's portrait tile (#132: never the button)")
 eq(mk._points[1][3], "RIGHT", "past its right edge")
 SlashCmdList.GLASSUNITFRAMES("mark sideways")
 eq(GlassUnitFramesDB.mark, "right", "unknown placement rejected")
@@ -165,7 +165,9 @@ local saved = GlassUnitFramesDB
 WoW.reset(); standardUnits(); GlassUF = nil
 GlassUnitFramesDB = saved
 loadAddon()
-eq(button("target").indicators.raidTarget._points[1][2], button("target"), "saved 'right' applied at build")
+eq(button("target").indicators.raidTarget._points[1][2], button("target").tile, "saved 'right' applied at build")
+GlassUF.Settings.SetPortraitMode("target", "none")
+eq(button("target").indicators.raidTarget._points[1][2], button("target").body, "no tile: the body's right edge")
 GlassUnitFramesDB = nil
 
 done("test_indicators")

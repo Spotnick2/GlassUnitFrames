@@ -223,6 +223,7 @@ local HELP = {
     "unlock | lock  - move frames: drag (the target carries its group, the player its pet), click to nudge x/y",
     "preview  - every frame and bar with sample data, on or off (out of combat; combat ends it)",
     "reset  - move frames back to the default layout (after combat if in combat)",
+    "link on|off  - player and target beside Glass Raid Frames' centred layout, while it shows (saved)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
     "totem  - where Blizzard's totem bar lives (diagnostic)",
@@ -358,8 +359,19 @@ function Settings_.ResetPositions()
         GlassUF.Castbar.ResetPositions()   -- detached cast bars' spots and sizes (#74)
         GlassUF.Zoom.ResetSpots()          -- the combat zoom spots (the table being edited, #89)
         GlassUF.Movers.Refresh()      -- the open nudge panel shows the new numbers
-        say("positions reset")
+        say(GlassUF.Link.Placing() and "positions reset (player and target stay with the group layout)"
+            or "positions reset")
     end)
+end
+
+-- The group layout's link (#132): player and target beside Glass Raid Frames'
+-- centred layout. On by default; db.groupLink = false when off. Their own
+-- positions come back exactly when it lets go.
+function Settings_.SetGroupLink(on)
+    GlassUF.Link.SetEnabled(on)
+    if on then GlassUnitFramesDB.groupLink = nil else GlassUnitFramesDB.groupLink = false end
+    if GlassUF.ReportSuite then GlassUF.ReportSuite() end
+    return true
 end
 
 function Settings_.SetHealthFormat(unit, kind)
@@ -634,6 +646,16 @@ local function slash(msg)
         say("frames locked")
     elseif cmd == "reset" then
         Settings_.ResetPositions()
+    elseif cmd == "link" then
+        if arg == "on" or arg == "off" then
+            Settings_.SetGroupLink(arg == "on")
+            say("group layout link " .. arg)
+        else
+            local L = GlassUF.Link
+            local now = (L.Status() == "placing" and "on, placing player and target")
+                or (L.Status() == "waiting" and "on, waiting for Glass Raid Frames' centred layout") or "off"
+            say("link on|off (now " .. now .. ")")
+        end
     elseif cmd == "blizzard" then
         -- Named for what happens to BLIZZARD's frames: "show" brings them back.
         if arg == "show" or arg == "hide" then
@@ -675,6 +697,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             if GlassUF.lookFallback then say("look: " .. GlassUF.lookFallback) end
         end
         local db = ensureDefaults()
+        GlassUF.Link.Configure(db)
         Glass.SetFont(db.font)
         -- Before the build, so every bar is born with its ramp (#117). Junk is
         -- forgotten; a saved "edge" an older winning LibGlass can't draw is kept.
@@ -682,11 +705,17 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             if not GlassUF.RAMPS[db.trackRamp] then db.trackRamp = nil end
             if db.trackRamp then Settings_.SetTrackRamp(db.trackRamp) end
         end
-        -- What was built, for Glass UI's page: plain values only.
+        -- What was built, for Glass UI's page: plain values only. Sent again
+        -- whenever the group layout's link changes (#132): a report replaces the last.
         if suite then
-            pcall(suite.Report, ADDON, { api = 1, built = GlassUF.following, reason = GlassUF.suiteFailure,
-                                         minor = minor,
-                                         options = function() return GlassUF.Options and GlassUF.Options.Open() end })
+            GlassUF.ReportSuite = function()
+                local L = GlassUF.Link
+                pcall(suite.Report, ADDON, { api = 1, built = GlassUF.following, reason = GlassUF.suiteFailure,
+                                             minor = minor,
+                                             options = function() return GlassUF.Options and GlassUF.Options.Open() end,
+                                             layout = { linked = L.enabled, placing = L.Placing() } })
+            end
+            GlassUF.ReportSuite()
         end
         -- Secure frames cannot be set up under lockdown. Loading normally runs
         -- before it applies, but do not bet the whole addon on that.

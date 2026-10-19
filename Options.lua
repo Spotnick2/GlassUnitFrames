@@ -257,6 +257,19 @@ local function slider(col, t)
     return s
 end
 
+-- Off (and seen to be) or back on: the labels are our own font strings and
+-- the radio art has no disabled look, so SetEnabled alone shows nothing (GRF
+-- measured both staying bright).
+local function dim(widget, isOff, ...)
+    widget:SetEnabled(not isOff)
+    widget:SetAlpha(isOff and 0.5 or 1)
+    local c = isOff and 0.5 or 1
+    for i = 1, select("#", ...) do
+        local fs = select(i, ...)
+        if fs then fs:SetTextColor(c, c, c) end
+    end
+end
+
 -- A material knob (Glass.TUNABLES) as a slider.
 local function tunableSlider(col, t)
     local s = slider(col, { label = t.label, min = t.min, max = t.max,
@@ -337,16 +350,7 @@ local function build()
     end)
     place(left, controls.resetLook, 30, 4)
     if GlassUF.following then
-        -- Disabled, and seen to be: the labels are our own font strings and
-        -- the radio art has no disabled look (GRF measured both staying bright).
-        local function off(widget, ...)
-            widget:SetEnabled(false)
-            widget:SetAlpha(0.5)
-            for i = 1, select("#", ...) do
-                local fs = select(i, ...)
-                if fs then fs:SetTextColor(0.5, 0.5, 0.5) end
-            end
-        end
+        local function off(widget, ...) dim(widget, true, ...) end
         for _, group in ipairs({ controls.look, controls.glassBody, controls.trackRamp }) do
             group.label:SetTextColor(0.5, 0.5, 0.5)
             for _, rb in ipairs(group) do off(rb, rb.label) end
@@ -451,6 +455,17 @@ local function build()
     place(right, button(content, "Unlock frames", 190, Options.Unlock), 30, 4)
     controls.preview = place(right, button(content, "Preview all frames", 190, Options.Preview), 30, 4)
     place(right, button(content, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
+    -- The group layout (#132): player and target beside GRF's centred grid.
+    controls.groupLink = checkbox(right, "Beside Glass Raid Frames' grid",
+        function() return GlassUF.Link.enabled end,
+        GlassUF.Settings.SetGroupLink)
+    controls.linkNote = note(right, "", 270)
+    controls[#controls + 1] = function()
+        local status = GlassUF.Link.Status()
+        controls.linkNote:SetText((status == "placing" and "Placing your frame and your target's beside its centred layout.")
+            or (status == "waiting" and "While Glass Raid Frames shows its centred layout (healers, by default).")
+            or "Off: your own positions.")
+    end
 
     -- Tall enough for the taller column; the scroll bar appears once that
     -- is more than the canvas shows.
@@ -605,8 +620,18 @@ local function buildCast()
     local center = button(castPage, "Center horizontally", 190, function() S.CenterCast(castUnit) end)
     place(left, center, 30, 4)
     controls.castCenter = center
-    -- Centring moves a detached bar only.
-    controls[#controls + 1] = function() center:SetEnabled(Castbar.IsDetached(castUnit)) end
+    -- Centring moves a detached bar only. Placed by the group layout (#132),
+    -- the bar's place, size and scale are its: shown, and off.
+    controls[#controls + 1] = function()
+        local linked = GlassUF.Link.CastOf(castUnit) ~= nil
+        controls.castDetach.label:SetText(linked and ("Detached: " .. GlassUF.Link.NOTE) or "Detached")
+        dim(controls.castDetach, linked, controls.castDetach.label)
+        for _, sl in ipairs({ controls.castWidth, controls.castHeight, controls.castScale }) do
+            dim(sl, linked, sl.label, sl.valueText)
+        end
+        dim(center, linked)
+        if not linked then center:SetEnabled(Castbar.IsDetached(castUnit)) end
+    end
 
     header(left, "Positions")
     place(left, button(castPage, "Unlock frames", 190, Options.Unlock), 30, 4)
@@ -814,6 +839,11 @@ local function register()
     else
         GlassUF.API.Fail("cast bars page", "no Settings subcategory API")
     end
+end
+
+-- The state changed from outside the page (the group layout's link): an open page follows.
+function Options.Refresh()
+    if panel:IsShown() or castPage:IsShown() then controls.refreshAll() end
 end
 
 -- Open the panel; false when the Settings framework can't (then /glass says where it is).

@@ -431,6 +431,14 @@ end
 -- front of the name, inside the health bar), "top" (centred on the frame's
 -- top edge) or "right" (outside the frame, past the portrait). Whether a mark
 -- shows is plain (see the painter), so the name can move for it.
+-- The visual on one edge of a button ("left" or "right"): its portrait tile
+-- while it shows on that side, else its body. Decorations anchor to it, never
+-- to the button, so they ride the group layout's glide with the visuals (#132).
+function Frames.EdgeVisual(b, side)
+    if b.tile and b.portraitMode ~= "none" and b.layout.portrait == side then return b.tile end
+    return b.body
+end
+
 Frames.MARK_POSITIONS = { name = true, top = true, right = true }
 Frames.markPos = "name"
 
@@ -447,7 +455,7 @@ local function placeMark(b)
         if happy and Frames.happinessPos == "right" then
             icon:SetPoint("LEFT", happy, "RIGHT", 4, 0)
         else
-            icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+            icon:SetPoint("LEFT", Frames.EdgeVisual(b, "right"), "RIGHT", 4, 0)
         end
     else
         icon:SetPoint("LEFT", b.health, "LEFT", b.namePad or 5, 0)
@@ -538,10 +546,10 @@ local function placeHappiness(b)
     if not icon then return end
     icon:ClearAllPoints()
     -- The tile only while it shows (#97: none hides it).
-    local anchor = (b.tile and b.portraitMode ~= "none") and b.tile or b
+    local anchor = (b.tile and b.portraitMode ~= "none") and b.tile or b.body
     local pos = Frames.happinessPos
     if pos == "right" then
-        icon:SetPoint("LEFT", b, "RIGHT", 4, 0)
+        icon:SetPoint("LEFT", Frames.EdgeVisual(b, "right"), "RIGHT", 4, 0)
     elseif pos == "under" then
         icon:SetPoint("TOP", anchor, "BOTTOM", 0, -3)
     else
@@ -886,9 +894,27 @@ local function relFrame(name)
     return Frames.byUnit[name]
 end
 
+-- An anchor point's vertical part: "TOP", "BOTTOM" or "" (the middle).
+local function vertical(pt)
+    return (pt:find("TOP") and "TOP") or (pt:find("BOTTOM") and "BOTTOM") or ""
+end
+
+-- The group layout's place first (#132: a session-only override, the save
+-- set aside), else the save, else the default. Out of combat. The layout
+-- sets only the horizontal place (GlassUI#32: lower, the player landed on the
+-- chat): the frame keeps its own anchor's vertical part, and so its height.
 local function applyPosition(b)
+    local Link = GlassUF.Link
+    Link.Snap(b)
     local p = validSaved(b.unit)
     b:ClearAllPoints()
+    local lx = Link.PointOf(b.unit)
+    if lx then
+        local own = p or b.layout.point   -- a leader's own place is always on UIParent
+        local v, rv = vertical(own[1]), vertical(own[3])
+        b:SetPoint(v == "" and "CENTER" or v, UIParent, rv .. "LEFT", lx, own[5])
+        return
+    end
     if p then
         b:SetPoint(p[1], relFrame(p[2]), p[3], p[4], p[5])
         return
@@ -901,6 +927,38 @@ local function applyPosition(b)
         local L = b.layout.point
         b:SetPoint(L[1], UIParent, L[3], L[4], L[5])
     end
+end
+
+-- Re-place one built frame where it belongs now (the group layout's link).
+function Frames.ApplyPosition(unit)
+    local b = Frames.byUnit[unit]
+    if b then applyPosition(b) end
+end
+
+-- A leader's own centre x, from UIParent's left edge: where its save (or its
+-- default) puts it, the group layout aside (#132: how far the layout moved it).
+local function across(pt) return (pt:find("LEFT") and -1) or (pt:find("RIGHT") and 1) or 0 end
+function Frames.OwnCenterX(unit)
+    local b = Frames.byUnit[unit]
+    local W = UIParent:GetWidth()
+    if not b or type(W) ~= "number" or API.IsSecret(W) then return nil end
+    local own = validSaved(unit) or b.layout.point
+    return W * (across(own[3]) + 1) / 2 + own[4] - across(own[1]) * Frames.WidthOf(unit) / 2
+end
+
+-- Does a follower ride its leader (its default, or a save on the leader),
+-- rather than sit where it was saved on the screen?
+function Frames.RidesLeader(unit)
+    local p = validSaved(unit)
+    return not p or p[2] ~= "UIParent"
+end
+
+-- A button's width as built: the body, plus the portrait tile while it shows.
+function Frames.WidthOf(unit)
+    local b = Frames.byUnit[unit]
+    if not b then return nil end
+    local L = b.layout
+    return L.w + ((b.tile and b.portraitMode ~= "none") and (L.h + GAP) or 0)
 end
 
 -- What a frame's position is relative to: its leader's unit, or "UIParent";
@@ -941,8 +999,9 @@ end
 
 -- Record a position without touching the frame (safe in combat): the one
 -- owner of the saved format.
+-- Set aside while the group layout places the frame (#132): refused.
 function Frames.SavePosition(unit, x, y)
-    if not (Frames.byUnit[unit] and sane(x) and sane(y)) then return false end
+    if not (Frames.byUnit[unit] and sane(x) and sane(y)) or GlassUF.Link.Owns(unit) then return false end
     Frames.db.pos[unit] = { "CENTER", (Frames.AnchorOf(unit)), "CENTER", x, y }
     return true
 end
@@ -953,10 +1012,11 @@ end
 -- Returns true and the (rounded) offsets it applied.
 function Frames.SetPosition(unit, x, y, live)
     local b = Frames.byUnit[unit]
-    if not b or InCombatLockdown() then return false end
+    if not b or InCombatLockdown() or GlassUF.Link.Owns(unit) then return false end
     if not (sane(x) and sane(y)) then return false end
     x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
     local _, rf = Frames.AnchorOf(unit)
+    GlassUF.Link.Snap(b)
     b:ClearAllPoints()
     b:SetPoint("CENTER", rf, "CENTER", x, y)
     if not live then Frames.SavePosition(unit, x, y) end
@@ -964,12 +1024,17 @@ function Frames.SetPosition(unit, x, y, live)
 end
 
 -- Rewrite older saves in the current form, measured from the live rects (out
--- of combat, when the frames are laid out; unlock mode runs it first).
+-- of combat, when the frames are laid out; unlock mode runs it first). Never
+-- a save the group layout set aside (#132), nor a follower saved on the
+-- screen while its leader is linked: measured against the linked leader, it
+-- would come back somewhere else.
 function Frames.NormalizeSaves()
     if InCombatLockdown() then return end
+    local Link = GlassUF.Link
     for _, unit in ipairs(Frames.ORDER) do
         local p = validSaved(unit)
-        if p and not canonical(unit, p) then
+        local aside = Link.Owns(unit) or (p and p[2] == "UIParent" and Link.Carried(unit))
+        if p and not aside and not canonical(unit, p) then
             local x, y = Frames.PositionOf(unit)
             if x then Frames.SetPosition(unit, x, y) end
         end
@@ -979,14 +1044,19 @@ end
 -- One frame back to its default (and, for a leader, its followers with it).
 function Frames.ResetPosition(unit)
     local b = Frames.byUnit[unit]
-    if not b or InCombatLockdown() then return false end
+    if not b or InCombatLockdown() or GlassUF.Link.Owns(unit) then return false end
     Frames.db.pos[unit] = nil
     applyPosition(b)
     return true
 end
 
+-- Every frame back to its default, but a save the group layout set aside (#132).
 function Frames.ResetPositions()
-    Frames.db.pos = {}
+    local kept = {}
+    for unit, p in pairs(Frames.db.pos) do
+        if GlassUF.Link.Owns(unit) then kept[unit] = p end
+    end
+    Frames.db.pos = kept
     -- Leaders first (ORDER), so followers anchor to their final spot.
     for _, unit in ipairs(Frames.ORDER) do
         local b = Frames.byUnit[unit]
@@ -1299,7 +1369,10 @@ local function applyPortrait(b, mode)
     b.portraitToken = (b.portraitToken or 0) + 1   -- a pending 3D retry never lands after a switch
     local showTile = mode ~= "none"
     b.tile:SetShown(showTile)
-    if (mode == "none") ~= wasNone then b:SetSize(L.w + (showTile and (L.h + GAP) or 0), L.h) end
+    if (mode == "none") ~= wasNone then
+        b:SetSize(L.w + (showTile and (L.h + GAP) or 0), L.h)
+        GlassUF.Link.WidthChanged(b.unit)   -- it keeps its edge by the group layout's grid (#132)
+    end
     if mode == "none" then
         b.model:ClearModel()
         b.model:Hide()
@@ -1365,7 +1438,9 @@ local function build(unit)
     -- on the unit (portrait included) reaches the secure button.
     local body = CreateFrame("Frame", nil, b)
     body:SetSize(L.w, L.h)
-    body:SetPoint(L.portrait == "left" and "RIGHT" or "LEFT", b, L.portrait == "left" and "RIGHT" or "LEFT")
+    -- One point on the button: the group layout's glide offsets it (#132).
+    b.bodyPoint = L.portrait == "left" and "RIGHT" or "LEFT"
+    body:SetPoint(b.bodyPoint, b, b.bodyPoint)
     body:SetFrameLevel(b:GetFrameLevel() + 1)
     local g = Glass.Apply(body, size)
     b.glass, b.body = g, body
@@ -1425,7 +1500,8 @@ local function build(unit)
     if L.portrait then
         local tile = CreateFrame("Frame", nil, b)
         tile:SetSize(L.h, L.h)
-        tile:SetPoint(L.portrait == "left" and "LEFT" or "RIGHT", b, L.portrait == "left" and "LEFT" or "RIGHT")
+        b.tilePoint = L.portrait == "left" and "LEFT" or "RIGHT"
+        tile:SetPoint(b.tilePoint, b, b.tilePoint)
         tile:SetFrameLevel(b:GetFrameLevel() + 1)
         tileGlass = Glass.Apply(tile, size)
         local m = CreateFrame("PlayerModel", nil, tile)
@@ -1522,4 +1598,6 @@ function Frames.Build(db)
     if Frames.byUnit.player then attempt("build timer", GlassUF.Timer.Build, Frames.byUnit.player, db) end
     -- The five-second rule (#94): on the player's mana bar and druid strip.
     if Frames.byUnit.player then attempt("build fsr", GlassUF.FiveSecond.Build, Frames.byUnit.player, db) end
+    -- The group layout (#132): GRF's state, once every frame and bar exists.
+    GlassUF.Link.Built()
 end

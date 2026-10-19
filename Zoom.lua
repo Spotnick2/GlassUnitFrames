@@ -182,6 +182,10 @@ local function move(c)
     controller:Show()
 end
 
+-- The group layout's link (#132) moves the player and target bars through
+-- the same glide: one controller writes each host.
+Zoom.Move = move
+
 -- Combat started or ended (GUF's combat dispatcher, after Movers.OnCombat).
 function Zoom.OnCombat(on)
     on = on and true or false
@@ -296,7 +300,7 @@ end
 local function placeProxy(bar)
     local p = proxy(bar)
     local e = Zoom.Entry(bar)
-    local _, _, w, h = GlassUF.Castbar.Geometry(bar)
+    local _, _, w, h = GlassUF.Castbar.HomeGeometry(bar)   -- the group layout's size too (#132)
     if bar == "swing" then   -- the unlocked pill: every row, as Swing's sample shows it
         h = 3 * h + 2 * GlassUF.Swing.DETACHED_GAP + 2 * Glass.Inset("small")
     end

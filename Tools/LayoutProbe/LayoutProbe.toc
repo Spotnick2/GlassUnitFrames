@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: LayoutProbe
+## Notes: Throwaway probe for GlassUnitFrames: announces a fake Glass Raid Frames centred layout to measure the group layout's glide (#132, M5). A ForeverProbe module: /fp layout
+## Author: Spotnick
+## Version: dev
+## Dependencies: ForeverProbe, GlassUnitFrames
+## SavedVariables: LayoutProbeDB
+
+LayoutProbe.lua
