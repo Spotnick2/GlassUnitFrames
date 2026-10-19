@@ -146,15 +146,126 @@ Probe:Steps("glide", {
     { text = "Reloading saves the answers.", reload = true },
 })
 
+--------------------------------------------------------------------------------
+-- The real layout (#132's last checks, GRF#69): Glass Raid Frames' own
+-- centred layout, a reload (GRF loads first, by name, and announces again
+-- once UIParent has its real size: the late-announcement path a GUF-first
+-- load would take), GRF absent, and a reload in combat.
+--------------------------------------------------------------------------------
+
+-- Was this load a /reload mid-fight? The lockdown is OFF while addons load
+-- even then (run #278, 70450), so it can't say. A fight that ends after the
+-- load can; UnitAffectingCombat at load is logged to measure it as a signal.
+local lockdownAtLoad = InCombatLockdown()
+local okC, inFight = pcall(UnitAffectingCombat, "player")
+local fightAtLoad = okC and inFight == true
+local foughtAfterLoad = false               -- PLAYER_REGEN_ENABLED came since
+
+-- Where GUF's frames are against GRF's state: the player's right edge 24 left
+-- of the union, the target's left edge 24 right of it (within a unit).
+local function verify()
+    local G, R = GUF(), rawget(_G, "GlassRaidFrames")
+    if not (G and G.Link) then return false, "no GlassUnitFrames link" end
+    if not (R and type(R.LayoutState) == "function") then return false, "no GlassRaidFrames.LayoutState" end
+    local ok, s = pcall(R.LayoutState)
+    if not ok or type(s) ~= "table" then return false, "no GRF state yet" end
+    if s.mode ~= "hud" then return false, "GRF's mode is " .. tostring(s.mode) .. ", not hud" end
+    if not G.Link.Placing() then return false, "GUF isn't placing" end
+    local by = G.Frames.byUnit
+    local pr = by.player and by.player:GetRight()
+    local tl = by.target and by.target:GetLeft()
+    local want = s.l - 24
+    if type(pr) ~= "number" or math.abs(pr - want) > 1 then
+        return false, string.format("player right %s, want %.1f", tostring(pr), want)
+    end
+    local d = string.format("player right %.1f (want %.1f)", pr, want)
+    if type(tl) == "number" then
+        local wantT = s.l + s.w + 24
+        if math.abs(tl - wantT) > 1 then return false, string.format("target left %.1f, want %.1f", tl, wantT) end
+        d = d .. string.format(", target left %.1f (want %.1f)", tl, wantT)
+    end
+    return true, d
+end
+
+-- Protected calls refused this session, from the host's own watcher: it is
+-- registered at ForeverProbe's file load, before GlassUnitFrames loads (by
+-- name), so GUF's startup build is covered (Codex, #139; a module never
+-- registers these events itself, ForeverProbe's guide). Its session buffer
+-- keeps the last 2000 lines.
+local function blockedThisRun()
+    local FP = rawget(_G, "ForeverProbe")
+    local n, tag = 0, "#" .. tostring(FP and FP.run) .. " "
+    for _, l in ipairs(FP and FP.lines or {}) do
+        local t = l.text
+        if type(t) == "string" and t:find(tag, 1, true) and t:find("ADDON_ACTION_", 1, true) then n = n + 1 end
+    end
+    return n
+end
+
+local function noTrouble()
+    local G = GUF()
+    local failures = 0
+    for _ in pairs(G and G.paintFailures or {}) do failures = failures + 1 end
+    local blocked = blockedThisRun()
+    return blocked == 0 and failures == 0,
+        string.format("%d blocked this session, startup included; %d paint failures", blocked, failures)
+end
+
+Probe:Steps("real", {
+    rev = 3,
+    title = "Group layout: Glass Raid Frames' real layout",
+    { text = "Make Glass Raid Frames show its centred layout: the healer role, or its HUD switch on for your role, with a party or its solo grid shown. This step goes on by itself once GlassUnitFrames places your frames beside it.",
+      wait = function() return verify() end, timeout = 600, screenshot = "real hud" },
+    { text = "Are your frame and the target's beside the grid, at their usual height, with the cast bars above the grid?", ask = true },
+    { text = "Reload. Glass Raid Frames loads first and announces again once the screen has its real size: the path GlassUnitFrames takes when it loads first.", reload = true },
+    { text = "Waiting for the frames to be placed again.", wait = function() return verify() end, timeout = 90,
+      check = function() return verify() end, screenshot = "after reload" },
+    { text = "Did they appear in place as the loading screen lifted, with no glide?", ask = true },
+    { text = "Turn Glass Raid Frames off in the AddOns list (Game Menu > AddOns), then reload.", reload = true },
+    { text = "Checking your frames without Glass Raid Frames.", auto = true,
+      run = function()
+          local L = GUF().Link
+          return rawget(_G, "GlassRaidFrames") == nil and not L.Placing(), "GRF loaded: " .. tostring(rawget(_G, "GlassRaidFrames") ~= nil) .. "; link " .. L.Status()
+      end,
+      check = function()
+          local L = GUF().Link
+          local ok, d = noTrouble()
+          return rawget(_G, "GlassRaidFrames") == nil and not L.Placing() and ok, d
+      end,
+      screenshot = "no GRF" },
+    { text = "Are your frames where you had them before the group layout, with no error?", ask = true },
+    { text = "Turn Glass Raid Frames back on in the AddOns list, then reload.", reload = true },
+    { text = "Waiting for the frames to be placed beside its layout again.", wait = function() return verify() end, timeout = 90 },
+    { text = "Start a fight (attack a mob), and while you're in combat type /reload.", reload = true },
+    { text = "Finish the fight. This step goes on by itself once you're out of combat and the frames are placed.",
+      wait = function()
+          if InCombatLockdown() then return false, "in combat" end
+          return verify()
+      end, timeout = 600,
+      check = function()
+          local ok, d = verify()
+          local fine, t = noTrouble()
+          return ok and fine and foughtAfterLoad, string.format("%s; %s; the fight went on after the load: %s "
+              .. "(lockdown at load %s, in a fight at load %s)", d, t, tostring(foughtAfterLoad),
+              tostring(lockdownAtLoad), tostring(fightAtLoad))
+      end,
+      screenshot = "after combat reload" },
+    { text = "Did your frames come back (when the fight ended at the latest) beside the grid, with no error on screen?", ask = true },
+    { text = "Reloading saves the answers.", reload = true },
+})
+
 local boot = CreateFrame("Frame")
-Probe:RegisterEvents(boot, { "ADDON_LOADED" })
-boot:SetScript("OnEvent", function(_, _, name)
+Probe:RegisterEvents(boot, { "ADDON_LOADED", "PLAYER_REGEN_ENABLED" })
+boot:SetScript("OnEvent", function(_, event, name)
+    if event == "PLAYER_REGEN_ENABLED" then foughtAfterLoad = true; return end
     if name ~= ADDON then return end
     Probe:Ready()
     if type(rawget(_G, "LayoutProbeDB")) ~= "table" then LayoutProbeDB = {} end
     if type(LayoutProbeDB.log) ~= "table" then LayoutProbeDB.log = {} end
     Probe:UseLog(LayoutProbeDB.log, LOG_MAX)
-    say("loaded. /fp steps layout glide (or /fp layout hud|wide|off|state)")
+    say(string.format("loaded (lockdown %s, in a fight %s). /fp steps layout glide | real (or /fp layout hud|wide|off|state)",
+        tostring(lockdownAtLoad), tostring(fightAtLoad)))
 end)
 
-NS._test = { Probe = Probe, state = state, announce = announce, describe = describe, fakePet = fakePet, fakeStance = fakeStance }
+NS._test = { Probe = Probe, state = state, announce = announce, describe = describe, fakePet = fakePet, fakeStance = fakeStance,
+             verify = verify, noTrouble = noTrouble, foughtAfterLoad = function() return foughtAfterLoad end }
