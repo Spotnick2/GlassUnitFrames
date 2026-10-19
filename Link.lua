@@ -258,6 +258,11 @@ local function reconcile()
     local snap = snapNext
     local seen = (not snap) and capture() or {}
     if not screenUp then snapNext = false end
+    -- A snap stops every glide in flight, the followers' too: their buttons
+    -- follow the snapped leaders (Codex, #137).
+    if snap then
+        for _, b in pairs(Frames.byUnit) do Link.Snap(b) end
+    end
     Link.applied = want
     -- The leaders: their followers ride along through their anchors. An
     -- absolute follower save stays where it was saved (the owner's choice).

@@ -103,11 +103,15 @@ announce(real)
 eq(next(GlassUF.Link._test.glides), nil, "the first place after it lifts: snaps")
 announce(HUD)
 check(next(GlassUF.Link._test.glides) ~= nil, "the next one glides")
-WoW.tick(1)
--- Any later loading screen (entering an instance) holds the glide again.
+-- Any later loading screen (entering an instance) holds the glide again, and
+-- one starting mid-glide stops it, the followers' too (Codex, #137).
+local petBody = button("pet").body
+check(GlassUF.Link._test.glides[petBody] ~= nil, "the riding pet is mid-glide")
 WoW.fire("LOADING_SCREEN_ENABLED")
 announce(real)
-eq(next(GlassUF.Link._test.glides), nil, "behind a later loading screen: snaps")
+eq(next(GlassUF.Link._test.glides), nil, "behind a later loading screen: snaps, every glide stopped")
+check(petBody._points[1][2] == button("pet") and petBody._points[1][4] == 0 and petBody._points[1][5] == 0,
+      "the pet's body back on its button, no offset")
 announce(HUD)
 eq(next(GlassUF.Link._test.glides), nil, "every place while it's up")
 WoW.fire("LOADING_SCREEN_DISABLED")
