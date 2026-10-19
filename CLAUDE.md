@@ -22,20 +22,20 @@ technique, the reference is DinoUnitFrames (see "Reference addons" below).
    streamlined take on Cell. The feature choices live in `docs/SUF-INVENTORY.md` ("Owner's
    picks").
 
-**Status (2026-09-28): a working addon, in daily use by the owner.** The glass look is settled and
+**Status (2026-10-19): a working addon, in daily use by the owner.** The glass look is settled and
 tuned in game (LibGlass's `docs/GLASS-MATERIAL.md`; the material is now the embedded library
 LibGlass-1.0, see "The glass material"). Frames: player, target, pet, targettarget,
 targettargettarget, focus, focustarget. Every "Owner's picks" item in `docs/SUF-INVENTORY.md` is
 done, plus: an options panel (Options > AddOns > Glass Unit Frames), unlock mode (movers, group
 moves, nudging, grid snap, alignment guides, player/target mirroring), the red health-loss
 segment, the hidden-power fade, neutral NPCs red in a fight, raid mark / target level / pet
-happiness placement, per-frame health text, combo points and the druid mana strip. (Hosted shaman
-totems were removed in #58: `TotemFrame` is a managed frame, see `Blizzard.lua` below.)
+happiness placement, per-frame health text, combo points, the druid mana strip, and the group
+layout (#132, `Link.lua`: player and target beside Glass Raid Frames' grid, in sync with
+GlassActionBars and Glass UI). (Hosted shaman totems were removed in #58: `TotemFrame` is a
+managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
   druid mana strip (bear/cat).
-- **In progress:** #132, the group layout (`Link.lua`): it carries out #35's parked design, GRF
-  announcing its layout on `EventRegistry` and GUF placing player and target beside it.
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
