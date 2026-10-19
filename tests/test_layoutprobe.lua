@@ -65,5 +65,24 @@ for _, entry in ipairs(FP.lines) do
     if entry.m == "LayoutProbe" and entry.text:find("hud at l") then inHost = true end
 end
 check(inHost, "its lines reach the host's console")
+-- The real-layout check (#132's last checks): GUF's frames against GRF's state.
+local okV, why = T.verify()
+check(not okV and why:find("LayoutState"), "verify without GRF: says so (" .. tostring(why) .. ")")
+local grf = { role = "healer", l = 400, b = 228, w = 566, h = 154, top = 382, base = 160, mode = "hud" }
+rawset(_G, "GlassRaidFrames", { LayoutState = function() return grf end })
+EventRegistry:TriggerEvent("GlassRaidFrames.LayoutChanged", grf.role, grf.l, grf.b, grf.w, grf.h, grf.top, grf.base, grf.mode)
+okV, why = T.verify()
+check(okV, "verify: player and target 24 either side of the union (" .. tostring(why) .. ")")
+grf.l = 420
+okV = T.verify()
+check(not okV, "verify: a frame off its place fails")
+grf.l = 400; grf.mode = "side"
+okV, why = T.verify()
+check(not okV and why:find("side"), "verify: GRF's side layout isn't the hud")
+rawset(_G, "GlassRaidFrames", nil)
+check(T.noTrouble(), "nothing blocked, no paint failures")
+WoW.fire("ADDON_ACTION_BLOCKED", "GlassUnitFrames", "SetPoint()")
+check(not T.noTrouble(), "a blocked action is counted")
+
 eq(next(GlassUF.paintFailures), nil, "no failures")
 done("test_layoutprobe")
