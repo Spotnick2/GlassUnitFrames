@@ -102,6 +102,8 @@ function WoW.reset()
     WoW.uiScale = 0.64        -- UIParent's effective scale
     WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
     WoW.repeating = false
+    WoW.layout = false        -- true: frames' rects resolved from their anchors (GetCenter)
+    WoW.callbacks = {}        -- EventRegistry: event -> { { fn, owner } }
     rawset(_G, "EditModeManagerFrame", nil)
     if UIParent then WoW.CreateBlizzardFrames() end
 end
@@ -287,8 +289,39 @@ function Methods.StartMoving(w) if guard(w, "StartMoving") then w._moving = true
 -- With no _center: a frame placed CENTER on UIParent's CENTER resolves as the
 -- client would, in the frame's own (scaled) units; UIParent's centre is
 -- WoW.uiCenter, in its units.
+-- Opt-in anchor layout (WoW.layout = true): a frame's rect resolved from its
+-- first point (or SetAllPoints), its size and its scale, as the client lays it
+-- out. Worked in screen pixels (units x effective scale), handed back in the
+-- frame's own units. UIParent needs _center, _width and _height.
+local ANCHOR = { CENTER = { 0, 0 }, TOP = { 0, 1 }, BOTTOM = { 0, -1 }, LEFT = { -1, 0 }, RIGHT = { 1, 0 },
+                 TOPLEFT = { -1, 1 }, TOPRIGHT = { 1, 1 }, BOTTOMLEFT = { -1, -1 }, BOTTOMRIGHT = { 1, -1 } }
+local function screenRect(w, depth)
+    if depth > 20 then return nil end
+    local e = w:GetEffectiveScale()
+    if w._center then return w._center[1] * e, w._center[2] * e, (w._width or 0) * e / 2, (w._height or 0) * e / 2 end
+    local p = w._points[1]
+    if not p or w == UIParent then return nil end
+    local rel = p[2] == "UIParent" and UIParent or p[2]
+    if type(rel) ~= "table" then return nil end
+    local rx, ry, rhw, rhh = screenRect(rel, depth + 1)
+    if not rx then return nil end
+    if p[1] == "ALL" then return rx, ry, rhw, rhh end
+    local a, b = ANCHOR[p[1]], ANCHOR[p[3]]
+    local hw, hh = (w._width or 0) * e / 2, (w._height or 0) * e / 2
+    return rx + b[1] * rhw + (p[4] or 0) * e - a[1] * hw, ry + b[2] * rhh + (p[5] or 0) * e - a[2] * hh, hw, hh
+end
+local function laidOut(w)
+    if not WoW.layout or w._center then return nil end
+    local x, y = screenRect(w, 0)
+    if not x then return nil end
+    local e = w:GetEffectiveScale()
+    return x / e, y / e
+end
+
 function Methods.GetCenter(w)
     if w._center then return w._center[1], w._center[2] end
+    local lx, ly = laidOut(w)
+    if lx then return lx, ly end
     local pt = w._points[1]
     if pt and pt[1] == "CENTER" and pt[2] == UIParent and pt[3] == "CENTER" and w ~= UIParent then
         local ux, uy = UIParent:GetCenter()
@@ -299,9 +332,19 @@ function Methods.GetCenter(w)
 end
 -- Edges from a test-set centre and the frame's size (no real layout here).
 local function edge(w, axis, sign)
+    local cx, cy = laidOut(w)
+    if cx then
+        if axis == "x" then return cx + sign * (w._width or 0) / 2 end
+        return cy + sign * (w._height or 0) / 2
+    end
     if not (w._center and w._width and w._height) then return nil end
     if axis == "x" then return w._center[1] + sign * w._width / 2 end
     return w._center[2] + sign * w._height / 2
+end
+function Methods.GetRect(w)
+    local l, b = edge(w, "x", -1), edge(w, "y", -1)
+    if not (l and b) then return nil end
+    return l, b, w._width or 0, w._height or 0
 end
 function Methods.GetLeft(w) return edge(w, "x", -1) end
 function Methods.GetRight(w) return edge(w, "x", 1) end
@@ -748,6 +791,18 @@ Settings = {
     OpenToCategory = function(id) WoW.settings.opened = id end,
 }
 C_Texture = { GetAtlasExists = function(name) return WoW.atlases[name] == true end }
+
+-- Retail's EventRegistry (CallbackRegistryMixin): with an owner, a callback
+-- gets it first, then the event's arguments.
+EventRegistry = {
+    RegisterCallback = function(self, event, fn, owner)
+        WoW.callbacks[event] = WoW.callbacks[event] or {}
+        table.insert(WoW.callbacks[event], { fn, owner })
+    end,
+    TriggerEvent = function(self, event, ...)
+        for _, cb in ipairs(WoW.callbacks[event] or {}) do cb[1](cb[2], ...) end
+    end,
+}
 function Methods.SetAtlas(t, name) t._atlas = name; return true end
 function Methods.Stop(ag) ag._stops = (ag._stops or 0) + 1 end
 C_AddOns = {

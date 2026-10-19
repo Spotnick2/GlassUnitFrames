@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Your frames beside Glass Raid Frames' grid.** When Glass Raid Frames shows its new centred
+  layout (a healer's default), your frame and your target's slide sideways to sit just left and
+  right of the raid grid, at the height you put them, with your two cast bars above the grid. Your own positions are kept and
+  come back when the layout goes away; until then those frames' movers say "placed by the group
+  layout". The combat zoom still works on top. Turn it off under Options > AddOns > Glass Unit
+  Frames > Positions, or with `/glass link off`. Without Glass Raid Frames, nothing changes.
 - **Pearl is the new default look.** The Glass addons' suite glass, now the frames' own default.
   If you never picked a look, your frames switch to Pearl at your next `/reload`. A saved Clean or
   Classic stays as it is. Choose under Options > AddOns > Glass Unit Frames > Look (Pearl, Clean,

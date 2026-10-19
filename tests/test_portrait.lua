@@ -127,11 +127,11 @@ WoW.combat = false
 WoW.fire("PLAYER_REGEN_ENABLED")
 eq(t._width, bodyW, "after combat: the last request (none) applies")
 check(not t.tile._shown, "no tile")
--- The pet's happiness anchors to the frame with no tile.
+-- The pet's happiness anchors to the frame's body with no tile (never the button, #132).
 local pet = button("pet")
 if pet.indicators and pet.indicators.happiness then
     S.SetPortraitMode("pet", "none")
-    eq(pet.indicators.happiness._points[1][2], pet, "happiness anchors to the frame")
+    eq(pet.indicators.happiness._points[1][2], pet.body, "happiness anchors to the frame's body")
     S.SetPortraitMode("pet", "3d")
     eq(pet.indicators.happiness._points[1][2], pet.tile, "back to the tile")
 end

@@ -16,7 +16,7 @@
 
     Usage:
         pwsh Tools/deploy.ps1               # GlassUnitFrames + its LibGlass
-        pwsh Tools/deploy.ps1 -Probe        # ...and the probes (CastProbe, BarProbe), with ForeverProbe
+        pwsh Tools/deploy.ps1 -Probe        # ...and the probes (CastProbe, BarProbe, LayoutProbe), with ForeverProbe
         pwsh Tools/deploy.ps1 -ProbeOnly    # just the probes, with ForeverProbe
         pwsh Tools/deploy.ps1 -AddOnsPath "D:\...\_classic_beta_\Interface\AddOns"
 #>
@@ -90,7 +90,7 @@ function Deploy-Addon {
     }
 }
 
-# The probes (CastProbe, BarProbe): the host first (its deploy checks the
+# The probes (CastProbe, BarProbe, LayoutProbe): the host first (its deploy checks the
 # checkout and may refuse, and a refusal leaves the probes as they were), then
 # each module's files.
 $ForeverProbe = if ($env:FOREVERPROBE) { $env:FOREVERPROBE } else { Join-Path (Split-Path -Parent $RepoRoot) "ForeverProbe" }
@@ -101,7 +101,7 @@ function Deploy-Probe {
     }
     & pwsh -NoProfile -File (Join-Path $ForeverProbe "Tools\deploy.ps1") -AddOnsPath $AddOnsPath
     if ($LASTEXITCODE -ne 0) { Write-Error "ForeverProbe deploy refused; the probes were not touched"; exit 1 }
-    foreach ($name in @("CastProbe", "BarProbe")) {
+    foreach ($name in @("CastProbe", "BarProbe", "LayoutProbe")) {
         $dest = Join-Path $AddOnsPath $name
         Write-Host "Deploying $name -> $dest" -ForegroundColor Cyan
         New-Item -ItemType Directory -Force -Path $dest | Out-Null

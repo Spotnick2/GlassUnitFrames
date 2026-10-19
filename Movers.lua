@@ -40,8 +40,15 @@ local panel, dialog
 --   label, frame() (what the mover covers), rel() (the name and frame its
 --   offsets are from), position() (x, y or nil), set(x, y, live) (ok, x, y;
 --   out of combat), save(x, y) (the table only: safe in combat), reset(),
---   follows(id) (is it carried by that source?).
+--   follows(id) (is it carried by that source?); optionally locked() (true
+--   while something else places it: the group layout, #132).
 local sources = {}
+
+-- Placed by the group layout: selectable, never moved from here.
+local function isLocked(id)
+    local src = sources[id]
+    return src ~= nil and src.locked ~= nil and src.locked() == true
+end
 
 -- Is `unit` carried by `leader` (anchored to it, directly or through a chain)?
 local function followsFrom(unit, leader)
@@ -65,6 +72,7 @@ local function unitSource(unit)
         save = function(x, y) return Frames.SavePosition(unit, x, y) end,
         reset = function() return Frames.ResetPosition(unit) end,
         follows = function(leader) return followsFrom(unit, leader) end,
+        locked = function() return GlassUF.Link.Owns(unit) end,
     }
 end
 
@@ -133,8 +141,14 @@ local function refreshPanel()
     if not (panel and selected and sources[selected]) then return end
     local src = sources[selected]
     local x, y = src.position()
+    local locked = isLocked(selected)
+    if locked then x, y = nil, nil end   -- its own position is set aside, not where it is
     panel.title:SetText(src.label)
-    panel.sub:SetText("offsets from " .. relName((src.rel())))
+    panel.sub:SetText(locked and GlassUF.Link.NOTE or ("offsets from " .. relName((src.rel()))))
+    for _, k in ipairs({ "center", "left", "right", "up", "down", "reset", "attach" }) do
+        panel.buttons[k]:SetEnabled(not locked)
+    end
+    for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h, panel.s }) do e:SetEnabled(not locked) end
     if not panel.x:HasFocus() then panel.x:SetText(x and string.format("%g", x) or "?") end
     if not panel.y:HasFocus() then panel.y:SetText(y and string.format("%g", y) or "?") end
     -- A detached cast bar also has a size, a scale and an Attach; a combat
@@ -342,6 +356,7 @@ local function makeMover(src)
     m:SetScript("OnDragStart", function(self)
         if InCombatLockdown() then return end
         select_(self.id)
+        if isLocked(self.id) then return end   -- the panel says who places it
         -- Mirror or not is decided now (Alt held = alone) and holds for the
         -- whole drag, so what's seen is what's saved.
         self.partner = (not IsAltKeyDown()) and mirrorOf(self.id) or nil
@@ -502,8 +517,10 @@ local function makePanel()
     up:SetPoint("LEFT", right, "RIGHT", 2, 0)
     down:SetPoint("LEFT", up, "RIGHT", 2, 0)
     local reset = makeButton(p, "Reset", 52, function()
-        local other = selected and mirrorOf(selected)   -- before the reset changes it
-        if selected and sources[selected].reset() then
+        if not selected or isLocked(selected) then return end
+        local other = mirrorOf(selected)   -- before the reset changes it
+        if other and isLocked(other) then other = nil end
+        if sources[selected].reset() then
             if other then sources[other].reset() end
             refreshPanel()
         end
@@ -514,7 +531,7 @@ local function makePanel()
     -- Attach: a detached cast bar back on its frame (its mover goes away).
     local attach = makeButton(p, "Attach", 56, function()
         local src = selected and sources[selected]
-        if src and src.attach then src.attach() end
+        if src and src.attach and not isLocked(selected) then src.attach() end
     end)
     attach:SetPoint("RIGHT", lock, "LEFT", -4, 0)
     p.buttons.left, p.buttons.right, p.buttons.up, p.buttons.down = left, right, up, down

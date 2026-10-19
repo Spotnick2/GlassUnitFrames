@@ -51,7 +51,7 @@ check(found, "/glass secrets prints the pet's happiness")
 
 -- Placement options: right of the frame (Blizzard's spot), under the portrait.
 check(GlassUF.Settings.SetHappinessPosition("right"), "right accepted")
-eq(icon._points[1][2], pet, "right: anchored to the whole frame")
+eq(icon._points[1][2], pet.body, "right: on the frame's right edge (the body: it rides the group layout's glide, #132)")
 eq(icon._points[1][3], "RIGHT", "past its right edge")
 eq(GlassUnitFramesDB.happiness, "right", "saved")
 SlashCmdList.GLASSUNITFRAMES("happiness under")
@@ -63,7 +63,7 @@ GlassUF.Settings.SetMark("right")
 GlassUF.Settings.SetHappinessPosition("right")
 eq(pet.indicators.raidTarget._points[1][2], icon, "right-hand mark sits past the right-hand happiness icon")
 GlassUF.Settings.SetHappinessPosition("left")
-eq(pet.indicators.raidTarget._points[1][2], pet, "happiness moved away: the mark takes the frame's edge again")
+eq(pet.indicators.raidTarget._points[1][2], pet.body, "happiness moved away: the mark takes the frame's edge again")
 GlassUF.Settings.SetMark("name")
 GlassUF.Settings.SetHappinessPosition("under")
 local saved = GlassUnitFramesDB

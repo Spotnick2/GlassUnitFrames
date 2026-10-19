@@ -16,6 +16,7 @@ Swing.lua
 Timer.lua
 FiveSecond.lua
 Zoom.lua
+Link.lua
 Preview.lua
 Auras.lua
 Blizzard.lua

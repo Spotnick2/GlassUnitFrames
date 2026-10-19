@@ -119,7 +119,8 @@ function Timer.Place()
     if b.tile and b.portraitMode ~= "none" then
         host:SetPoint("BOTTOM", b.tile, "TOP", 0, GAP)
     else
-        host:SetPoint("BOTTOMLEFT", b, "TOPLEFT", 0, GAP_NO_TILE)
+        -- The body, not the button: it rides the group layout's glide (#132).
+        host:SetPoint("BOTTOMLEFT", b.body, "TOPLEFT", 0, GAP_NO_TILE)
     end
 end
 
