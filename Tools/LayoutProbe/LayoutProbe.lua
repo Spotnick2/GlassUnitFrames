@@ -160,7 +160,6 @@ local lockdownAtLoad = InCombatLockdown()
 local okC, inFight = pcall(UnitAffectingCombat, "player")
 local fightAtLoad = okC and inFight == true
 local foughtAfterLoad = false               -- PLAYER_REGEN_ENABLED came since
-local blocked = {}                          -- protected calls refused this session
 
 -- Where GUF's frames are against GRF's state: the player's right edge 24 left
 -- of the union, the target's left edge 24 right of it (within a unit).
@@ -188,15 +187,32 @@ local function verify()
     return true, d
 end
 
+-- Protected calls refused this session, from the host's own watcher: it is
+-- registered at ForeverProbe's file load, before GlassUnitFrames loads (by
+-- name), so GUF's startup build is covered (Codex, #139; a module never
+-- registers these events itself, ForeverProbe's guide). Its session buffer
+-- keeps the last 2000 lines.
+local function blockedThisRun()
+    local FP = rawget(_G, "ForeverProbe")
+    local n, tag = 0, "#" .. tostring(FP and FP.run) .. " "
+    for _, l in ipairs(FP and FP.lines or {}) do
+        local t = l.text
+        if type(t) == "string" and t:find(tag, 1, true) and t:find("ADDON_ACTION_", 1, true) then n = n + 1 end
+    end
+    return n
+end
+
 local function noTrouble()
     local G = GUF()
     local failures = 0
     for _ in pairs(G and G.paintFailures or {}) do failures = failures + 1 end
-    return #blocked == 0 and failures == 0, string.format("%d blocked, %d paint failures", #blocked, failures)
+    local blocked = blockedThisRun()
+    return blocked == 0 and failures == 0,
+        string.format("%d blocked this session, startup included; %d paint failures", blocked, failures)
 end
 
 Probe:Steps("real", {
-    rev = 2,
+    rev = 3,
     title = "Group layout: Glass Raid Frames' real layout",
     { text = "Make Glass Raid Frames show its centred layout: the healer role, or its HUD switch on for your role, with a party or its solo grid shown. This step goes on by itself once GlassUnitFrames places your frames beside it.",
       wait = function() return verify() end, timeout = 600, screenshot = "real hud" },
@@ -239,14 +255,9 @@ Probe:Steps("real", {
 })
 
 local boot = CreateFrame("Frame")
-Probe:RegisterEvents(boot, { "ADDON_LOADED", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN", "PLAYER_REGEN_ENABLED" })
-boot:SetScript("OnEvent", function(_, event, name, fn)
+Probe:RegisterEvents(boot, { "ADDON_LOADED", "PLAYER_REGEN_ENABLED" })
+boot:SetScript("OnEvent", function(_, event, name)
     if event == "PLAYER_REGEN_ENABLED" then foughtAfterLoad = true; return end
-    if event ~= "ADDON_LOADED" then
-        blocked[#blocked + 1] = event
-        say(string.format("%s: %s %s", event, tostring(name), tostring(fn)))
-        return
-    end
     if name ~= ADDON then return end
     Probe:Ready()
     if type(rawget(_G, "LayoutProbeDB")) ~= "table" then LayoutProbeDB = {} end
@@ -257,4 +268,4 @@ boot:SetScript("OnEvent", function(_, event, name, fn)
 end)
 
 NS._test = { Probe = Probe, state = state, announce = announce, describe = describe, fakePet = fakePet, fakeStance = fakeStance,
-             verify = verify, noTrouble = noTrouble, blocked = blocked }
+             verify = verify, noTrouble = noTrouble, foughtAfterLoad = function() return foughtAfterLoad end }

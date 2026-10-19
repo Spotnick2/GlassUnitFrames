@@ -81,8 +81,20 @@ okV, why = T.verify()
 check(not okV and why:find("side"), "verify: GRF's side layout isn't the hud")
 rawset(_G, "GlassRaidFrames", nil)
 check(T.noTrouble(), "nothing blocked, no paint failures")
+-- Blocked actions come from the host's own watcher (registered before GUF
+-- loads), never the module's (Codex, #139; ForeverProbe's guide).
+for _, w in ipairs(WoW.frames) do
+    if w._events.ADDON_ACTION_BLOCKED then
+        check(w == FP.Baseline.taintFrame, "only the host watches ADDON_ACTION_BLOCKED")
+    end
+end
 WoW.fire("ADDON_ACTION_BLOCKED", "GlassUnitFrames", "SetPoint()")
-check(not T.noTrouble(), "a blocked action is counted")
+local ok2, d2 = T.noTrouble()
+check(not ok2 and d2:find("1 blocked", 1, true), "a blocked action in the host's log this session is counted: " .. tostring(d2))
+-- A mid-fight reload is told by the fight ending after the load.
+check(not T.foughtAfterLoad(), "no fight yet")
+WoW.fire("PLAYER_REGEN_ENABLED")
+check(T.foughtAfterLoad(), "a fight that ends after the load counts")
 
 eq(next(GlassUF.paintFailures), nil, "no failures")
 done("test_layoutprobe")
