@@ -235,7 +235,10 @@ Link._announce = announce
 -- Placing
 --------------------------------------------------------------------------------
 
-local snapNext = false   -- the first place after the build snaps (the frames just appeared)
+-- The session's first place snaps, frames and cast bars alike (GlassUI#38: no
+-- glide at login). Armed by the build, spent only by a real place, so a
+-- layout GRF announces seconds later still snaps.
+local snapNext = false
 
 -- Place everything for the current state. Out of combat (the queue's caller).
 local function reconcile()
@@ -246,7 +249,8 @@ local function reconcile()
     local Frames, Castbar = GlassUF.Frames, GlassUF.Castbar
     local changed = (want ~= nil) ~= (was ~= nil)
     if changed then GlassUF.Movers.CancelDrag() end   -- a frame mid-drag is becoming the layout's, or its own
-    local seen = (not snapNext) and capture() or {}
+    local snap = snapNext
+    local seen = (not snap) and capture() or {}
     snapNext = false
     Link.applied = want
     -- The leaders: their followers ride along through their anchors. An
@@ -255,7 +259,8 @@ local function reconcile()
     glideFrom(seen)
     for unit in pairs(Link.CAST) do
         local c = Castbar.bars[unit]
-        if c then GlassUF.Zoom.Move(c) end   -- the zoom's own glide: one controller per host
+        -- The zoom's own glide (one controller per host), or a snap.
+        if c then if snap then Castbar.Place(c) else GlassUF.Zoom.Move(c) end end
     end
     GlassUF.Movers.SyncBars()   -- a linked cast bar is detached: its (locked) mover appears
     GlassUF.Movers.Refresh()
