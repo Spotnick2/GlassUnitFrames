@@ -7,7 +7,8 @@ dofile("tests/harness.lua")
 
 standardUnits()
 WoW.units.player.guid = "Player-1-00000001"
-loadAddon()
+-- Both cast bars docked (detached by default since #141): the docked row's snap.
+loadAddon({ db = { castBars = { player = { detached = false }, target = { detached = false } } } })
 WoW.fire("PLAYER_LOGIN")
 UIParent._center = { 683, 384 }
 local Zoom, Castbar, S, M = GlassUF.Zoom, GlassUF.Castbar, GlassUF.Settings, GlassUF.Movers
@@ -37,15 +38,27 @@ local function targetStop(g)
     WoW.flushTimers()
 end
 
--- Off by default: combat moves nothing.
-check(not Zoom.Enabled("player"), "zoom off by default")
+-- On by default for the player and target, at 1.5 (#141); off for the rest.
+check(Zoom.Enabled("player") and Zoom.Enabled("target"), "player and target zoom on by default")
+eq(Zoom.Entry("player").scale, 1.5, "the player's at 1.5")
+eq(Zoom.Entry("target").scale, 1.5, "the target's too")
+for _, bar in ipairs({ "focus", "pet", "swing" }) do
+    check(not Zoom.Enabled(bar), bar .. ": off by default")
+    eq(Zoom.Entry(bar).scale, 1.25, bar .. ": at 1.25")
+end
+eq(GlassUnitFramesDB.zoom, nil, "nothing saved at the defaults")
+-- Off is saved (on is the default).
+check(S.SetZoom("player", false) and S.SetZoom("target", false), "player and target zoom off")
+eq(GlassUnitFramesDB.zoom.global.player.on, false, "off saved as false in the global table")
+eq(GlassUnitFramesDB.zoom.global.target.on, false, "the target's too")
+-- Off: combat moves nothing.
 combat(true)
 eq(point(pc)[1], "ALL", "the player's row stays docked in combat")
 combat(false)
 
 -- The docked player row: snaps out to its zoom spot, the body gets its room back.
 check(S.SetZoom("player", true), "player zoom on")
-eq(GlassUnitFramesDB.zoom.global.player.on, true, "saved in the global table")
+eq(GlassUnitFramesDB.zoom.global.player, nil, "on again: the default, the entry pruned")
 -- Mid-cast, with a readable rect: still a snap, its home is the body.
 WoW.units.player.casting = { name = "Heal", guid = "Cast-3-1-1-1-2050-1", spellID = 2050, total = 2.5, remaining = 1,
                              startMs = WoW.now * 1000, endMs = (WoW.now + 2.5) * 1000, delayMs = 0 }
@@ -54,10 +67,10 @@ check(pc.host:IsVisible(), "the docked row shows (casting)")
 pc.host._center = { 400, 300 }
 combat(true)
 check(pc.detached, "in combat: effectively detached")
-eq(GlassUnitFramesDB.castBars, nil, "the saved detach is untouched")
+eq(GlassUnitFramesDB.castBars.player.detached, false, "the saved docking is untouched")
 eq(point(pc)[1], "CENTER", "at its zoom spot")
-check(near(point(pc)[5], -120 / 1.25), "its default spot, in its own scaled units")
-eq(pc.host:GetScale(), 1.25, "at the zoom scale")
+check(near(point(pc)[5], -182 / 1.5), "its default spot, in its own scaled units")
+eq(pc.host:GetScale(), 1.5, "at the zoom scale")
 check(pc.skin._shown, "with its own pill")
 check(not pl.castShown, "the docked row leaves the body")
 eq(pl.health:GetHeight(), pl.rows.idle.health, "health at its idle height")
@@ -74,20 +87,22 @@ eq(pc.host:GetScale(), 1, "its scale back")
 
 -- A detached, visible bar glides there and back.
 check(S.SetCastDetached("target", true), "the target's bar detached")
+check(S.SetCastScale("target", 1), "at scale 1 at home (the zoom's is 1.5)")
+check(GlassUF.Castbar.SetPosition("target", 0, -23), "home at (0, -23), away from the zoom spot")
 check(S.SetZoom("target", true), "target zoom on")
 local g = targetCast()
 check(tc.host:IsVisible(), "casting: visible")
 combat(true)
 check(glides.target ~= nil, "a visible bar glides")
-check(near(point(tc)[5], -23), "starting from home")
+check(near(point(tc)[5], -23), "starting from home (0, -23)")
 WoW.tick(DUR / 2)
 local e = 1 - 0.5 ^ 3
-local midY, midS = -23 + (-90 + 23) * e, 1 + 0.25 * e
+local midY, midS = -23 + (-152 + 23) * e, 1 + 0.5 * e
 check(near(tc.host:GetScale(), midS), "half way: the scale eases out")
 check(near(point(tc)[5], midY / midS), "half way: the centre eases out")
 WoW.tick(DUR)
 check(glides.target == nil, "the glide ends")
-check(near(point(tc)[5], -90 / 1.25) and tc.host:GetScale() == 1.25, "exactly at the zoom spot")
+check(near(point(tc)[5], -152 / 1.5) and tc.host:GetScale() == 1.5, "exactly at the zoom spot")
 -- A mode change mid-glide retargets from the point on screen.
 WoW.combat = false
 combat(false)
@@ -97,7 +112,7 @@ local cur = { glides.target.cx, glides.target.cy }
 local realCenter = tc.host.GetCenter   -- the stub's method, before the override
 rawset(tc.host, "GetCenter", function(self)
     -- Unreadable mid-glide (the start), readable once placed at the zoom scale (the target).
-    if self:GetScale() ~= 1.25 then return nil end
+    if self:GetScale() ~= 1.5 then return nil end
     return realCenter(self)
 end)
 combat(true)
@@ -119,15 +134,15 @@ check(near(point(tc)[5], -23), "and no tick moves it back")
 combat(true)
 WoW.tick(DUR / 2)
 check(glides.target ~= nil, "gliding to the spot")
-check(Castbar.SetPosition("target", 50, -23), "a new home typed mid-glide")
+check(Castbar.SetPosition("target", 50, -152), "a new home typed mid-glide")
 eq(GlassUnitFramesDB.castBars.target.x, 50, "saved")
 check(glides.target ~= nil, "the glide carries on")
 WoW.tick(DUR)
 check(near(point(tc)[1] == "CENTER" and point(tc)[4], 0), "at the zoom spot, not the new home")
 check(S.CenterCast("target"), "centred in combat")
 eq(GlassUnitFramesDB.castBars.target.x, 0, "the centred home is saved")
-check(near(point(tc)[5], -90 / 1.25), "the host stays at its spot")
-Castbar.SetPosition("target", 40, -23)
+check(near(point(tc)[5], -152 / 1.5), "the host stays at its spot")
+Castbar.SetPosition("target", 40, -152)
 combat(false)
 WoW.tick(DUR * 2)
 check(near(point(tc)[4], 40), "combat over: the bar goes to the new home")
@@ -137,7 +152,7 @@ targetStop(g)
 check(not tc.host:IsVisible(), "not casting: hidden")
 combat(true)
 check(glides.target == nil, "a hidden bar snaps")
-check(near(point(tc)[5], -90 / 1.25), "already at its spot")
+check(near(point(tc)[5], -152 / 1.5), "already at its spot")
 combat(false)
 
 -- At another UI scale the glide still lands on the spot.
@@ -145,9 +160,9 @@ WoW.uiScale = 0.9
 g = targetCast()
 combat(true)
 WoW.tick(DUR * 2)
-check(near(point(tc)[5], -90 / 1.25), "UI scale 0.9: the same spot")
+check(near(point(tc)[5], -152 / 1.5), "UI scale 0.9: the same spot")
 local x, y = Zoom._test.rectOf(tc.host)
-check(near(x, 0) and near(y, -90), "its rect, in UIParent units, is the spot")
+check(near(x, 0) and near(y, -152), "its rect, in UIParent units, is the spot")
 combat(false)
 WoW.tick(DUR * 2)
 targetStop(g)
@@ -173,18 +188,18 @@ eq(Zoom.EditedKey(), "global", "no role: global")
 check(S.SetZoomRole("healer"), "this character is a healer")
 eq(GlassUnitFramesDB.zoomRole["Player-1-00000001"], "healer", "saved per GUID")
 check(Zoom.Enabled("player"), "no healer entry yet: the global one")
-check(S.SetZoomScale("player", 1.5), "the healer's scale")
+check(S.SetZoomScale("player", 1.6), "the healer's scale")
 local h = GlassUnitFramesDB.zoom.healer.player
 eq(h.on, true, "the healer entry inherits the global on")
-eq(h.scale, 1.5, "and takes its scale")
-eq(Zoom.Entry("player").scale, 1.5, "used now")
-eq(GlassUnitFramesDB.zoom.global.player.scale, nil, "the global one untouched")
+eq(h.scale, 1.6, "and takes its scale")
+eq(Zoom.Entry("player").scale, 1.6, "used now")
+eq((GlassUnitFramesDB.zoom.global or {}).player, nil, "the global one untouched (still the default, unsaved)")
 check(S.SetZoom("target", false), "the healer turns the target's zoom off")
 check(not Zoom.Enabled("target"), "off for healers")
 check(S.SetZoomRole(nil), "back to global")
 eq(GlassUnitFramesDB.zoomRole, nil, "nothing left to save")
 check(Zoom.Enabled("target"), "global: the target still zooms")
-eq(Zoom.Entry("player").scale, 1.25, "and the global scale")
+eq(Zoom.Entry("player").scale, 1.5, "and the global scale")
 check(not S.SetZoomRole("wizard"), "an unknown role is refused")
 
 -- The zoom-spot movers: an outline at the spot; saving into the edited table.
@@ -193,8 +208,8 @@ local zm = M._test.movers["zoom:player"]
 check(zm and zm._shown, "the player's zoom spot has a mover")
 local px = Zoom._test.proxies.player
 check(px._shown, "over its outline")
-eq(px:GetScale(), 1.25, "at the zoom scale")
-check(near(px._points[1][5], -120 / 1.25), "at the spot")
+eq(px:GetScale(), 1.5, "at the zoom scale")
+check(near(px._points[1][5], -182 / 1.5), "at the spot")
 zm._scripts.OnMouseUp(zm)
 local np = M._test.panel()
 check(np.s._shown and not np.w._shown, "its panel: a scale, no W/H")
@@ -207,8 +222,8 @@ eq(GlassUnitFramesDB.zoom.global.player.x, 10, "saved in the global table")
 check(src.setScale(1.6), "scaled")
 eq(Zoom.Entry("player").scale, 1.6, "the zoom scale")
 check(src.reset(), "reset")
-eq(Zoom.Entry("player").y, -120, "the default spot again")
-eq(Zoom.Entry("player").scale, 1.25, "and scale")
+eq(Zoom.Entry("player").y, -182, "the default spot again")
+eq(Zoom.Entry("player").scale, 1.5, "and scale")
 check(Zoom.Enabled("player"), "reset keeps it on")
 -- Turning the zoom off while its mover is selected: mover, outline and panel go.
 check(S.SetZoom("player", false), "off while unlocked")
@@ -363,16 +378,17 @@ end
 
 -- Saved junk falls back to the defaults.
 local saved = GlassUnitFramesDB
-saved.zoom = { global = { player = { on = "yes", x = 1 / 0, y = "far", scale = 9 } }, tank = "x" }
+saved.zoom = { global = { player = { on = "yes", x = 1 / 0, y = "far", scale = 9 }, focus = { on = "yes" } }, tank = "x" }
 saved.zoomRole = { ["Player-1-00000001"] = "wizard" }
 WoW.reset(); standardUnits(); WoW.units.player.guid = "Player-1-00000001"; GlassUF = nil
 loadAddon({ db = saved })
 WoW.fire("PLAYER_LOGIN")
 local ej = GlassUF.Zoom.Entry("player")
-check(not ej.on, "only true turns it on")
+check(ej.on, "a junk on: the player's default (on)")
+check(not GlassUF.Zoom.Entry("focus").on, "a junk on for focus: its default (off)")
 eq(ej.x, 0, "a bad x: the default")
-eq(ej.y, -120, "a bad y: the default")
-eq(ej.scale, 1.25, "a bad scale: the default")
+eq(ej.y, -182, "a bad y: the default")
+eq(ej.scale, 1.5, "a bad scale: the default")
 eq(GlassUF.Zoom.role, nil, "an unknown saved role: global")
 
 eq(next(GlassUF.paintFailures), nil, "no paint failures")

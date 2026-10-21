@@ -67,7 +67,7 @@ local Link, Frames, Castbar, S = GlassUF.Link, GlassUF.Frames, GlassUF.Castbar, 
 local pl, tg = button("player"), button("target")
 check(not Link.Placing(), "no state: nothing placed")
 local pt, rel, rpt, x, y = pointOf(pl)
-check(pt == "CENTER" and rel == UIParent and rpt == "CENTER" and x == -300 and y == -110, "the player's own default spot")
+check(pt == "CENTER" and rel == UIParent and rpt == "CENTER" and x == -304 and y == -272, "the player's own default spot")
 eq(lastReport().layout.linked, true, "Report: linked (on by default)")
 eq(lastReport().layout.placing, false, "Report: not placing")
 
@@ -123,31 +123,34 @@ WoW.tick(1)
 
 -- GRF built first: its state is read after our build, and the first place snaps.
 grfState = HUD
-boot({})
+-- The player's cast bar detached by its own save, the target's docked (the
+-- default). The link only lifts a detached bar clear of the grid (#142).
+local DOCKED = { player = { detached = true, x = 10, y = -150 } }
+boot({ castBars = copy(DOCKED) })
 Link, Frames, Castbar, S = GlassUF.Link, GlassUF.Frames, GlassUF.Castbar, GlassUF.Settings
 pl, tg = button("player"), button("target")
 check(Link.Placing(), "GRF's hud state read after the build")
 pt, rel, rpt, x, y = pointOf(pl)
 check(pt == "CENTER" and rel == UIParent and rpt == "LEFT", "the player: centre from UIParent's left edge")
 check(near(x, 400 - 24 - 365 / 2), "its right edge 24 left of the union")
-eq(y, -110, "horizontally only: its own default height (GlassUI#32)")
+eq(y, -272, "horizontally only: its own default height (GlassUI#32)")
 local cx, cy = pl:GetCenter()
 check(near(cx + 365 / 2, 400 - 24), "laid out: the right edge is 24 left of the union")
-check(near(cy, 384 - 110), "laid out: the height it had")
+check(near(cy, 384 - 272), "laid out: the height it had")
 pt, rel, rpt, x, y = pointOf(tg)
-check(near(x, 400 + 566 + 24 + 365 / 2) and y == -110, "the target: its left edge 24 right of the union, its own height")
+check(near(x, 400 + 566 + 24 + 365 / 2) and y == -272, "the target: its left edge 24 right of the union, its own height")
 eq(next(Link._test.glides), nil, "the first place after the build snaps")
 eq(next(GlassUnitFramesDB.pos), nil, "nothing saved")
 eq(lastReport().layout.placing, true, "Report: placing")
 -- Our announcement (section 5b): linked, player l b w h, pet l b w h, the player's dx, the pet's.
 local a = lastHeard()
 check(a and a[1] == true, "announced: linked")
-check(a and near(a[2], 400 - 24 - 365) and near(a[3], 384 - 110 - 31) and a[4] == 365 and a[5] == 62,
+check(a and near(a[2], 400 - 24 - 365) and near(a[3], 384 - 272 - 31) and a[4] == 365 and a[5] == 62,
       "the player's rect, UIParent units from its bottom-left")
-local petCX = (683 - 300) - 365 / 2 + 365 / 2   -- the pet rides the player, centred on it
+local petCX = (683 - 304) - 365 / 2 + 365 / 2   -- the pet rides the player, centred on it
 check(a and a[6] ~= nil and near(a[6] + a[8] / 2, (400 - 24 - 365 / 2)) and a[8] == 365 and a[9] == 32,
       "the pet's rect, carried with the player")
-check(a and near(a[10], (400 - 24 - 365 / 2) - (683 - 300)), "dx: how far the link moved the player")
+check(a and near(a[10], (400 - 24 - 365 / 2) - (683 - 304)), "dx: how far the link moved the player")
 check(a and near(a[11], (400 - 24 - 365 / 2) - petCX), "petDx: the pet rides it, the same move")
 local st = GlassUF.LayoutState()
 check(st.linked == true and near(st.dx, a[10]) and near(st.petDx, a[11]) and st.player.w == 365 and st.pet.h == 32,
@@ -156,40 +159,52 @@ check(GlassUF.LayoutState() ~= st, "a fresh table each time")
 -- Followers ride their leader.
 check(button("pet")._points[1][2] == pl and button("focus")._points[1][2] == tg, "pet and focus ride their leaders")
 
--- The cast bars: detached, 360x22, centred on the union above the grid.
+-- A detached cast bar keeps its own spot, size and scale, lifted so its
+-- bottom clears the grid's top (382, i.e. -2 from the centre) by Link.CLEAR.
+local TOP = 382 - 384
 local px, py, pw, ph, pdet, ps = Castbar.EffectiveGeometry("player")
-check(near(px, 683 - 683) and near(py, 382 + 73 - 384) and pw == 360 and ph == 22 and pdet and ps == 1,
-      "the player's cast bar: centre at top + 73, 360x22")
+check(px == 10 and pw == 340 and ph == 20 and pdet and ps == 1.5, "the player's bar: its own spot, size and scale")
+check(near(py - 20 * 1.5 / 2, TOP + Link.CLEAR), "lifted: its bottom Link.CLEAR over the grid's top")
+-- A docked one stays docked (#142).
+check(not select(5, Castbar.EffectiveGeometry("target")), "the docked target bar stays docked")
+check(Castbar.SetDetached("target", true), "detaching it")
 local tx, ty = Castbar.EffectiveGeometry("target")
-check(near(tx, 0) and near(ty, 382 + 41 - 384), "the target's: centre at top + 41")
+px, py = Castbar.EffectiveGeometry("player")
+check(near(ty - py, -152 - (-150)), "one lift for both: the pair keeps its spacing")
+check(near(pl.cast.host._points[1][5], py / 1.5), "the player's host re-placed with the new lift")
+check(near(ty - 15, TOP + Link.CLEAR), "the lowest (the target's) clears the grid")
+check(Castbar.SetDetached("target", false), "and docking it again")
+px, py = Castbar.EffectiveGeometry("player")
+check(near(py - 15, TOP + Link.CLEAR), "the player's lift follows")
+eq(GlassUnitFramesDB.castBars.target, nil, "nothing left saved for it")
+-- Nothing set aside: its writes are its own.
+check(Castbar.SetPosition("player", 12, -150), "its spot is yours while linked")
+eq(GlassUnitFramesDB.castBars.player.x, 12, "saved")
+check(Castbar.SetPosition("player", 10, -150), "and back")
 eq(pl.cast.host._points[1][2], UIParent, "placed detached")
-eq(GlassUnitFramesDB.castBars, nil, "the cast bar saves are untouched")
+check(same(GlassUnitFramesDB.castBars, DOCKED), "the cast bar saves are untouched")
 eq(Castbar.EffectiveGeometry("focus"), select(1, Castbar.Geometry("focus")), "other bars keep their own")
 
 -- Set aside: every write refused, nothing saved.
 check(not Frames.SetPosition("player", 1, 2), "SetPosition refused")
 check(not Frames.SavePosition("target", 1, 2), "SavePosition refused")
 check(not Frames.ResetPosition("player"), "ResetPosition refused")
-for _, f in ipairs({ function() return Castbar.SetDetached("player", false) end,
-                     function() return Castbar.SetSize("player", 200, 30) end,
-                     function() return Castbar.SetScale("target", 1.5) end,
-                     function() return Castbar.SetPosition("player", 10, 10) end,
-                     function() return Castbar.SavePosition("player", 10, 10) end,
-                     function() return Castbar.CenterX("target") end,
-                     function() return Castbar.ResetPosition("player") end }) do
-    check(not f(), "a cast bar write refused")
-end
 eq(next(GlassUnitFramesDB.pos), nil, "still nothing saved")
-eq(GlassUnitFramesDB.castBars, nil, "nor any cast bar")
+check(same(GlassUnitFramesDB.castBars, DOCKED), "nor any cast bar")
 check(Castbar.SetIconSide("player", "right"), "the icon side is still yours")
 Castbar.SetIconSide("player", "left")
+check(Castbar.SetDetached("player", false), "attach while linked")
+check(not select(5, Castbar.EffectiveGeometry("player")), "docked again")
+check(Castbar.SetDetached("player", true), "and detached: lifted again")
+check(near(select(2, Castbar.EffectiveGeometry("player")) - 15, TOP + Link.CLEAR), "clear of the grid")
+check(same(GlassUnitFramesDB.castBars, DOCKED), "its save as it was")
 
 -- A placed frame's width changes (its portrait hidden): it keeps its edge.
 local n = #heard
 S.SetPortraitMode("player", "none")
 pt, rel, rpt, x = pointOf(pl)
 check(near(x, 400 - 24 - 300 / 2), "no portrait: the 300 body's right edge stays 24 left")
-check(#heard == n + 1 and near(lastHeard()[10], (400 - 24 - 300 / 2) - (683 - 300)), "announced again: the pet's dx follows")
+check(#heard == n + 1 and near(lastHeard()[10], (400 - 24 - 300 / 2) - (683 - 304)), "announced again: the pet's dx follows")
 S.SetPortraitMode("player", "3d")
 check(near(select(4, pointOf(pl)), 400 - 24 - 365 / 2), "the portrait back: the 365 width again")
 
@@ -198,7 +213,7 @@ local wider = copy(HUD)
 wider.l = 300
 announce(wider)
 check(near(select(4, pointOf(pl)), 300 - 24 - 365 / 2), "the button snapped to its new place")
-eq(select(5, pointOf(pl)), -110, "at the same height")
+eq(select(5, pointOf(pl)), -272, "at the same height")
 local g = Link._test.glides[pl.body]
 check(g ~= nil, "the player's body glides")
 check(g and near(g.dx, 100) and near(g.dy, 0), "from where it was: 100 to the right")
@@ -251,7 +266,11 @@ M._test.nudge(1, 0)
 check(same({ pointOf(pl) }, before), "a nudge moves nothing")
 M._test.panel().buttons.reset._scripts.OnClick(M._test.panel().buttons.reset)
 check(same(db.pos.player, savedPlayer), "Reset changes nothing")
-check(M._test.movers["cast:player"] ~= nil, "the linked cast bar has its (locked) mover")
+check(M._test.movers["cast:player"] ~= nil, "the detached cast bar has its mover")
+local cm = M._test.movers["cast:player"]
+cm._scripts.OnMouseUp(cm)
+check(M._test.panel().buttons.reset:IsEnabled() and M._test.panel().buttons.up:IsEnabled(),
+      "not locked: the layout only lifts it (#142)")
 M.Lock()
 
 -- In combat: nothing moves, nothing is blocked; the place waits for combat's end.
@@ -294,8 +313,10 @@ check(pt == "TOPLEFT" and rel == UIParent and rpt == "BOTTOMLEFT" and x == 10 an
 pt, rel, rpt, x, y = pointOf(button("pet"))
 check(pt == "CENTER" and rel == UIParent and x == -300 and y == -190, "the absolute follower where it was saved")
 check(same(db.pos.player, savedPlayer) and same(db.pos.pet, savedPet), "both saves intact")
-eq(GlassUnitFramesDB.castBars, nil, "the cast bars back to their own (docked)")
-check(not Castbar.IsDetached("player"), "the player's cast bar docked again")
+-- Reset frame positions (above) reset the bar's spot too: nothing is set aside (#142).
+check(same(GlassUnitFramesDB.castBars, { player = { detached = true } }), "the cast bars' own saves")
+px, py = Castbar.EffectiveGeometry("player")
+check(px == 0 and py == -182, "the player's cast bar at its own (default) detached spot, no lift")
 eq(lastReport().layout.placing, false, "Report: not placing")
 check(lastHeard()[1] == false and lastHeard()[10] == 0 and lastHeard()[11] == 0, "announced: not linked, dx and petDx 0")
 check(GlassUF.LayoutState().linked == false, "LayoutState: not linked")
@@ -342,17 +363,20 @@ boot({ groupLink = false })
 check(not GlassUF.Link.Placing(), "a saved off: own positions at load")
 eq(lastReport().layout.linked, false, "Report: not linked")
 
--- The zoom comes first: in combat, a zoomed linked bar goes to its zoom spot.
+-- The zoom comes first: in combat, a zoomed bar goes above the grid while
+-- linked (#142), at the zoom's scale, its heights above the grid scaled too.
+-- Docked out of combat.
 boot({ zoom = { global = { player = { on = true, x = 5, y = -200, scale = 1.5 } } } })
 Link, Castbar = GlassUF.Link, GlassUF.Castbar
 check(Link.Placing(), "linked")
+check(not select(5, Castbar.EffectiveGeometry("player")), "out of combat: docked")
 combat(true)
 px, py, pw, ph, pdet, ps = Castbar.EffectiveGeometry("player")
-check(px == 5 and py == -200 and ps == 1.5 and pdet, "in combat: the zoom spot and scale")
-check(pw == 360 and ph == 22, "at the linked size")
+check(px == 5 and ps == 1.5 and pdet, "in combat: its zoom spot and scale")
+check(near(py - 15, (382 - 384) + Link.CLEAR), "lifted clear of the grid (the lowest of the pair)")
+check(pw == 340 and ph == 20, "at its own size")
 combat(false)
-px, py = Castbar.EffectiveGeometry("player")
-check(near(py, 382 + 73 - 384), "after combat: the linked place")
+check(not select(5, Castbar.EffectiveGeometry("player")), "after combat: docked again")
 
 -- Options: the checkbox and the dimmed cast bar controls.
 local O = GlassUF.Options._test
@@ -360,8 +384,11 @@ O.panel._scripts.OnShow(O.panel)
 check(O.controls.groupLink:GetChecked(), "the link checkbox is on")
 check(O.controls.linkNote._text:find("Placing", 1, true) ~= nil, "the note says it's placing")
 O.castPage._scripts.OnShow(O.castPage)
-check(not O.controls.castDetach:IsEnabled() and not O.controls.castWidth:IsEnabled(), "the player's bar controls are off")
-check(O.controls.castDetach.label._text:find(Link.NOTE, 1, true) ~= nil, "and say why")
+check(O.controls.castDetach:IsEnabled() and O.controls.castWidth:IsEnabled(), "a docked bar's controls are its own")
+S.SetCastDetached("player", true)
+O.controls.refreshAll()
+check(O.controls.castDetach:IsEnabled() and O.controls.castWidth:IsEnabled(),
+      "detached while linked: still all its own (#142)")
 O.controls.groupLink:SetChecked(false)
 O.controls.groupLink._scripts.OnClick(O.controls.groupLink)
 check(not Link.Placing(), "the checkbox turns it off")

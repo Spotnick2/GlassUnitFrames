@@ -12,8 +12,8 @@ local t, tot, focus, ft, pet = button("target"), button("targettarget"), button(
 -- Followers are anchored to their leader, CENTER on CENTER, at the offset
 -- between the two default points.
 eq(tot._points[1][2], t, "targettarget follows the target")
-eq(tot._points[1][4], 207.5 - 300, "at the default x offset")
-eq(tot._points[1][5], -54 - (-110), "and y offset")
+eq(tot._points[1][4], 211.5 - 304, "at the default x offset")
+eq(tot._points[1][5], -216 - (-272), "and y offset")
 eq(focus._points[1][2], t, "focus follows the target")
 eq(ft._points[1][2], focus, "focustarget follows focus")
 eq(pet._points[1][2], button("player"), "the pet follows the player")
@@ -71,7 +71,7 @@ np.x._scripts.OnEnterPressed(np.x)
 eq(GlassUnitFramesDB.pos.target[4], -12.5, "a non-number is ignored")
 np.buttons.reset._scripts.OnClick(np.buttons.reset)
 eq(GlassUnitFramesDB.pos.target, nil, "reset: this frame back to its default")
-eq(t._points[1][4], 300, "at the default spot")
+eq(t._points[1][4], 304, "at the default spot")
 eq(GlassUnitFramesDB.pos.targettarget[4], -100, "reset one frame leaves the others alone")
 
 -- Switching frames with an uncommitted coordinate discards it: its Enter
@@ -99,7 +99,7 @@ check(not M.unlocked, "/glass lock")
 -- /glass reset re-attaches everything at the defaults.
 SlashCmdList.GLASSUNITFRAMES("reset")
 eq(next(GlassUnitFramesDB.pos), nil, "all positions cleared")
-eq(tot._points[1][4], 207.5 - 300, "targettarget back at its default offset")
+eq(tot._points[1][4], 211.5 - 304, "targettarget back at its default offset")
 
 -- Saved entries are validated: a malformed one falls back to the default
 -- instead of aborting the build of every frame after it.
@@ -110,7 +110,7 @@ saved.pos = { target = { "NOWHERE", "UIParent", "CENTER", "x", nil },
 WoW.reset(); standardUnits(); GlassUF = nil
 loadAddon({ db = saved })
 for _, u in ipairs(GlassUF.Frames.ORDER) do check(button(u) ~= nil, u .. " built despite bad saves") end
-eq(button("target")._points[1][4], 300, "malformed save: default position")
+eq(button("target")._points[1][4], 304, "malformed save: default position")
 eq(button("targettarget")._points[1][2], button("target"), "wrong relative frame: default anchor")
 eq(button("pet")._points[1][1], "TOPLEFT", "an old-style save is still honoured")
 GlassUnitFramesDB = nil
@@ -230,7 +230,7 @@ check(not F.SavePosition("player", -1/0, 0), "infinite save refused")
 GlassUnitFramesDB.pos.player = { "CENTER", "UIParent", "CENTER", 1/0, 0 }
 WoW.reset(); standardUnits(); GlassUF = nil
 loadAddon({ db = GlassUnitFramesDB })
-eq(button("player")._points[1][4], -300, "an infinite save falls back to the default")
+eq(button("player")._points[1][4], -304, "an infinite save falls back to the default")
 
 -- A reset during a drag wins (the drag in flight is dropped, not re-saved),
 -- and the open nudge panel shows the reset position.
@@ -243,8 +243,8 @@ mt2._scripts.OnDragStart(mt2); mt2._scripts.OnUpdate(mt2)
 SlashCmdList.GLASSUNITFRAMES("reset")
 mt2._scripts.OnDragStop(mt2)
 eq(GlassUnitFramesDB.pos.target, nil, "the reset survives the drag's release")
-eq(button("target")._points[1][4], 300, "target at its default")
-eq(M._test.panel().x._text, "300", "the nudge panel shows the reset position")
+eq(button("target")._points[1][4], 304, "target at its default")
+eq(M._test.panel().x._text, "304", "the nudge panel shows the reset position")
 
 -- A drag that holds still doesn't re-anchor the frame every rendered frame.
 mt2._center = { 512 + 100, 384 - 100 }

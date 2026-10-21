@@ -416,7 +416,7 @@ local function build()
         function(v) db().hideBlizzard = v end)
     controls.hideBlizzardCast = checkbox(right, "Hide Blizzard's player cast bar",
         function() return db().hideBlizzardCast end,
-        function(v) db().hideBlizzardCast = v or nil end)
+        function(v) db().hideBlizzardCast = v and true or false end)
     note(right, "Both take effect after a /reload.", 270)
 
     header(right, "Colours")
@@ -620,17 +620,10 @@ local function buildCast()
     local center = button(castPage, "Center horizontally", 190, function() S.CenterCast(castUnit) end)
     place(left, center, 30, 4)
     controls.castCenter = center
-    -- Centring moves a detached bar only. Placed by the group layout (#132),
-    -- the bar's place, size and scale are its: shown, and off.
+    -- Centring moves a detached bar only. The group layout only lifts the bars
+    -- (#142): every control stays yours.
     controls[#controls + 1] = function()
-        local linked = GlassUF.Link.CastOf(castUnit) ~= nil
-        controls.castDetach.label:SetText(linked and ("Detached: " .. GlassUF.Link.NOTE) or "Detached")
-        dim(controls.castDetach, linked, controls.castDetach.label)
-        for _, sl in ipairs({ controls.castWidth, controls.castHeight, controls.castScale }) do
-            dim(sl, linked, sl.label, sl.valueText)
-        end
-        dim(center, linked)
-        if not linked then center:SetEnabled(Castbar.IsDetached(castUnit)) end
+        center:SetEnabled(Castbar.IsDetached(castUnit))
     end
 
     header(left, "Positions")
@@ -781,20 +774,22 @@ local function buildZoom()
                                              { "tank", "Tank" }, { "dps", "DPS" } },
         function() return Zoom.role or "global" end,
         function(r) S.SetZoomRole(r ~= "global" and r or nil) end)
+    -- The canvas is ~680 wide and this column starts at 380: text wraps at 280.
     local editing = label(zoomPage, "", "GameFontHighlightSmall")
-    place(right, editing, 22, 4)
+    editing:SetWidth(280)
+    place(right, editing, 30, 4)
     controls.zoomEditing = editing
     controls[#controls + 1] = function()
         local key = Zoom.EditedKey()
         editing:SetText(key == "global" and "Editing the global settings."
             or ("Editing the " .. key .. " settings (this character is a " .. key .. ")."))
     end
-    note(right, "A role uses its own settings once you change one; until then, the global ones.", 330)
-    note(right, "Pick a role here to edit its settings.", 330)
+    note(right, "A role uses its own settings once you change one; until then, the global ones.", 280)
+    note(right, "Pick a role here to edit its settings.", 280)
     header(right, "Combat spots")
     place(right, button(zoomPage, "Unlock frames", 190, Options.Unlock), 30, 4)
     place(right, button(zoomPage, "Preview all bars", 190, Options.Preview), 30, 4)
-    note(right, "Each bar that zooms shows a yellow outline at its combat spot: drag it.", 330)
+    note(right, "Each bar that zooms shows a yellow outline at its combat spot: drag it.", 280)
 end
 
 zoomPage:SetScript("OnShow", function(self)

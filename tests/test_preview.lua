@@ -12,7 +12,8 @@ local function setup()
     standardUnits()
     for _, u in ipairs(ABSENT) do WoW.units[u] = nil end
     WoW.spellCosts[MANA_SPELL] = { { type = 0, cost = 25, minCost = 25 } }
-    loadAddon()
+    -- The player's row docked (detached by default since #141), so the preview reflows the body.
+    loadAddon({ db = { castBars = { player = { detached = false } } } })
     WoW.applyUnitWatch()
 end
 setup()

@@ -7,7 +7,8 @@ dofile("tests/harness.lua")
 
 standardUnits()
 -- The classic look: the docked rows' documented heights are its rim's (#129).
-loadAddon({ db = { look = "classic" } })
+-- The player's cast row docked (detached by default since #141): the swing rows go under it.
+loadAddon({ db = { look = "classic", castBars = { player = { detached = false } } } })
 local Swing, Castbar, S = GlassUF.Swing, GlassUF.Castbar, GlassUF.Settings
 local pl = button("player")
 local sw = Castbar.bars.swing

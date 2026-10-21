@@ -72,7 +72,7 @@ cast._scripts.OnClick(cast)
 eq(GlassUnitFramesDB.hideBlizzardCast, true, "cast bar toggle saved")
 cast:SetChecked(false)
 cast._scripts.OnClick(cast)
-eq(GlassUnitFramesDB.hideBlizzardCast, nil, "unticked: the key goes away")
+eq(GlassUnitFramesDB.hideBlizzardCast, false, "unticked: saved as false (hidden is the default, #141)")
 local hide = controls.hideBlizzard
 hide:SetChecked(false)
 hide._scripts.OnClick(hide)
@@ -116,7 +116,11 @@ check(not PlayerCastingBarFrame._shown, "hideBlizzardCast: Blizzard's cast bar h
 WoW.reset(); standardUnits(); GlassUF = nil
 GlassUnitFramesDB = nil                      -- fresh settings: the default
 loadAddon()
-check(PlayerCastingBarFrame._shown ~= false, "by default Blizzard's cast bar is left alone")
+check(PlayerCastingBarFrame._shown == false, "by default Blizzard's cast bar is hidden (#141)")
+eq(GlassUnitFramesDB.hideBlizzardCast, true, "the default filled in")
+WoW.reset(); standardUnits(); GlassUF = nil
+loadAddon({ db = { hideBlizzardCast = false } })
+check(PlayerCastingBarFrame._shown ~= false, "saved false: Blizzard's cast bar is left alone")
 
 -- The cast bar alone doesn't make /glass blizzard claim the frames are hidden,
 -- and "/glass blizzard show" brings the cast bar back too.
@@ -127,7 +131,7 @@ check(not GlassUF.Blizzard.active, "unit frames not counted as hidden")
 SlashCmdList.GLASSUNITFRAMES("blizzard")
 check(WoW.chat[#WoW.chat]:find("frames are shown", 1, true), "status: shown: " .. WoW.chat[#WoW.chat])
 SlashCmdList.GLASSUNITFRAMES("blizzard show")
-eq(GlassUnitFramesDB.hideBlizzardCast, nil, "'show' clears the cast bar setting too")
+eq(GlassUnitFramesDB.hideBlizzardCast, false, "'show' turns the cast bar setting off too (saved: hidden is the default)")
 
 -- The Cast bars page doesn't scroll: everything on it stays inside the
 -- Settings canvas (about 601 units tall on 70450, Blizzard_SettingsPanel.xml),

@@ -15,16 +15,16 @@ Frames.byUnit = {}
 
 local GAP = 3    -- between portrait tile and body
 
--- Default positions are sized for WoW's UIParent, which is 768 units tall at
--- the default UI scale (half-height 384): every frame, the target's cast lane
--- and two aura rows included, stays above y = -280, clear of the action bars.
+-- Default positions are in WoW's UIParent units, 768 tall at the default UI
+-- scale (half-height 384). They are the owner's tested setup (#141): player and
+-- target low, at y = -272, their cast bars detached above them.
 -- `point` is where each frame sits by default, in screen (UIParent CENTER)
 -- offsets for readability. Frames with `anchorTo` are placed RELATIVE to that
 -- frame (the offset between the two default points), so moving the target
 -- carries its cluster and moving the player carries the pet (#34); DinoUF
 -- anchors its unit frames to each other the same way on Forever.
 Frames.LAYOUT = {
-    player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -300, -110 },
+    player       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", -304, -272 },
                      portrait = "left", power = true, cast = true, size = "large", groupNumber = true, healPrediction = true,
                      -- SUF-style: the cast bar is a row INSIDE the frame, shown only while
                      -- casting; health and power shrink to make room (the pet frame sits
@@ -32,39 +32,40 @@ Frames.LAYOUT = {
                      castInside = true, healthLoss = true, druidMana = true,
                      indicators = { raidTarget = true, leader = true, masterLoot = true, pvp = true, resting = true },
                      text = { healthRight = "curmaxhp", powerLeft = "perpp", powerRight = "curmaxpp" } },
-    target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 300, -110 },
+    target       = { w = 300, h = 62, point = { "CENTER", "UIParent", "CENTER", 304, -272 },
                      portrait = "right", power = true, cast = true, sheen = true, size = "large", auras = true,
                      healPrediction = true, healthLoss = true, combo = true,
                      indicators = { raidTarget = true, leader = true, pvp = true },
                      text = { healthRight = "curmaxhp_perhp", powerLevel = true, powerLeft = "perpp", powerRight = "curmaxpp" } },
     -- Same total width as the player frame and centred on it (portrait 32 + gap 3
-    -- + body 330 = 365), 5 px under it (player bottom -141, pet top -146), as the
+    -- + body 330 = 365), 5 px under it (player bottom -303, pet top -308), as the
     -- owner's SUF had it.
     -- Pet and focus cast bars (#76): a 16 px pill, the pet's under its body
-    -- (bottom -200, clear of the action bars), the focus's ABOVE it (under it
+    -- (detached ones keep their own spot), the focus's ABOVE it (under it
     -- would cover the ToT row).
-    pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -300, -162 },
+    pet          = { w = 330, h = 32, point = { "CENTER", "UIParent", "CENTER", -304, -324 },
                      portrait = "left", power = true, size = "small", text = { healthRight = "curmaxhp" },
                      cast = true, castH = 16,
                      indicators = { raidTarget = true, happiness = true }, anchorTo = "player" },
     -- The target cluster, SUF-style: targettarget and targettargettarget side by
-    -- side ABOVE the target body (x 117.5..417.5, top at -79), 12 px up so the
+    -- side ABOVE the target body (x 121.5..421.5, top at -241), 12 px up so the
     -- target's raid mark and leader crown (centred on its top edge, up to
-    -- -69) stay clear of the row; auras right
+    -- -231) stay clear of the row; auras right
     -- under it, the cast bar under the auras, focus above the ToT row.
-    targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 207.5, -54 },
+    targettarget = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 211.5, -216 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
                      indicators = { raidTarget = true }, anchorTo = "target" },
     -- Right of targettarget on the same row; name only, as the owner's SUF profile had it.
-    targettargettarget = { w = 115, h = 26, point = { "CENTER", "UIParent", "CENTER", 360, -54 },
+    targettargettarget = { w = 115, h = 26, point = { "CENTER", "UIParent", "CENTER", 364, -216 },
                      size = "small", ticker = true, nameOnly = true, indicators = { raidTarget = true },
                      anchorTo = "target" },
-    -- Above the ToT row, following the target; focustarget to its right, following focus.
-    focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 345, -15 },
+    -- Above the ToT row (96, 98 from the target), following it; focustarget to its
+    -- right (208, -1 from focus), following focus.
+    focus        = { w = 210, h = 32, point = { "CENTER", "UIParent", "CENTER", 400, -174 },
                      power = true, size = "small", text = { healthRight = "curhp" },
                      cast = true, castH = 16, castAbove = true,
                      indicators = { raidTarget = true, leader = true }, healPrediction = true, anchorTo = "target" },
-    focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 546, -15 },
+    focustarget  = { w = 180, h = 26, point = { "CENTER", "UIParent", "CENTER", 608, -175 },
                      size = "small", ticker = true, text = { healthRight = "curhp" },
                      indicators = { raidTarget = true }, anchorTo = "focus" },
 }

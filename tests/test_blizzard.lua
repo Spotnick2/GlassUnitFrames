@@ -3,7 +3,8 @@ dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
 standardUnits()
-loadAddon()
+-- Blizzard's cast bar shown (hidden by default since #141), so HideFrame below hides it first.
+loadAddon({ db = { hideBlizzardCast = false } })
 local B = GlassUF.Blizzard
 local hidden = B.hiddenParent
 
