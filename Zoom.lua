@@ -1,8 +1,9 @@
 -- GlassUnitFrames: combat zoom (#89). During combat a bar (player, target,
 -- focus, pet cast bar, or the swing rows) is placed like a detached bar at its
 -- zoom spot (x, y, scale), and goes home when combat ends: a 0.3 s ease-out
--- glide of its centre and scale when it is visible, else a snap. Per bar, off
--- by default; global, with per-role overrides from a manual per-character role.
+-- glide of its centre and scale when it is visible, else a snap. Per bar: on
+-- by default for the player and target (#141), else off; global, with
+-- per-role overrides from a manual per-character role.
 --
 -- Placement stays with Castbar.Place / the swing rows' place: they ask
 -- Zoom.Target(unit) and lay the bar out detached at the spot (an EFFECTIVE
@@ -18,7 +19,11 @@ GlassUF.Zoom = Zoom
 Zoom.BARS = { "player", "target", "focus", "pet", "swing" }
 Zoom.ROLES = { "healer", "tank", "dps" }
 local ROLE_OK = { healer = true, tank = true, dps = true }
-Zoom.DEFAULTS = { player = { x = 0, y = -120 }, target = { x = 0, y = -90 }, focus = { x = 0, y = -60 },
+-- The player's and target's zoom is on by default, at 1.5, at the owner's tested
+-- spots: the target's bar just above the player's, the pair clear of the target's
+-- ToT row (top at y -203; #141).
+Zoom.DEFAULTS = { player = { x = 0, y = -182, on = true, scale = 1.5 },
+                  target = { x = 0, y = -152, on = true, scale = 1.5 }, focus = { x = 0, y = -60 },
                   pet = { x = 0, y = -150 }, swing = { x = 0, y = -142 } }
 Zoom.SCALE = 1.25
 Zoom.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, scale = { 0.5, 2.5 } }
@@ -56,10 +61,12 @@ end
 local function resolve(e, bar)
     local d = Zoom.DEFAULTS[bar] or { x = 0, y = 0 }
     e = e or {}
-    return { on = e.on == true,
+    local on = d.on == true
+    if type(e.on) == "boolean" then on = e.on end
+    return { on = on,
              x = inLimits(e.x, "x") and e.x or d.x,
              y = inLimits(e.y, "y") and e.y or d.y,
-             scale = inLimits(e.scale, "scale") and e.scale or Zoom.SCALE }
+             scale = inLimits(e.scale, "scale") and e.scale or d.scale or Zoom.SCALE }
 end
 
 -- What a bar uses: the role's entry when it has one, else the global one.
@@ -78,7 +85,7 @@ local function editEntry(bar)
     if type(t[bar]) ~= "table" then
         if key ~= "global" then
             local g = resolve(rawEntry("global", bar), bar)
-            t[bar] = { on = g.on or nil, x = g.x, y = g.y, scale = g.scale }
+            t[bar] = { on = g.on, x = g.x, y = g.y, scale = g.scale }
         else
             t[bar] = {}
         end
@@ -100,6 +107,14 @@ local function prune(key, bar)
 end
 
 function Zoom.Enabled(bar) return Zoom.Entry(bar).on end
+
+-- A bar's zoom spot when its zoom is on: x, y, scale, else nil.
+function Zoom.Spot(unit)
+    if not (db and Zoom.DEFAULTS[unit]) then return nil end
+    local e = Zoom.Entry(unit)
+    if not e.on then return nil end
+    return e.x, e.y, e.scale
+end
 
 -- Where a bar goes right now: x, y, scale while in combat with its zoom on, else nil.
 function Zoom.Target(unit)
@@ -201,7 +216,8 @@ end
 -- Re-place a bar now for the current mode (a setting changed): a snap.
 local function refresh(bar)
     local c = GlassUF.Castbar.bars[bar]
-    if c then GlassUF.Castbar.Place(c) end
+    -- The player's and target's share the group layout's lift: both (Codex, #143).
+    if c then GlassUF.Castbar.PlaceStack(c) end
     if Zoom.ShowProxies and Zoom.proxiesShown then Zoom.ShowProxies(true) end
 end
 
@@ -211,11 +227,10 @@ end
 
 function Zoom.SetEnabled(bar, on)
     if not (db and Zoom.DEFAULTS[bar]) then return false end
-    -- Global: off is the default (not saved). A role stores off explicitly.
-    -- (Not `global and nil or false`: that is always false.)
-    local off
-    if Zoom.EditedKey() ~= "global" then off = false end
-    editEntry(bar).on = on and true or off
+    -- Global: the bar's default is not saved. A role stores both explicitly.
+    on = on and true or false
+    if Zoom.EditedKey() == "global" and on == (Zoom.DEFAULTS[bar].on == true) then on = nil end
+    editEntry(bar).on = on
     prune(Zoom.EditedKey(), bar)
     refresh(bar)
     return true
@@ -300,12 +315,14 @@ end
 local function placeProxy(bar)
     local p = proxy(bar)
     local e = Zoom.Entry(bar)
-    local _, _, w, h = GlassUF.Castbar.HomeGeometry(bar)   -- the group layout's size too (#132)
+    local _, _, w, h = GlassUF.Castbar.HomeGeometry(bar)
+    -- The group layout's lift, as it will be in combat (#142).
+    local dy = GlassUF.Link.CAST[bar] and GlassUF.Castbar.Lift(true) or 0
     if bar == "swing" then   -- the unlocked pill: every row, as Swing's sample shows it
         h = 3 * h + 2 * GlassUF.Swing.DETACHED_GAP + 2 * Glass.Inset("small")
     end
     p:SetSize(w, h)
-    put(p, e.x, e.y, e.scale)
+    put(p, e.x, e.y + dy, e.scale)
 end
 
 -- A bar was placed (a resize, a reset): its outline, when shown, follows.
@@ -333,15 +350,25 @@ function Zoom.MoverSource(bar)
         id = "zoom:" .. bar, label = LABELS[bar],
         frame = function() return proxy(bar) end,
         rel = function() return "UIParent", UIParent end,
-        position = function() local e = Zoom.Entry(bar); return e.x, e.y end,
+        -- Where the outline shows (the lift included); a drop takes the
+        -- partner's lift off, as a detached bar's does (Codex, #143).
+        position = function()
+            local e = Zoom.Entry(bar)
+            return e.x, e.y + (GlassUF.Link.CAST[bar] and GlassUF.Castbar.Lift(true) or 0)
+        end,
         set = function(x, y, live)
-            if not live then return Zoom.SetSpot(bar, x, y) end   -- saved, then placed by refresh
+            if not live then
+                local d = GlassUF.Castbar.PartnerLift(bar, true)
+                local ok, ax, ay = Zoom.SetSpot(bar, x, y - d)   -- saved, then placed by refresh
+                if not ok then return false end
+                return true, ax, ay + d
+            end
             if not (inLimits(x, "x") and inLimits(y, "y")) then return false end
             x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
             put(proxy(bar), x, y, Zoom.Entry(bar).scale)
             return true, x, y
         end,
-        save = function(x, y) return Zoom.SetSpot(bar, x, y) end,
+        save = function(x, y) return Zoom.SetSpot(bar, x, y - GlassUF.Castbar.PartnerLift(bar, true)) end,
         reset = function() return Zoom.ResetSpot(bar) end,
         follows = function() return false end,
         scale = function() return Zoom.Entry(bar).scale end,

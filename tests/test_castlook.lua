@@ -6,7 +6,8 @@ dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
 standardUnits()
-loadAddon()
+-- Docked bars (detached by default since #141): the player's 14 px row, the target's pill.
+loadAddon({ db = { castBars = { player = { detached = false }, target = { detached = false } } } })
 local Castbar, S = GlassUF.Castbar, GlassUF.Settings
 local pl, tg = button("player"), button("target")
 local pc, tc = pl.cast, tg.cast
@@ -108,7 +109,7 @@ cast("player", g6)
 check(not pc.icon._shown, "no icon shown")
 stop("player", g6); WoW.flushTimers()
 S.SetCastIcon("player", "left")
-eq(GlassUnitFramesDB.castBars, nil, "the default again: nothing saved")
+eq(GlassUnitFramesDB.castBars.player.icon, nil, "the default again: the icon side not saved")
 check(not S.SetCastIcon("player", "middle"), "an unknown side is refused")
 
 -- Colours: validated, saved, applied; reset.

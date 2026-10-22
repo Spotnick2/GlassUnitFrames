@@ -3,7 +3,8 @@ dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
 standardUnits()
-loadAddon()
+-- The target's cast bar docked (detached by default since #141): its pill sits under the aura rows.
+loadAddon({ db = { castBars = { target = { detached = false } } } })
 local t = button("target")
 
 check(WoW.loadedAddOns.Blizzard_AuraContainer, "Blizzard_AuraContainer loaded on demand")
@@ -49,10 +50,8 @@ check(LT.focus.point[5] - LT.focus.h / 2 > totTop, "focus sits above the ToT row
 check(targetTop + 10 < LT.targettarget.point[5] - LT.targettarget.h / 2, "target raid mark clears the ToT row")
 local totttTop = LT.targettargettarget.point[5] + LT.targettargettarget.h / 2
 check(totttTop + 7 < LT.focus.point[5] - LT.focus.h / 2, "ToTT raid mark clears the focus frame")
--- The cast bar follows the aura rows and stays above the action bars (y -280).
+-- The docked cast bar follows the aura rows.
 eq(castTop, GlassUF.Auras.Bottom() - 6, "cast bar offset derived from the aura rows")
-local castBottom = LT.target.point[5] - LT.target.h / 2 + castTop - 20
-check(castBottom > -280, "target cluster's lowest element stays above y -280")
 
 -- A client that refuses part of the aura setup must not abort the build:
 -- the frame still registers, and later frames still build.

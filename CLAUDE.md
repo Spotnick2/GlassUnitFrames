@@ -170,9 +170,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   calculator gets `SetIncomingHealOverflowPercent(1)`: DinoUF recorded an empty bar on Forever
   without it. The bar is cleared on a failed read and for offline or dead units.
 - **Default positions** in `Frames.LAYOUT` are sized for WoW's UIParent, which is **768 units
-  tall at the default UI scale**. Every frame, including the target's cast lane and aura rows,
-  stays above y = −280, clear of the action bars. Check new frames against that, not against the
-  owner's 4K screen.
+  tall at the default UI scale**: check new frames in those units, not on the owner's 4K screen.
+  The defaults are the owner's tested setup (#141): player and target at (∓304, −272), focus at
+  (96, 98) from the target, focus target at (208, −1) from focus. The old rule (everything above
+  y = −280) is retired.
 - **`Frames.lua`** (frames): `LAYOUT`, the secure buttons (`SecureUnitButtonTemplate`, `"AnyUp"` clicks,
   `RegisterUnitWatch`), and the painters. The glass hosts are mouse-less children, so a click
   anywhere, portrait included, reaches the button. **Hover tooltip** (#80): `OnEnter` / `OnLeave`
@@ -219,8 +220,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     hides with it: no target, no target bar), with a glass pill of its own (`c.skin`).
     - **Docked:** the player's row inside the body (pill hidden; health and power shrink only
       while it's docked inside AND shown), the target's pill under its aura rows.
-    - **Detached:** its own pill, CENTER on the screen centre. Defaults follow the owner's Quartz
-      layout: player 340×20 at (0, −47), target at (0, −23).
+    - **Detached:** its own pill, CENTER on the screen centre. Every bar starts **docked**
+      (owner, #142). A detached player's or target's bar defaults to the owner's tested spot
+      (#141): 340×20, scale 1.5, at (0, −182) / (0, −152).
     - **Scale** 0.5–2 (0.05 steps), shown only while detached (`Castbar.SetScale`). The spot
       stays in screen (UIParent) units at any scale: SetPoint offsets are in the host's own
       scaled units, so `Place` / `SetPosition` divide them by the scale. Movers convert a scaled
@@ -413,7 +415,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       sample loop.
     - `db.manaRegen` (saved only when off), `Settings.SetManaRegen`, `/glass regen on|off`, a
       checkbox in the main page's "Mana" section.
-- **`Zoom.lua`** (#89): combat zoom, per bar (player, target, focus, pet, swing), off by default.
+- **`Zoom.lua`** (#89): combat zoom, per bar (player, target, focus, pet, swing): on for the player and
+  target by default, at scale 1.5 and the owner's tested spots (0, −182) / (0, −152) (#141), off
+  for the rest. The global `on` is saved only when it
+  differs from the bar's default.
   - **What it does:** in combat, a bar is laid out **detached at its zoom spot** (x, y, scale) and
     goes home when combat ends.
   - **Placement:** `Castbar.Place` and the swing rows' `place` read `Castbar.EffectiveGeometry(unit)`,
@@ -458,13 +463,19 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       `TOPLEFT` / `BOTTOMLEFT` / `LEFT`, its own y), so it also follows a UI scale change.
       `Frames.WidthOf` is 365 with the tile, 300 without, and a portrait change re-places
       (`Link.WidthChanged`). Followers ride their leaders.
-    - the player and target cast bars: detached, 360x22, scale 1, centred on the union at
-      `top + 73` / `top + 41`: `Castbar.HomeGeometry` (the saves, or the link). `EffectiveGeometry`
-      puts the zoom on top: zoom, then link, then saves. `IsDetached`, `PositionOf`, `SizeOf` and
-      `ScaleOf` read the home.
+    - the player and target cast bars: **never placed, only lifted** (owner, #142). Each keeps its
+      own spot (docked, detached, or the zoom's in combat). While linked, a detached or zoomed pair
+      rises by one amount (`Castbar.Lift`, partner re-placed by `Castbar.PlaceStack`) until the
+      lowest one's bottom is `Link.CLEAR` (6) over the grid's top (`Link.GridTop`). A docked bar
+      stays docked. `EffectiveGeometry`: zoom, then saves, then the lift. The zoom outlines show
+      the lift as it will be in combat (`Castbar.Lift(true)`, from `Zoom.Spot`). Their movers
+      (cast and zoom) work where the bar shows; a drop or typed spot takes off only the lift the
+      partner imposes (`Castbar.PartnerLift`), so it lands where it was dropped. Any change to one
+      bar, a zoom setting included, re-places both (Codex, #143).
   - **Set aside, kept intact:** `Frames.ApplyPosition` asks `Link.PointOf` first. While linked,
-    `Frames.SetPosition` / `SavePosition` / `ResetPosition` and every cast-bar write but the icon
-    side are refused; `ResetPositions` keeps their saves; `NormalizeSaves` skips them, and a follower
+    `Frames.SetPosition` / `SavePosition` / `ResetPosition` are refused for the player and target
+    frames (the cast bars stay fully the player's: nothing of theirs is set aside, #142).
+    `ResetPositions` keeps the frames' saves; `NormalizeSaves` skips them, and a follower
     saved on UIParent while its leader is linked (`Link.Carried`). Movers sources have `locked()`:
     the mover selects but doesn't drag, and the panel says `Link.NOTE` with its buttons off.
     Letting go re-applies each frame's own validated tuple (`applyPosition`).
@@ -489,7 +500,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     when it rides the player, 0 when it's saved on the screen (`Frames.RidesLeader`). Both 0 when
     unlinked. Trailing arguments only grow.
   - **Setting:** `db.groupLink` (false when off), `Settings.SetGroupLink`, `/glass link on|off`, a
-    checkbox and status under Positions; the Cast bars page dims the linked bar's place controls.
+    checkbox and status under Positions.
   - **Measuring:** `Tools/LayoutProbe` (`/fp steps layout glide`, M5) announces a fake layout
     through the real event; `/fp layout pet|stance <dx>|off` fakes our own announcement for GlassActionBars.
     M5 passed on 70450 (2026-10-18, four runs): the player's frame, a hunter's pet with its
@@ -602,7 +613,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - `Blizzard.active` records whether anything was hidden this session. Hiding is one-way per
     session.
 - **`GlassUnitFrames.lua`**:
-  - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast`, `mark`, `aggroRed`, `level`, `healthText[unit]`,
+  - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
     `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the

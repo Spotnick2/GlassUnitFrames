@@ -36,7 +36,7 @@ eq(#WoW.blocked, 0, "no protected frame touched in combat: " .. table.concat(WoW
 WoW.combat = false
 WoW.fire("PLAYER_REGEN_ENABLED")
 eq(GlassUnitFramesDB.pos.player, nil, "deferred reset ran after combat")
-eq(p._points[1][4], -300, "player back at the default position")
+eq(p._points[1][4], -304, "player back at the default position")
 
 -- An unlock-mode drag that combat catches: the mover (insecure) stops, the
 -- frame keeps its last position, nothing protected is touched under lockdown.

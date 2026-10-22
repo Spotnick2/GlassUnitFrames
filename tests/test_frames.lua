@@ -5,7 +5,8 @@ dofile("tests/harness.lua")
 standardUnits()
 -- The classic look: these numbers (rims, track tint, the rows' heights) are its
 -- own. Pearl, the default, is test_look's (#129).
-loadAddon({ db = { look = "classic" } })
+-- The player's cast row docked (detached by default since #141): the row inside the body.
+loadAddon({ db = { look = "classic", castBars = { player = { detached = false } } } })
 -- The Quartz extras (#78) have their own test: off here, so these keep
 -- testing the plain bar ("1.2s", the spell name alone, hidden on STOP).
 GlassUF.Castbar.options.totalTime, GlassUF.Castbar.options.targetName, GlassUF.Castbar.options.complete = false, false, false

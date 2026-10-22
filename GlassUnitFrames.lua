@@ -14,7 +14,7 @@ local say = API.Print
 local function tweaks() return Glass.TUNABLES end
 local function rangeText(t) return string.format("%g-%g", t.min, t.max) end
 
-local DEFAULTS = { font = "arial", hideBlizzard = true }
+local DEFAULTS = { font = "arial", hideBlizzard = true, hideBlizzardCast = true }   -- #141: Blizzard's cast bar hidden
 
 -- Read settings, fill missing keys. Nothing may REQUIRE a value to have
 -- survived: SavedVariables were broken on builds before 70009.
@@ -524,7 +524,7 @@ end
 -- "show" brings back everything GlassUF hides from Blizzard, the cast bar too.
 function Settings_.SetHideBlizzard(hide)
     GlassUnitFramesDB.hideBlizzard = hide and true or false
-    if not hide then GlassUnitFramesDB.hideBlizzardCast = nil end
+    if not hide then GlassUnitFramesDB.hideBlizzardCast = false end
 end
 
 local function tweakByKey(key)
@@ -723,7 +723,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             Frames.Build(db)
             GlassUF.Movers.Load(db)
             if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
-            -- Blizzard's own player cast bar stays unless asked (the owner likes it).
+            -- Blizzard's own player cast bar is hidden unless asked (#141).
             if db.hideBlizzardCast then Blizzard.HideFrame("PlayerCastingBarFrame") end
             -- Our combo pips replace Blizzard's (only built for rogues and druids).
             local t = Frames.byUnit.target

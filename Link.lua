@@ -2,15 +2,17 @@
 -- docs/GROUP-LAYOUT.md, sections 4 and 5, GlassUI#28). While Glass Raid
 -- Frames shows its centred layout ("hud"), the player and target frames sit
 -- left and right of its grid (horizontally only: they keep their own height,
--- GlassUI#32), and their cast bars above it.
+-- GlassUI#32). Their cast bars keep their own spots, docked or detached or
+-- zoomed; a detached or zoomed pair is only lifted, when needed, to clear the
+-- grid's top (#142).
 --
 -- - GRF announces the layout (GlassRaidFrames.LayoutChanged, never in combat)
 --   and answers GlassRaidFrames.LayoutState(): role, l, b, w, h (the grid and
 --   its pets), top (the grid's top), base (the baseline), mode. UIParent
 --   units from its bottom-left corner.
--- - The places are a session-only override, never saved: db.pos and the cast
---   bars' saves are set aside, kept intact, and back when the link lets go.
--- - Precedence for the cast bars: the combat zoom, then this, then the saves.
+-- - The places are a session-only override, never saved: the frames' db.pos
+--   is set aside, kept intact, and back when the link lets go.
+-- - The cast bars: their own spots, the zoom's in combat, then the lift.
 -- - Out of combat only; a place refused by combat waits in the one queue.
 -- - The move glides (the zoom's technique): the secure buttons snap, their
 --   insecure visuals (body, portrait tile) ease from where they were.
@@ -27,8 +29,8 @@ Link.EVENT = "GlassRaidFrames.LayoutChanged"
 Link.OUT_EVENT = "GlassUnitFrames.LayoutChanged"   -- ours (section 5b): GlassActionBars' pet bar follows
 Link.NOTE = "placed by the group layout (Glass Raid Frames)"
 Link.GAP = 24          -- between a frame and the grid's union
-Link.CAST = { player = 73, target = 41 }   -- a cast bar's centre above the grid's top
-Link.CAST_W, Link.CAST_H = 360, 22
+Link.CAST = { player = true, target = true }   -- the cast bars kept clear of the grid (#142)
+Link.CLEAR = 6   -- between the grid's top and the lowest of them
 local DURATION = 0.3
 
 Link.enabled = true    -- db.groupLink ~= false
@@ -54,7 +56,7 @@ end
 
 local OWNED = { player = true, target = true }
 
--- Is this frame (or this cast bar) placed by the group layout right now?
+-- Is this frame placed by the group layout right now?
 function Link.Owns(unit) return Link.applied ~= nil and OWNED[unit] == true end
 
 -- The frame's centre x, from UIParent's left edge, while placed. Only x: its
@@ -68,14 +70,14 @@ function Link.PointOf(unit)
     return s.l + s.w + Link.GAP + w / 2
 end
 
--- A cast bar's place while linked: x, y (CENTER offsets from the screen's
--- centre, as Castbar's geometry), w, h. Detached, scale 1.
-function Link.CastOf(unit)
+-- The grid's top while placing, as a CENTER offset from the screen's centre
+-- (as Castbar's geometry), or nil: the floor the cast bars are lifted over (#142).
+function Link.GridTop()
     local s = Link.applied
-    if not (s and Link.CAST[unit]) then return nil end
-    local ux, uy = UIParent:GetCenter()
-    if not (finite(ux) and finite(uy)) then return nil end
-    return s.l + s.w / 2 - ux, s.top + Link.CAST[unit] - uy, Link.CAST_W, Link.CAST_H
+    if not s then return nil end
+    local _, uy = UIParent:GetCenter()
+    if not finite(uy) then return nil end
+    return s.top - uy
 end
 
 function Link.Placing() return Link.applied ~= nil end
@@ -273,7 +275,7 @@ local function reconcile()
         -- The zoom's own glide (one controller per host), or a snap.
         if c then if snap then Castbar.Place(c) else GlassUF.Zoom.Move(c) end end
     end
-    GlassUF.Movers.SyncBars()   -- a linked cast bar is detached: its (locked) mover appears
+    GlassUF.Movers.SyncBars()   -- the zoom outlines follow the lift
     GlassUF.Movers.Refresh()
     announce()
     if changed and GlassUF.ReportSuite then GlassUF.ReportSuite() end

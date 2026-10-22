@@ -41,12 +41,13 @@ local lagClip = pc.lag:GetParent()
 check(lagClip:GetFrameLevel() > pc.bar:GetFrameLevel() and lagClip:GetFrameLevel() < pc.bar.overlay:GetFrameLevel(),
       "the latency block between the fill and the glass overlay")
 
--- Docked (the default): the player's row inside the body, the target's pill.
+-- Docked (the default, #142): the player's row inside the body, the target's pill.
 check(not Castbar.IsDetached("player") and not Castbar.IsDetached("target"), "docked by default")
 eq(pc.host._points[1][1], "ALL", "player: the host covers the body")
 check(not pc.skin._shown, "player docked: no pill")
 check(tc.skin._shown, "target docked: its pill")
 eq(tc.host._points[1][2], tg.body, "target: the pill under the body")
+eq(pc.host._scale, 1, "docked: scale 1")
 eq(GlassUnitFramesDB.castBars, nil, "nothing saved while docked")
 
 -- Detach the player's bar mid-cast: its own pill on the screen, at the
@@ -56,8 +57,10 @@ WoW.fire("UNIT_SPELLCAST_START", "player"); WoW.tick()
 eq(pl.health._height, 22, "docked and casting: health shrinks")
 check(S.SetCastDetached("player", true), "detached")
 eq(GlassUnitFramesDB.castBars.player.detached, true, "saved")
+-- Its default spot is the owner's tested one (#141): (0, -182) at scale 1.5.
+eq(pc.host._scale, 1.5, "at the default scale 1.5")
 local p = pc.host._points[1]
-check(p[1] == "CENTER" and p[2] == UIParent and p[4] == 0 and p[5] == -47, "at the default spot (0, -47)")
+check(p[1] == "CENTER" and p[2] == UIParent and p[4] == 0 and p[5] == -182 / 1.5, "at the default spot (0, -182)")
 eq(pc.host._width, 340, "default width")
 eq(pc.host._height, 20, "default height")
 check(pc.skin._shown, "detached: its own glass pill")
@@ -97,7 +100,7 @@ eq(GlassUnitFramesDB.castBars.player.y, -100, "and y")
 eq(GlassUnitFramesDB.pos["cast:player"], nil, "never in the unit positions")
 eq(GlassUnitFramesDB.pos.target, tBefore, "no mirroring for a cast bar")
 p = pc.host._points[1]
-check(p[2] == UIParent and p[4] == 20 and p[5] == -100, "the host follows")
+check(p[2] == UIParent and p[4] == 20 / 1.5 and p[5] == -100 / 1.5, "the host follows (in its scaled units)")
 eq(M._test.selected(), "cast:player", "the dragged bar is selected")
 -- The nudge panel: W/H and Attach for a cast bar, not for a unit.
 local np = M._test.panel()
@@ -119,12 +122,13 @@ check(Castbar.IsDetached("player"), "reset keeps it detached")
 M._test.movers.target._scripts.OnMouseUp(M._test.movers.target)
 check(not np.w._shown and not np.buttons.attach._shown, "no W/H or Attach for a unit")
 -- Alignment: the detached bar's edges are lines for a unit, and the reverse.
-pc.host._center, pc.host._width, pc.host._height = { 683, 384 - 47 }, 340, 20
-local function has(list, v) for _, x in ipairs(list) do if x == v then return true end end return false end
-check(has(M._test.alignLines("target", "x"), 683 - 170), "the bar's left edge is a line for the target")
+-- At its default scale 1.5 its rect is in its own units.
+pc.host._center, pc.host._width, pc.host._height = { 683 / 1.5, (384 - 47) / 1.5 }, 340, 20
+local function has(list, v) for _, x in ipairs(list) do if math.abs(x - v) < 1e-6 then return true end end return false end
+check(has(M._test.alignLines("target", "x"), 683 - 170 * 1.5), "the bar's left edge is a line for the target")
 tg._center, tg._width, tg._height = { 983, 274 }, 365, 62
 check(has(M._test.alignLines("cast:player", "x"), 983 - 182.5), "the target's edge is a line for the bar")
-check(not has(M._test.alignLines("cast:player", "x"), 683 - 170), "but not its own")
+check(not has(M._test.alignLines("cast:player", "x"), 683 - 170 * 1.5), "but not its own")
 -- Attach from the panel: docked again, its mover and panel gone.
 mc._scripts.OnMouseUp(mc)
 np.buttons.attach._scripts.OnClick(np.buttons.attach)
@@ -180,7 +184,7 @@ mc2._scripts.OnDragStart(mc2); mc2._scripts.OnUpdate(mc2)
 SlashCmdList.GLASSUNITFRAMES("reset")
 mc2._scripts.OnDragStop(mc2)
 p = pc.host._points[1]
-check(p[4] == 0 and p[5] == -47, "/glass reset mid-drag: the bar at its default spot")
+check(p[4] == 0 and p[5] == -182 / 1.5, "/glass reset mid-drag: the bar at its default spot")
 eq(pc.host._width, 340, "and its default size")
 check(Castbar.IsDetached("player"), "still detached")
 -- Attach with an X typed but not committed: its Enter does nothing (no error).
@@ -259,7 +263,7 @@ for _, u in ipairs(GlassUF.Frames.ORDER) do check(button(u) ~= nil, u .. " built
 pc = button("player").cast
 check(GlassUF.Castbar.IsDetached("player"), "the detached flag is kept")
 p = pc.host._points[1]
-check(p[4] == 0 and p[5] == -47, "bad x / y: the default spot")
+check(p[4] == 0 and p[5] == -182 / 1.5, "bad x / y: the default spot")
 check(pc.host._width == 340 and pc.host._height == 20, "bad w / h: the default size")
 check(not GlassUF.Castbar.IsDetached("target"), "a junk entry: docked")
 
@@ -269,7 +273,7 @@ WoW.reset(); standardUnits(); GlassUF = nil
 loadAddon({ db = saved })
 pc = button("player").cast
 p = pc.host._points[1]
-check(p[4] == 10 and p[5] == 20, "the saved spot")
+check(p[4] == 10 / 1.5 and p[5] == 20 / 1.5, "the saved spot (at the default scale)")
 check(pc.host._width == 300 and pc.host._height == 24, "the saved size")
 eq(pc.bar._height, 24 - 2 * inset, "the bar at the saved height")
 
@@ -299,6 +303,7 @@ eq(pc.host._scale, 0.75, "detached again: its scale back")
 check(S.CenterCast("player"), "centred")
 eq(GlassUnitFramesDB.castBars.player.x, 0, "x = 0")
 eq(GlassUnitFramesDB.castBars.player.y, -60, "y kept")
+S.SetCastDetached("target", false)   -- detached by default (#141)
 check(not S.CenterCast("target"), "a docked bar isn't centred")
 
 -- The nudge panel: Scale and Center X.
