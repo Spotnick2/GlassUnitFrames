@@ -3,6 +3,7 @@
 ## Notes: Liquid-glass unit frames for WoW: Forever. /glass help
 ## Author: Spotnick
 ## X-License: MIT
+## X-Wago-ID: 4N2bV0NL
 ## Version: @project-version@
 ## SavedVariables: GlassUnitFramesDB
 ## OptionalDeps: GlassUI

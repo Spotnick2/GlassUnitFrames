@@ -947,6 +947,8 @@ break the behaviour and confirm it goes red.
 - **Fable** is worth using for long-context reading across many files, such as the SUF-vs-DinoUF
   feature inventory. Review use is default-on. Implementation use needs the owner's explicit
   approval each turn.
+- **Projects:** Wago `4N2bV0NL` (`## X-Wago-ID`, checked by `test_toc.lua`); the CurseForge project id
+  goes in `## X-Curse-Project-ID` once it exists (#144).
 - Releases are built by **CurseForge's own packager from the tag webhook**, reading `.pkgmeta`.
   Don't add a GitHub release workflow. CI (`package-check.yml`) only dry-runs
   `BigWigsMods/packager` with `-d`. The packager derives the `forever` flavor from
