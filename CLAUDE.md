@@ -450,7 +450,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     combat" and a combat scale; this character's role.
 - **`Flight.lua`** (#148, #153): a taxi flight on the player's cast bar (Quartz's Flight). The
   timing is **LibTaxiTime-1.0**'s (see "Flight times" below), shared with GlassPanel's Flight plugin;
-  this file draws it, with or without Glass Panel.
+  this file draws it, with or without Glass Panel. **Checked in game** by the owner on
+  `_classic_beta_` (2026-10-22): a flight on the cast bar timed by the library alone.
   - **The store:** `Flight.Configure` (ADDON_LOADED) hands `GlassUnitFramesDB.flight` to
     `LTT:AddStore` under pcall (a failure goes to `API.Fail("flight store")`). The library owns
     its `routes` and `current` keys there, and starts (hooks, events) on the first store.
