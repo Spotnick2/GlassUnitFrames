@@ -30,6 +30,7 @@ Zoom.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, scale = { 0.5, 2.5 } }
 local DURATION = 0.3
 
 Zoom.combat = false
+Zoom.flying = false   -- a flight shows on the player's bar (Flight.lua, #148)
 Zoom.role = nil     -- this character's role ("healer", "tank", "dps") or nil: global
 local db, guid
 local glides = {}   -- unit -> { fx, fy, fs (from), tx, ty, ts (to), t, cx, cy, cs (on screen now) }
@@ -116,9 +117,11 @@ function Zoom.Spot(unit)
     return e.x, e.y, e.scale
 end
 
--- Where a bar goes right now: x, y, scale while in combat with its zoom on, else nil.
+-- Where a bar goes right now: x, y, scale while in combat (or, for the
+-- player's bar, on a flight, #148) with its zoom on, else nil.
 function Zoom.Target(unit)
-    if not (Zoom.combat and db and Zoom.DEFAULTS[unit]) then return nil end
+    local on = Zoom.combat or (unit == "player" and Zoom.flying)
+    if not (on and db and Zoom.DEFAULTS[unit]) then return nil end
     local e = Zoom.Entry(unit)
     if not e.on then return nil end
     return e.x, e.y, e.scale
@@ -200,6 +203,15 @@ end
 -- The group layout's link (#132) moves the player and target bars through
 -- the same glide: one controller writes each host.
 Zoom.Move = move
+
+-- A flight started or ended on the player's bar (#148): it zooms like combat.
+function Zoom.SetFlying(on)
+    on = on and true or false
+    if Zoom.flying == on then return end
+    Zoom.flying = on
+    local c = GlassUF.Castbar.bars.player
+    if c and Zoom.Entry("player").on and not Zoom.combat then move(c) end
+end
 
 -- Combat started or ended (GUF's combat dispatcher, after Movers.OnCombat).
 function Zoom.OnCombat(on)

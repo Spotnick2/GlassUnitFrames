@@ -19,6 +19,7 @@ Swing.lua
 Timer.lua
 FiveSecond.lua
 Zoom.lua
+Flight.lua
 Link.lua
 Preview.lua
 Auras.lua

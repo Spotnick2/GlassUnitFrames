@@ -72,6 +72,10 @@ place and colour things without a target, a pet or a fight.
   away (`/glass link off` to keep them where you put them). Your cast bars stay where you put
   them; if the grid would cover them, they're lifted just clear of it.
 - **Glass Action Bars'** stance and pet bars follow your player and pet frames.
+- With **Glass Panel's** flight timer, a taxi flight shows on your cast bar: "Flight to
+  Orgrimmar" and the time left, zoomed like in combat when your cast bar's zoom is on
+  (`/glass flight off` to turn it off). Glass Panel works out the flight times; without it,
+  there's no flight on the bar.
 - Click-casting addons that use Clique's convention (Clique, Glass Raid Frames) bind the frames.
 
 ## Commands
@@ -90,6 +94,7 @@ place and colour things without a target, a pet or a fight.
 - `/glass level power|name|portrait`, `/glass mark name|top|right`,
   `/glass happiness left|right|under` - where the target's level, raid marks and pet happiness go
 - `/glass timer on|off`, `/glass regen on|off` - the combat timer and the mana regen segment
+- `/glass flight on|off` - a taxi flight on your cast bar (with Glass Panel)
 - `/glass link on|off` - the frames beside Glass Raid Frames' layout
 - `/glass mirror on|off`, `/glass snap grid|align on|off` - unlock mode's mirroring and snapping
 - `/glass blizzard show|hide` - Blizzard's own frames back, or hidden again (after a `/reload`)
