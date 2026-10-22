@@ -395,6 +395,46 @@ check(not Link.Placing(), "the checkbox turns it off")
 O.controls.refreshAll()
 check(O.controls.castDetach:IsEnabled() and O.controls.castWidth:IsEnabled(), "the bar's controls are back")
 
+-- A zoom setting that changes the shared lift re-places the partner too
+-- (Codex, #143). The player's bar docked, the target's detached; both zoom on
+-- (the default). In combat the player's zoom spot (bottom -197) sets the lift.
+boot({ castBars = { target = { detached = true } } })
+Link, Castbar, S = GlassUF.Link, GlassUF.Castbar, GlassUF.Settings
+combat(true)
+local _, tz = Castbar.EffectiveGeometry("target")
+check(near(tz, -152 + 201), "in combat: the target lifted by the player's zoom spot")
+S.SetZoom("player", false)
+_, tz = Castbar.EffectiveGeometry("target")
+check(near(tz, -152 + 171), "the player's zoom off: the target's own lift")
+check(near(button("target").cast.host._points[1][5], tz / 1.5), "and its host re-placed")
+combat(false)
+
+-- Movers work where a bar shows; a drop is measured against its partner's
+-- lift alone, so it lands where it was dropped (Codex, #143). Both bars
+-- detached at their defaults: the grid's top (-2) lifts the pair by 201.
+boot({ castBars = { player = { detached = true }, target = { detached = true } } })
+Link, Castbar, S = GlassUF.Link, GlassUF.Castbar, GlassUF.Settings
+local src = Castbar.MoverSource("player")
+local _, sy = src.position()
+check(near(sy, -182 + 201), "the mover's position: where the bar shows")
+check(src.set(0, 25, true), "a drag in flight")
+check(near(button("player").cast.host._points[1][5], 25 / 1.5), "the host under the cursor")
+check(src.set(0, 20), "dropped")
+px, py = Castbar.EffectiveGeometry("player")
+check(near(py, 20), "it lands where it was dropped")
+eq(GlassUnitFramesDB.castBars.player.y, 20 - 171, "saved against the target's lift alone")
+_, sy = src.position()
+check(near(sy, 20), "the mover reads it back")
+local _, ty3 = Castbar.EffectiveGeometry("target")
+check(near(button("target").cast.host._points[1][5], ty3 / 1.5), "the target re-placed with the new lift")
+-- The combat outline the same way.
+local zsrc = GlassUF.Zoom.MoverSource("player")
+local _, zy = zsrc.position()
+check(near(zy, -182 + 201), "the outline's position: where it shows (lifted as in combat)")
+check(zsrc.set(0, 20), "the outline dropped")
+eq(GlassUF.Zoom.Entry("player").y, 20 - 171, "its spot saved against the target's lift")
+_, zy = zsrc.position()
+check(near(zy, 20), "and it shows where it was dropped")
 eq(next(GlassUF.paintFailures), nil, "no failures")
 rawset(_G, "GlassRaidFrames", nil)
 rawset(_G, "GlassUI", nil)

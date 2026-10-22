@@ -216,7 +216,8 @@ end
 -- Re-place a bar now for the current mode (a setting changed): a snap.
 local function refresh(bar)
     local c = GlassUF.Castbar.bars[bar]
-    if c then GlassUF.Castbar.Place(c) end
+    -- The player's and target's share the group layout's lift: both (Codex, #143).
+    if c then GlassUF.Castbar.PlaceStack(c) end
     if Zoom.ShowProxies and Zoom.proxiesShown then Zoom.ShowProxies(true) end
 end
 
@@ -349,15 +350,25 @@ function Zoom.MoverSource(bar)
         id = "zoom:" .. bar, label = LABELS[bar],
         frame = function() return proxy(bar) end,
         rel = function() return "UIParent", UIParent end,
-        position = function() local e = Zoom.Entry(bar); return e.x, e.y end,
+        -- Where the outline shows (the lift included); a drop takes the
+        -- partner's lift off, as a detached bar's does (Codex, #143).
+        position = function()
+            local e = Zoom.Entry(bar)
+            return e.x, e.y + (GlassUF.Link.CAST[bar] and GlassUF.Castbar.Lift(true) or 0)
+        end,
         set = function(x, y, live)
-            if not live then return Zoom.SetSpot(bar, x, y) end   -- saved, then placed by refresh
+            if not live then
+                local d = GlassUF.Castbar.PartnerLift(bar, true)
+                local ok, ax, ay = Zoom.SetSpot(bar, x, y - d)   -- saved, then placed by refresh
+                if not ok then return false end
+                return true, ax, ay + d
+            end
             if not (inLimits(x, "x") and inLimits(y, "y")) then return false end
             x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
             put(proxy(bar), x, y, Zoom.Entry(bar).scale)
             return true, x, y
         end,
-        save = function(x, y) return Zoom.SetSpot(bar, x, y) end,
+        save = function(x, y) return Zoom.SetSpot(bar, x, y - GlassUF.Castbar.PartnerLift(bar, true)) end,
         reset = function() return Zoom.ResetSpot(bar) end,
         follows = function() return false end,
         scale = function() return Zoom.Entry(bar).scale end,

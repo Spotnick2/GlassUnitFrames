@@ -468,7 +468,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       rises by one amount (`Castbar.Lift`, partner re-placed by `Castbar.PlaceStack`) until the
       lowest one's bottom is `Link.CLEAR` (6) over the grid's top (`Link.GridTop`). A docked bar
       stays docked. `EffectiveGeometry`: zoom, then saves, then the lift. The zoom outlines show
-      the lift as it will be in combat (`Castbar.Lift(true)`, from `Zoom.Spot`).
+      the lift as it will be in combat (`Castbar.Lift(true)`, from `Zoom.Spot`). Their movers
+      (cast and zoom) work where the bar shows; a drop or typed spot takes off only the lift the
+      partner imposes (`Castbar.PartnerLift`), so it lands where it was dropped. Any change to one
+      bar, a zoom setting included, re-places both (Codex, #143).
   - **Set aside, kept intact:** `Frames.ApplyPosition` asks `Link.PointOf` first. While linked,
     `Frames.SetPosition` / `SavePosition` / `ResetPosition` are refused for the player and target
     frames (the cast bars stay fully the player's: nothing of theirs is set aside, #142).

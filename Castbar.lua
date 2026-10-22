@@ -673,14 +673,15 @@ end
 -- The group layout (#142): how far the player's and target's detached or
 -- zoomed bars rise so the lowest clears the grid's top by Link.CLEAR. One lift
 -- for both, so the pair keeps its spacing; 0 unlinked, or when already clear.
--- Their own spots stay theirs: nothing is set aside.
-local function lift(asZoomed)
+-- Their own spots stay theirs: nothing is set aside. `except`: leave that bar
+-- out (the lift its partner alone imposes).
+local function lift(asZoomed, except)
     local Link = GlassUF.Link
     local top = Link.GridTop()
     if not top then return 0 end
     local need = 0
     for unit in pairs(Link.CAST) do
-        if Castbar.bars[unit] then
+        if Castbar.bars[unit] and unit ~= except then
             local _, y, _, h, detached, scale = spotOf(unit, asZoomed)
             if detached then need = math.max(need, top + Link.CLEAR - (y - h * scale / 2)) end
         end
@@ -688,6 +689,15 @@ local function lift(asZoomed)
     return need
 end
 Castbar.Lift = lift
+
+-- Movers work where a bar SHOWS (its spot plus the lift). A dropped or typed
+-- spot is measured against the lift its partner alone imposes, so the bar
+-- lands where it was dropped; its own share of the lift goes as it rises
+-- (Codex, #143). 0 for any other bar, or unlinked.
+function Castbar.PartnerLift(unit, asZoomed)
+    if not GlassUF.Link.CAST[unit] then return 0 end
+    return lift(asZoomed, unit)
+end
 
 -- What a bar is laid out with now: its spot (the zoom's in combat, else its
 -- home), lifted clear of the group layout's grid. The zoom comes first, then
@@ -852,7 +862,9 @@ function Castbar.SetPosition(unit, x, y, live)
     x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
     -- Zoomed (#89): the new home is saved and used when combat ends; the host
     -- stays at (or keeps gliding to) its zoom spot.
-    if not GlassUF.Zoom.Target(unit) then Castbar.PlaceAt(c.host, x, y, select(6, geometry(unit))) end
+    if not GlassUF.Zoom.Target(unit) then
+        Castbar.PlaceAt(c.host, x, y + Castbar.PartnerLift(unit), select(6, geometry(unit)))
+    end
     if not live then
         Castbar.SavePosition(unit, x, y)
         -- Dropped: the group layout's lift applies (#142).
@@ -1009,9 +1021,20 @@ function Castbar.MoverSource(unit)
         id = "cast:" .. unit, label = LABELS[unit] or (unit .. " cast bar"),
         frame = function() return c.host end,
         rel = function() return "UIParent", UIParent end,
-        position = function() return Castbar.PositionOf(unit) end,
-        set = function(x, y, live) return Castbar.SetPosition(unit, x, y, live) end,
-        save = function(x, y) return Castbar.SavePosition(unit, x, y) end,
+        -- Where it shows (#142's lift included): drags, nudges and typed X / Y
+        -- all work there, and the save takes the partner's lift off.
+        position = function()
+            local x, y = Castbar.PositionOf(unit)
+            if y and Castbar.IsDetached(unit) and GlassUF.Link.CAST[unit] then y = y + lift(false) end
+            return x, y
+        end,
+        set = function(x, y, live)
+            local d = Castbar.PartnerLift(unit)
+            local ok, ax, ay = Castbar.SetPosition(unit, x, y - d, live)
+            if not ok then return false end
+            return true, ax, ay + d
+        end,
+        save = function(x, y) return Castbar.SavePosition(unit, x, y - Castbar.PartnerLift(unit)) end,
         reset = function() return Castbar.ResetPosition(unit) end,
         follows = function() return false end,
         size = function() return Castbar.SizeOf(unit) end,
