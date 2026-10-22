@@ -7,6 +7,8 @@ or raid frames (that's Glass Raid Frames).
 
 > **Alpha.** It's in daily use, but it is young: expect rough edges, and please report them.
 
+![Every frame in glass, in preview mode: the player with its pet below and a combat timer over the portrait, the target with its target and its target's target above it, the focus and focus target higher up, and two detached cast bars](https://raw.githubusercontent.com/Spotnick2/GlassUnitFrames/main/docs/screenshots/frames.png)
+
 ## Install
 
 Install **Glass Unit Frames** from CurseForge, with the CurseForge app or by unzipping it into the
@@ -48,6 +50,8 @@ on the Cast bars options page.
 **Combat zoom.** In combat, your cast bar and your target's glide to a spot above your frames and
 grow (1.5×), then glide home when the fight ends. Turn it on or off per bar, with your own spot
 and scale, on the Combat zoom options page; a Healer, Tank or DPS role can have its own.
+
+![In a fight: the player's cast bar, zoomed, sits above the player and target frames, with its spell icon, "Smite -> Scorpid Worker", the time and the latency in ms](https://raw.githubusercontent.com/Spotnick2/GlassUnitFrames/main/docs/screenshots/combat-zoom.png)
 
 **For casters and fighters**:
 - a **swing timer** (main hand, off hand, ranged) inside your frame, or detached;
