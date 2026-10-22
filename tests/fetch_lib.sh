@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
-# fetch_libglass.sh - Clone LibGlass-1.0 at the ref .pkgmeta pins, and prove
-# the checkout IS that ref. CI runs it before the tests (they load the library
-# from $LIBGLASS); it also works locally from git bash.
+# fetch_lib.sh - Clone an embedded library (LibGlass-1.0, LibTaxiTime-1.0) at
+# the ref .pkgmeta pins, and prove the checkout IS that ref. CI runs it before
+# the tests (they load each library from its checkout: $LIBGLASS,
+# $LIBTAXITIME); it also works locally from git bash.
 #
 # The url and the pin are read from .pkgmeta, the one place they are written,
 # so CI tests exactly what the packager will embed.
 #
-# Usage (from the repo root):  bash tests/fetch_libglass.sh <dest>
+# Usage (from the repo root):  bash tests/fetch_lib.sh <Lib-1.0> <dest>
 #
-# <dest> must not exist: the script never deletes anything (a default of
-# ../LibGlass would have wiped the dev checkout, uncommitted work included).
+# <dest> must not exist: the script never deletes anything (a default of a
+# sibling checkout would have wiped it, uncommitted work included).
 set -euo pipefail
 
-dest="${1:-}"
-if [ -z "$dest" ]; then
-    echo "usage: bash tests/fetch_libglass.sh <dest>   (a path that does not exist yet)" >&2
+lib="${1:-}"
+dest="${2:-}"
+if [ -z "$lib" ] || [ -z "$dest" ]; then
+    echo "usage: bash tests/fetch_lib.sh <Lib-1.0> <dest>   (dest: a path that does not exist yet)" >&2
     exit 2
 fi
 if [ -e "$dest" ]; then
@@ -22,11 +24,12 @@ if [ -e "$dest" ]; then
     exit 1
 fi
 
-# The Libs/LibGlass-1.0 entry of the externals block.
-entry=$(tr -d '\r' < .pkgmeta | awk '
+# The Libs/<lib> entry of the externals block (dots matched literally).
+pattern="^  Libs\\/$(printf '%s' "$lib" | sed 's/\./\\./g'):"
+entry=$(tr -d '\r' < .pkgmeta | awk -v pat="$pattern" '
     /^externals:/ { inext = 1; next }
     inext && /^[^ #]/ { inext = 0 }
-    inext && /^  Libs\/LibGlass-1\.0:/ { inlib = 1; next }
+    inext && $0 ~ pat { inlib = 1; next }
     inlib && /^  [^ ]/ { inlib = 0 }
     inext && inlib')
 # Values are read the way the packager reads them: the whole rest of the line.
@@ -36,11 +39,11 @@ url=$(printf '%s\n' "$entry" | sed -n 's/^ *url: *\(.*[^ ]\) *$/\1/p')
 kind=$(printf '%s\n' "$entry" | sed -n 's/^ *\(commit\|tag\): *\(.*[^ ]\) *$/\1/p')
 ref=$(printf '%s\n' "$entry" | sed -n 's/^ *\(commit\|tag\): *\(.*[^ ]\) *$/\2/p')
 if [ -z "$url" ] || [ -z "$ref" ]; then
-    echo "no url and commit/tag pin for Libs/LibGlass-1.0 in .pkgmeta" >&2
+    echo "no url and commit/tag pin for Libs/$lib in .pkgmeta" >&2
     exit 1
 fi
 
-echo "LibGlass: $kind $ref from $url -> $dest"
+echo "$lib: $kind $ref from $url -> $dest"
 # A full clone: a commit pin can't be fetched with --branch (the packager does
 # the same for `commit:`).
 git clone -q "$url" "$dest"
@@ -50,7 +53,7 @@ git -C "$dest" -c advice.detachedHead=false checkout -q "$ref"
 want=$(git -C "$dest" rev-parse --verify "$ref^{commit}")
 head=$(git -C "$dest" rev-parse HEAD)
 if [ "$head" != "$want" ]; then
-    echo "LibGlass checkout is at $head, but .pkgmeta pins $kind $ref ($want)" >&2
+    echo "$lib checkout is at $head, but .pkgmeta pins $kind $ref ($want)" >&2
     exit 1
 fi
-echo "LibGlass checkout at $head (pinned $kind $ref)"
+echo "$lib checkout at $head (pinned $kind $ref)"

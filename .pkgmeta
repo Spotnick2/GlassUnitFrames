@@ -19,11 +19,17 @@ externals:
   Libs/LibGlass-1.0:
     url: https://github.com/Spotnick2/LibGlass
     tag: r11
+  # Flight times (#153), shared with GlassPanel's Flight plugin. The same
+  # rules: pinned to a tag, never latest; CI reads the pin from here.
+  Libs/LibTaxiTime-1.0:
+    url: https://github.com/Spotnick2/LibTaxiTime
+    tag: r1
 
 # YAML list, not markdown bullets. Every pattern matches the WHOLE path from
 # the package root (release.sh's match_pattern is a shell `case`), so the
-# top-level names below never reach inside Libs/. Both LICENSE files ship: the
-# addon's own (MIT) and Libs/LibGlass-1.0/LICENSE (MIT).
+# top-level names below never reach inside Libs/. Three LICENSE files ship: the
+# addon's own (MIT), Libs/LibGlass-1.0/LICENSE and Libs/LibTaxiTime-1.0/LICENSE
+# (both MIT).
 ignore:
   - .github
   - docs
@@ -44,3 +50,9 @@ ignore:
   - Libs/LibGlass-1.0/AGENTS.md
   - Libs/LibGlass-1.0/CLAUDE.md
   - Libs/LibGlass-1.0/README.md
+  - Libs/LibTaxiTime-1.0/tests
+  - Libs/LibTaxiTime-1.0/docs
+  - Libs/LibTaxiTime-1.0/Tools
+  - Libs/LibTaxiTime-1.0/AGENTS.md
+  - Libs/LibTaxiTime-1.0/CLAUDE.md
+  - Libs/LibTaxiTime-1.0/README.md
