@@ -5,8 +5,9 @@
 The first alpha. Glass Unit Frames replaces Blizzard's player, pet, target, target of target,
 focus and focus target frames with liquid-glass ones (plus your target's target's target).
 
-- **Seven glass frames** with 3D, 2D or no portraits (per frame), health and power text in a few
-  formats, a red segment for health just lost, incoming heals, the target's buffs and debuffs,
+- **Seven glass frames**: name and health on all of them, power on the player, target, pet and
+  focus, and 3D, 2D or no portraits on the player, target and pet. Also health and power text in a
+  few formats, a red segment for health just lost, incoming heals, the target's buffs and debuffs,
   raid marks, leader, PvP, resting and AFK, combo points for rogues and cat druids, a mana strip
   for druids in bear or cat form, and your hunter pet's happiness. Neutral creatures turn red
   while they fight you.

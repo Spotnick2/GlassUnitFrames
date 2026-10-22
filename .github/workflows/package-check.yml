@@ -63,7 +63,7 @@ jobs:
 
       # The zip is what players install, so assert its SHAPE rather than
       # trusting .pkgmeta to have been read the way it was meant. An exact
-      # allowlist, not a denylist: the TOC, every Lua file it loads, and under
+      # allowlist, not a denylist: the TOC, its LICENSE, every Lua file it loads, and under
       # Libs/LibGlass-1.0 exactly what the library ships (its XML, every file
       # the XML loads, LICENSE, Media/*.tga) - NOTHING else (the library's
       # tests/docs/Tools, or a new notes file, fail here instead of shipping).
@@ -74,6 +74,7 @@ jobs:
           lib=GlassUnitFrames/Libs/LibGlass-1.0
           {
             echo GlassUnitFrames/GlassUnitFrames.toc
+            echo GlassUnitFrames/LICENSE
             tr -d '\r' < GlassUnitFrames.toc | grep -v '^#' | grep '\.lua$' | tr '\\' '/' | sed 's|^|GlassUnitFrames/|'
             echo "$lib/LibGlass-1.0.xml"
             echo "$lib/LICENSE"

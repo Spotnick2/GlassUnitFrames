@@ -17,8 +17,10 @@ up. `/glass options` (or Esc > Options > AddOns > Glass Unit Frames) has every s
 ## What it does
 
 **Seven frames in glass.** Player, pet, target, target of target, target of target of target,
-focus and focus target. Each is a rounded glass body with health and power bars, a 3D portrait
-(or 2D, or none, per frame), name, level and classification. Clicks work as on Blizzard's frames
+focus and focus target. Each is a rounded glass body with the unit's name and health. The player,
+target, pet and focus add a power bar; the player, target and pet a 3D portrait (or 2D, or none,
+per frame); the target its level and classification. The target's target's target is just a name
+over its health. Clicks work as on Blizzard's frames
 (left to target, right for the menu), and hovering shows the unit's tooltip.
 
 **The look.** **Pearl** glass by default, or **Clean** and **Classic**; a clear or **smoked**

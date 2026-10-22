@@ -956,11 +956,11 @@ break the behaviour and confirm it goes red.
 - **Every tag needs a `CHANGELOG.md` entry committed first**, written for players. The tag name
   sets the channel: `alpha` / `beta` / anything else → Release. That's a distribution channel,
   not a stability claim.
-- `.pkgmeta` ignores `.github`, `docs`, `tests`, `Tools`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `README.curseforge.md` (untracked: the CurseForge description, in `.git/info/exclude`),
-  `CHANGELOG.md` and `LICENSE`, plus the library's non-dot dev files under `Libs/LibGlass-1.0/`
-  (CurseForge's packager doesn't apply an external's own ignore list). Patterns match the whole
-  path from the package root, so the top-level `LICENSE` ignore never strips
-  `Libs/LibGlass-1.0/LICENSE`, which ships (MIT).
+- `.pkgmeta` ignores `.github`, `docs`, `tests`, `Tools`, `AGENTS.md`, `CLAUDE.md`, `README.md`,
+  `README.curseforge.md` (untracked: the CurseForge description, in `.git/info/exclude`) and
+  `CHANGELOG.md`, plus the library's non-dot dev files under `Libs/LibGlass-1.0/` (CurseForge's
+  packager doesn't apply an external's own ignore list). Both `LICENSE` files ship: the addon's
+  own (MIT, #145) and `Libs/LibGlass-1.0/LICENSE` (MIT); CI's exact allowlist expects both.
 
 ## Conventions
 
