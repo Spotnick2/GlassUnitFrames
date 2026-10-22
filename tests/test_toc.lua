@@ -14,6 +14,7 @@ end
 -- The embedded material loads before any of our files: Glass.lua calls
 -- LibStub("LibGlass-1.0") at file scope.
 eq(tocLines()[1], LIBGLASS_XML, "LibGlass-1.0 loads first")
+eq(tocLines()[2], LIBTAXITIME_XML, "LibTaxiTime-1.0 right after it (flight times, #153)")
 eq(tocFiles()[1], "Compat.lua", "Compat is the first of our own files")
 local seen = {}
 for _, f in ipairs(tocFiles()) do

@@ -79,6 +79,8 @@ function WoW.reset()
     WoW.chat = {}
     WoW.addonVersion = "dev"
     WoW.timers = {}
+    WoW.tickers = {}
+    WoW.onTaxi = nil
     WoW.timerDue = setmetatable({}, { __mode = "k" })
     WoW.now = 1000            -- GetTime(): the frame time, advanced by tests
     WoW.netStats = { 3.4, 0.15, 29, 33 }   -- GetNetStats(): in, out, home ms, world ms (measured)
@@ -504,6 +506,11 @@ function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 function GetBuildInfo() return "1.60.1", "70450", "Oct 15 2026", 16001 end
 function InCombatLockdown() return WoW.combat end
 function GetTime() return WoW.now end
+-- For LibTaxiTime-1.0 (#153; dump 70532): server time follows the frame
+-- time; WoW.onTaxi says the player is on a taxi.
+function GetServerTime() return 1800000000 + math.floor(WoW.now) end
+function IsPlayerInWorld() return true end
+function UnitOnTaxi(unit) return unit == "player" and WoW.onTaxi == true end
 function GetNetStats() return unpack(WoW.netStats) end
 -- Plain out of combat (6.501, 0.001 on a level-10 druid), secret in combat: measured, #94.
 function GetManaRegen() return 6.501, 0.001 end
@@ -571,6 +578,20 @@ C_Timer = { After = function(s, fn)
     table.insert(WoW.timers, fn)
     WoW.timerDue[fn] = WoW.now + (s or 0)
 end }
+-- C_Timer.NewTicker(seconds, callback, iterations) -> a ticker with Cancel
+-- (dump 70532). Recorded in WoW.tickers; WoW.tickTickers() runs the live ones.
+function C_Timer.NewTicker(s, fn, n)
+    local t = { seconds = s, fn = fn, cancelled = false }
+    function t:Cancel() self.cancelled = true end
+    function t:IsCancelled() return self.cancelled end
+    table.insert(WoW.tickers, t)
+    return t
+end
+function WoW.tickTickers()
+    for _, t in ipairs(WoW.tickers) do
+        if not t.cancelled then t.fn(t) end
+    end
+end
 
 -- C_DurationUtil.CreateDuration() -> LuaDurationObject (dump 70338): the
 -- methods the addon uses. A test reads _start / _dur.

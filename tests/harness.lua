@@ -38,39 +38,49 @@ function tocFiles()
     return files
 end
 
--- The embedded LibGlass-1.0 comes from a checkout, not from Libs\ (gitignored,
--- filled by the packager): $LIBGLASS, else ../LibGlass. No checkout fails the
--- run loudly; a silently skipped library would test nothing.
+-- The embedded libraries come from checkouts, not from Libs\ (gitignored,
+-- filled by the packager): each one's env var, else the sibling folder. No
+-- checkout fails the run loudly; a silently skipped library would test nothing.
+-- Keyed by the TOC's XML line.
 LIBGLASS_XML = "Libs\\LibGlass-1.0\\LibGlass-1.0.xml"
-function libGlassRoot()
-    local root = (os.getenv("LIBGLASS") or "../LibGlass"):gsub("\\", "/"):gsub("/$", "")
-    local f = io.open(root .. "/LibGlass-1.0.xml", "rb")
+LIBTAXITIME_XML = "Libs\\LibTaxiTime-1.0\\LibTaxiTime-1.0.xml"
+EMBEDDED = {
+    [LIBGLASS_XML] = { name = "LibGlass", env = "LIBGLASS", xml = "LibGlass-1.0.xml" },
+    [LIBTAXITIME_XML] = { name = "LibTaxiTime", env = "LIBTAXITIME", xml = "LibTaxiTime-1.0.xml" },
+}
+function libRoot(line)
+    local lib = assert(EMBEDDED[line], "not an embedded library's XML: " .. tostring(line))
+    local root = (os.getenv(lib.env) or ("../" .. lib.name)):gsub("\\", "/"):gsub("/$", "")
+    local f = io.open(root .. "/" .. lib.xml, "rb")
     if not f then
-        error("LibGlass checkout not found at " .. root .. " (no LibGlass-1.0.xml): clone "
-              .. "github.com/Spotnick2/LibGlass there or set LIBGLASS", 0)
+        error(lib.name .. " checkout not found at " .. root .. " (no " .. lib.xml .. "): clone "
+              .. "github.com/Spotnick2/" .. lib.name .. " there or set " .. lib.env, 0)
     end
     f:close()
     return root
 end
 
--- The Lua files the library's XML loads, as paths, in order: what the client
+-- The Lua files a library's XML loads, as paths, in order: what the client
 -- runs for the TOC's XML line. A listed file that is missing fails here.
-function libGlassScripts()
-    local root = libGlassRoot()
-    local f = assert(io.open(root .. "/LibGlass-1.0.xml", "rb"))
+function libScripts(line)
+    local lib, root = EMBEDDED[line], libRoot(line)
+    local f = assert(io.open(root .. "/" .. lib.xml, "rb"))
     local xml = f:read("*a"):gsub("<!%-%-.-%-%->", "")   -- listed in a comment is not loaded
     f:close()
     local files = {}
     for file in xml:gmatch('<Script%s+file="([^"]+)"') do
         local path = root .. "/" .. file:gsub("\\", "/")
         local src = io.open(path, "rb")
-        if not src then error("LibGlass checkout at " .. root .. " is missing " .. file, 0) end
+        if not src then error(lib.name .. " checkout at " .. root .. " is missing " .. file, 0) end
         src:close()
         files[#files + 1] = path
     end
-    if #files == 0 then error("LibGlass-1.0.xml at " .. root .. " lists no Script files", 0) end
+    if #files == 0 then error(lib.xml .. " at " .. root .. " lists no Script files", 0) end
     return files
 end
+
+function libGlassRoot() return libRoot(LIBGLASS_XML) end
+function libGlassScripts() return libScripts(LIBGLASS_XML) end
 
 -- The ForeverProbe host (#112), from its checkout ($FOREVERPROBE, else
 -- ../ForeverProbe), as GlassChat's harness loads it: the TOC's files with
@@ -105,8 +115,8 @@ function loadAddon(opts)
     local ns = {}
     for _, line in ipairs(tocLines()) do
         local files = { line }
-        if line == LIBGLASS_XML then
-            files = libGlassScripts()
+        if EMBEDDED[line] then
+            files = libScripts(line)
         elseif not line:match("%.lua$") then
             error("the harness can't load TOC line " .. line, 0)
         end

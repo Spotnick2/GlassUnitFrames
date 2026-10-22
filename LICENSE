@@ -25,8 +25,8 @@ SOFTWARE.
 THIRD-PARTY COMPONENTS
 
 The MIT terms above cover Glass Unit Frames' own code. They do NOT relicense
-the library bundled under Libs/, which is redistributed under its own terms
-and remains the work of its authors:
+the libraries bundled under Libs/, which are redistributed under their own
+terms and remain the work of their authors:
 
   Libs/LibGlass-1.0        LibGlass-1.0, copyright (c) 2026 Spotnick2.
                            MIT License; its own LICENSE ships beside it.
@@ -37,3 +37,9 @@ and remains the work of its authors:
                            LibStub, bundled by LibGlass-1.0. By Kaelten,
                            Cladhaire, ckknight, Mikk, Ammo, Nevcairiel and
                            joshborke. Public domain.
+
+  Libs/LibTaxiTime-1.0     LibTaxiTime-1.0, copyright (c) 2026 Spotnick2.
+                           MIT License; its own LICENSE ships beside it.
+                           Fetched at build time, not kept in this
+                           repository. It bundles the same LibStub (public
+                           domain).

@@ -1,31 +1,27 @@
 -- A taxi flight on the player's cast bar (#148), Quartz's Flight: drawn from
--- Glass Panel's flight timer (GlassPanel.Flight, API 1: Current() and the
--- "GlassPanel.Flight.Changed" event), never hidden for its zoomed bar, taken
+-- LibTaxiTime-1.0's Current() and its "LibTaxiTime.Changed" event (#153), taken
 -- by a real cast and given back after it, and zoomed like combat when the
--- player's zoom is on.
+-- player's zoom is on. The library here is a fake registered through LibStub
+-- at a higher MINOR before the addon loads, so the real copy defers to it
+-- (LibStub's rule); test_taxitime.lua runs the real one.
 dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
-local cur, api, throws = nil, 1, false
-local zoomedAsked = 0
-local function glassPanel()
-    rawset(_G, "GlassPanel", { Flight = {
-        API = api,
-        Current = function()
-            if throws then error("GlassPanel broke") end
-            if not cur then return nil end
-            local t = {}
-            for k, v in pairs(cur) do t[k] = v end
-            return t
-        end,
-        -- Zoomed all the time: ours never steps aside, so it's never asked.
-        Zoomed = function() zoomedAsked = zoomedAsked + 1; return true end,
-    } })
+dofile(libGlassRoot() .. "/LibStub/LibStub.lua")
+local cur, throws = nil, false
+local stores = {}
+local LTT = LibStub:NewLibrary("LibTaxiTime-1.0", 1000)
+function LTT:AddStore(t) stores[#stores + 1] = t; return true end
+function LTT:Current()
+    if throws then error("LibTaxiTime broke") end
+    if not cur then return nil end
+    local t = {}
+    for k, v in pairs(cur) do t[k] = v end
+    return t
 end
-local function changed() EventRegistry:TriggerEvent("GlassPanel.Flight.Changed"); WoW.tick() end
+local function changed() EventRegistry:TriggerEvent("LibTaxiTime.Changed"); WoW.tick() end
 local function boot(db)
     WoW.reset(); standardUnits(); GlassUF = nil
-    glassPanel()
     loadAddon({ db = db })
 end
 local NOZOOM = { zoom = { global = { player = { on = false } } } }
@@ -37,6 +33,8 @@ boot(copy(NOZOOM))
 local Castbar, Flight, Zoom, S = GlassUF.Castbar, GlassUF.Flight, GlassUF.Zoom, GlassUF.Settings
 local pc = Castbar.bars.player
 check(not pc.host._shown, "no flight: the bar stays hidden")
+check(stores[#stores] == GlassUnitFramesDB.flight and type(stores[#stores]) == "table",
+      "our store (GlassUnitFramesDB.flight) handed to the library at load")
 
 -- Takeoff: "Flight to ...", the flight master's icon, emptying like a channel.
 cur = copy(ORG); cur.start = WoW.now
@@ -45,15 +43,14 @@ check(pc.host._shown, "takeoff: the flight shows on the player's cast bar")
 eq(pc.spell._text, "Flight to Orgrimmar, Durotar", "its destination")
 eq(pc.icon._file, Flight.ICON, "the flight master's icon")
 eq(pc.bar._timer.dir, GlassUF.API.TimerDirection(true), "it empties like a channel")
-eq(pc.bar._timer.duration:GetRemainingDuration(), 120, "from Glass Panel's start and total")
-check(zoomedAsked == 0, "Glass Panel's zoomed bar never hides ours")
+eq(pc.bar._timer.duration:GetRemainingDuration(), 120, "from the library's start and total")
 WoW.now = WoW.now + 29.6
 WoW.tick(0.06)
 eq(pc.time._text, "1:31", "the time left as m:ss")
 cur.source = "estimate"; changed(); WoW.tick(0.06)
 eq(pc.time._text, "~1:31", "an estimate: ~")
 WoW.now = WoW.now + 97.4; WoW.tick(0.06)
-eq(pc.time._text, "+0:07", "past the prediction: the overtime, as Glass Panel shows it")
+eq(pc.time._text, "+0:07", "past the prediction (total stays it): the overtime")
 WoW.now = WoW.now - 97.4
 
 -- An unrelated STOP while flying: no "complete" flash, the flight stays.
@@ -101,14 +98,13 @@ check(GlassUF.Flight.Current() == nil, "no flight to draw during a preview")
 S.SetPreview(false); WoW.tick()
 eq(pc.spell._text, "Flight to Orgrimmar, Durotar", "after the preview: the flight")
 
--- Anything but Glass Panel's API 1: no flight, and no failure.
-api = 2; glassPanel(); changed()
-check(not pc.host._shown, "another API version: nothing")
-api = 1; throws = true; glassPanel(); changed()
+-- A broken or missing library: no flight, and no paint failure.
+throws = true; changed()
 check(not pc.host._shown, "Current() throwing: nothing")
 throws = false
-rawset(_G, "GlassPanel", nil); changed()
-check(not pc.host._shown, "no Glass Panel: nothing")
+LibStub.libs["LibTaxiTime-1.0"] = nil; changed()
+check(not pc.host._shown, "no library: nothing")
+LibStub.libs["LibTaxiTime-1.0"] = LTT
 eq(next(GlassUF.paintFailures), nil, "no paint failures")
 
 -- The player's zoom on (the default): a flight zooms the bar like combat,
@@ -136,7 +132,6 @@ UIParent._center, UIParent._width, UIParent._height = { 683, 384 }, 1366, 768
 rawset(_G, "GlassRaidFrames", { LayoutState = function()
     return { role = "healer", l = 400, b = 228, w = 566, h = 154, top = 382, base = 160, mode = "hud" }
 end })
-glassPanel()
 loadAddon({ db = { castBars = { target = { detached = true } } } })
 WoW.fire("LOADING_SCREEN_DISABLED")
 Castbar = GlassUF.Castbar

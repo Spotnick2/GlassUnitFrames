@@ -2,12 +2,13 @@
 
 ## Unreleased
 
-- **Your flight on your cast bar.** With Glass Panel's flight timer installed, a taxi flight shows
-  on your cast bar: "Flight to Orgrimmar", the flight master's icon and the time left (`~` when
-  it's an estimate). It empties as you fly, steps aside for a cast you make on the way, and zooms
-  like in combat when your cast bar's combat zoom is on. Turn it off under Options > AddOns >
-  Glass Unit Frames > Combat timer, or with `/glass flight off`. Glass Panel works out the flight
-  times, so without it there's no flight on the bar.
+- **Your flight on your cast bar.** On a flight master's flight, your cast bar shows "Flight to
+  Orgrimmar", the flight master's icon and the time left (`~` when it's an estimate, `+0:07` once
+  it runs past it). It empties as you fly, steps aside for a cast you make on the way, and zooms
+  like in combat when your cast bar's combat zoom is on. The game gives no flight times, so they
+  come from each route's length (checked against InFlight's measured Classic times), then from
+  your own landings, shared with Glass Panel's flight timer if you use it. Turn it off under
+  Options > AddOns > Glass Unit Frames > Combat timer, or with `/glass flight off`.
 
 ## v0.1.0-alpha1 - 2026-10-21
 
