@@ -1,7 +1,8 @@
 ## Interface: 16001
 ## Title: |cff7fd4ffGlass|r Unit Frames
-## Notes: Liquid-glass unit frames for WoW: Forever (proof of concept). /glass help
+## Notes: Liquid-glass unit frames for WoW: Forever. /glass help
 ## Author: Spotnick
+## X-License: MIT
 ## Version: @project-version@
 ## SavedVariables: GlassUnitFramesDB
 ## OptionalDeps: GlassUI

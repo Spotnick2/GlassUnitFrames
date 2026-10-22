@@ -32,6 +32,7 @@ ignore:
   - AGENTS.md
   - CLAUDE.md
   - README.md
+  - README.curseforge.md
   - CHANGELOG.md
   - LICENSE
   # The library's own .pkgmeta ignores these, and the BigWigs packager honours
