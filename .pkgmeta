@@ -22,8 +22,8 @@ externals:
 
 # YAML list, not markdown bullets. Every pattern matches the WHOLE path from
 # the package root (release.sh's match_pattern is a shell `case`), so the
-# top-level names below never reach inside Libs/: LICENSE here does not strip
-# Libs/LibGlass-1.0/LICENSE, which must ship (MIT).
+# top-level names below never reach inside Libs/. Both LICENSE files ship: the
+# addon's own (MIT) and Libs/LibGlass-1.0/LICENSE (MIT).
 ignore:
   - .github
   - docs
@@ -32,8 +32,8 @@ ignore:
   - AGENTS.md
   - CLAUDE.md
   - README.md
+  - README.curseforge.md
   - CHANGELOG.md
-  - LICENSE
   # The library's own .pkgmeta ignores these, and the BigWigs packager honours
   # that; CurseForge's packager, which builds the release, does NOT (measured
   # in Priestly's published zip, Priestly #53). So they are named from here.

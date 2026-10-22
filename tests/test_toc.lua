@@ -6,6 +6,7 @@ local toc = io.open("GlassUnitFrames.toc"):read("*a")
 check(toc:find("## Interface: 16001", 1, true), "interface 16001 (1.60.1; 11601 is the transposed-digit bug)")
 check(toc:find("## Version: @project-version@", 1, true), "packager version token kept")
 check(toc:find("## SavedVariables: GlassUnitFramesDB", 1, true), "saved variables declared")
+check(toc:find("## X-Wago-ID: 4N2bV0NL", 1, true), "the Wago project ID (the Wago app matches an installed addon by it)")
 for _, f in ipairs(tocFiles()) do
     check(io.open(f, "r") ~= nil, "TOC file exists: " .. f)
 end

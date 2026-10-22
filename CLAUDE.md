@@ -947,6 +947,8 @@ break the behaviour and confirm it goes red.
 - **Fable** is worth using for long-context reading across many files, such as the SUF-vs-DinoUF
   feature inventory. Review use is default-on. Implementation use needs the owner's explicit
   approval each turn.
+- **Projects:** Wago `4N2bV0NL` (`## X-Wago-ID`, checked by `test_toc.lua`); the CurseForge project id
+  goes in `## X-Curse-Project-ID` once it exists (#144).
 - Releases are built by **CurseForge's own packager from the tag webhook**, reading `.pkgmeta`.
   Don't add a GitHub release workflow. CI (`package-check.yml`) only dry-runs
   `BigWigsMods/packager` with `-d`. The packager derives the `forever` flavor from
@@ -955,10 +957,10 @@ break the behaviour and confirm it goes red.
   sets the channel: `alpha` / `beta` / anything else → Release. That's a distribution channel,
   not a stability claim.
 - `.pkgmeta` ignores `.github`, `docs`, `tests`, `Tools`, `AGENTS.md`, `CLAUDE.md`, `README.md`,
-  `CHANGELOG.md` and `LICENSE`, plus the library's non-dot dev files under `Libs/LibGlass-1.0/`
-  (CurseForge's packager doesn't apply an external's own ignore list). Patterns match the whole
-  path from the package root, so the top-level `LICENSE` ignore never strips
-  `Libs/LibGlass-1.0/LICENSE`, which ships (MIT).
+  `README.curseforge.md` (untracked: the CurseForge description, in `.git/info/exclude`) and
+  `CHANGELOG.md`, plus the library's non-dot dev files under `Libs/LibGlass-1.0/` (CurseForge's
+  packager doesn't apply an external's own ignore list). Both `LICENSE` files ship: the addon's
+  own (MIT, #145) and `Libs/LibGlass-1.0/LICENSE` (MIT); CI's exact allowlist expects both.
 
 ## Conventions
 
