@@ -205,12 +205,18 @@ end
 Zoom.Move = move
 
 -- A flight started or ended on the player's bar (#148): it zooms like combat.
+-- The target's bar moves too: under the group layout both share one lift
+-- (Codex, #154).
 function Zoom.SetFlying(on)
     on = on and true or false
     if Zoom.flying == on then return end
     Zoom.flying = on
-    local c = GlassUF.Castbar.bars.player
-    if c and Zoom.Entry("player").on and not Zoom.combat then move(c) end
+    if Zoom.combat or not Zoom.Entry("player").on then return end
+    local Castbar = GlassUF.Castbar
+    for _, unit in ipairs({ "player", "target" }) do
+        local c = Castbar.bars[unit]
+        if c then move(c) end
+    end
 end
 
 -- Combat started or ended (GUF's combat dispatcher, after Movers.OnCombat).

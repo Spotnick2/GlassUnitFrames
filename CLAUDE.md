@@ -464,7 +464,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     Panel's `total` stays its prediction), from its plain numbers.
   - **Real casts win.** Castbar's `idle` path (nothing casting, and a flash's end) shows the flight
     instead of hiding; `showCast`, `flash`, `ShowSample` and `ResetForPreview` clear `c.flight`.
-  - **Zoom:** a flight counts as zoom time for the player's bar (`Zoom.SetFlying`, called from
+  - **Zoom:** a flight counts as zoom time for the player's bar, and the target's bar is re-placed too
+    (one shared lift under the group layout; Codex, #154) (`Zoom.SetFlying`, called from
     `idle`, so a `/reload` mid-flight zooms too).
   - **Option:** `db.flightBar` (false when off), `Settings.SetFlightBar`, `/glass flight on|off`, a
     checkbox under the main page's Combat timer.

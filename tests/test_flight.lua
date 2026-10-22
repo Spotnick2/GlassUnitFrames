@@ -125,4 +125,28 @@ cur = nil; changed(); WoW.tick(1)
 check(not Zoom.flying, "landing: the zoom ends")
 check(not select(5, Castbar.EffectiveGeometry("player")), "home: docked")
 
+-- Under the group layout, a takeoff or landing changes the lift both bars
+-- share: the detached target bar moves with it (Codex, #154). The grid's top
+-- at 382 (-2 from the centre); the target's bar alone lifts by 171, the
+-- player's zoom spot by 201.
+cur = nil
+WoW.reset(); standardUnits(); GlassUF = nil
+WoW.layout = true
+UIParent._center, UIParent._width, UIParent._height = { 683, 384 }, 1366, 768
+rawset(_G, "GlassRaidFrames", { LayoutState = function()
+    return { role = "healer", l = 400, b = 228, w = 566, h = 154, top = 382, base = 160, mode = "hud" }
+end })
+glassPanel()
+loadAddon({ db = { castBars = { target = { detached = true } } } })
+WoW.fire("LOADING_SCREEN_DISABLED")
+Castbar = GlassUF.Castbar
+local tc = Castbar.bars.target
+check(GlassUF.Link.Placing(), "linked")
+eq(tc.host._points[1][5], (-152 + 171) / 1.5, "the target's bar, lifted on its own")
+cur = copy(ORG); cur.start = WoW.now; changed(); WoW.tick(1)
+eq(tc.host._points[1][5], (-152 + 201) / 1.5, "takeoff: lifted with the player's zoomed bar")
+cur = nil; changed(); WoW.tick(1)
+eq(tc.host._points[1][5], (-152 + 171) / 1.5, "landing: back")
+rawset(_G, "GlassRaidFrames", nil)
+
 done("test_flight")
