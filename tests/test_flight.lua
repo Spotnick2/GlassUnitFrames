@@ -52,6 +52,9 @@ WoW.tick(0.06)
 eq(pc.time._text, "1:31", "the time left as m:ss")
 cur.source = "estimate"; changed(); WoW.tick(0.06)
 eq(pc.time._text, "~1:31", "an estimate: ~")
+WoW.now = WoW.now + 97.4; WoW.tick(0.06)
+eq(pc.time._text, "+0:07", "past the prediction: the overtime, as Glass Panel shows it")
+WoW.now = WoW.now - 97.4
 
 -- An unrelated STOP while flying: no "complete" flash, the flight stays.
 WoW.fire("UNIT_SPELLCAST_STOP", "player"); WoW.tick()

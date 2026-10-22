@@ -460,7 +460,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **On the bar** (`showFlight` in Castbar): "Flight to <to>", "Flight" for an unknown route,
     "Landing at the next stop" early; the flight master's icon (`Flight.ICON`); it empties like a
     channel (`c.channel = true`, so a STOP never flashes "complete"); no total is a full bar with
-    no time. The time is `m:ss` left, `~` before an estimate (our own duration: read in Lua).
+    no time. The time is `m:ss` left, `~` before an estimate, then `+m:ss` past the prediction (Glass
+    Panel's `total` stays its prediction), from its plain numbers.
   - **Real casts win.** Castbar's `idle` path (nothing casting, and a flash's end) shows the flight
     instead of hiding; `showCast`, `flash`, `ShowSample` and `ResetForPreview` clear `c.flight`.
   - **Zoom:** a flight counts as zoom time for the player's bar (`Zoom.SetFlying`, called from

@@ -1169,11 +1169,19 @@ function Castbar.Build(b, body, L)
             c.time:SetFormattedText(FMT[""], d:GetRemainingDuration())
         end
     end
-    -- A flight's time left as m:ss, "~" before an estimate (#148): our own
-    -- duration from GlassPanel's plain numbers, so it is read in Lua.
+    -- A flight's time left as m:ss, "~" before an estimate (#148), from
+    -- GlassPanel's plain numbers. Past the prediction (total stays it), the
+    -- overtime as "+0:07", as GlassPanel shows it.
     local function paintFlightTime()
-        local left = math.max(0, math.ceil(c.duration:GetRemainingDuration()))
-        c.time:SetFormattedText("%s%d:%02d", c.flight.estimate and "~" or "", math.floor(left / 60), left % 60)
+        local fl = c.flight
+        local left = fl.start + fl.total - GetTime()
+        if left >= 0 then
+            left = math.ceil(left)
+            c.time:SetFormattedText("%s%d:%02d", fl.estimate and "~" or "", math.floor(left / 60), left % 60)
+        else
+            local over = math.floor(-left)
+            c.time:SetFormattedText("+%d:%02d", math.floor(over / 60), over % 60)
+        end
     end
     host.acc = 0
     host:SetScript("OnUpdate", function(self, elapsed)
