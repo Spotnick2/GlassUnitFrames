@@ -434,9 +434,60 @@ local function paintLag(c, d, channel)
     end
 end
 
+-- Taxi flight progress (#148) on the player's bar, from GlassPanel's timing
+-- (Flight.Current: plain numbers). It empties like a channel, as GlassPanel's
+-- does; no known duration is a full bar with no time. Never a cast: c.channel
+-- keeps its STOP from flashing "complete".
+local function showFlight(c, fl)
+    c.token = c.token + 1
+    c.flashing, c.merged, c.delay = false, false, nil
+    c.flight, c.channel = fl, true
+    hideLag(c)
+    if fl.total then
+        c.flightDur = c.flightDur or C_DurationUtil.CreateDuration()
+        if not attempt("flight timer", function()
+            c.flightDur:SetTimeFromStart(fl.start, fl.total)
+            c.bar:SetTimerDuration(c.flightDur, nil, API.TimerDirection(true))
+        end) then
+            c.flight, c.duration = nil, nil
+            c.host:Hide()
+            return
+        end
+        c.duration = c.flightDur
+    else
+        c.duration = nil
+        c.bar:SetMinMaxValues(0, 1)
+        c.bar:SetValue(1)
+        c.time:SetText("")
+    end
+    local col = Castbar.colors.channel
+    c.bar:SetStatusBarColor(col[1], col[2], col[3])
+    if fl.early then c.spell:SetText("Landing at the next stop")
+    elseif fl.to then c.spell:SetFormattedText("Flight to %s", fl.to)
+    else c.spell:SetText("Flight") end
+    c.icon:SetTexture(GlassUF.Flight.ICON)
+    c.icon:SetShown(c.iconSide ~= "none")
+    c.spark:SetShown(fl.total ~= nil and Castbar.colors.spark[4] > 0)
+    c.host:Show()
+end
+
+-- Nothing casting: the flight's progress (#148) on the player's bar when
+-- there is one, else hidden. A flight zooms the player's bar like combat
+-- (Zoom.SetFlying; here, so a /reload mid-flight zooms too).
+local function idle(c)
+    c.duration = nil
+    hideLag(c)
+    local fl = c.unit == "player" and GlassUF.Flight and GlassUF.Flight.Current()
+    if c.unit == "player" then GlassUF.Zoom.SetFlying(fl ~= nil) end
+    if fl then showFlight(c, fl) return end
+    c.flight = nil
+    c.host:Hide()
+end
+
 local function showCast(f, c, d, channel)
     c.token = c.token + 1
     c.flashing = false
+    c.flight = nil
     -- A merged batch (#93): the batch's duration, for the fill and the time text.
     local k = not channel and f.unit == "player" and c.craft
     c.merged = mergeOn(k) and true or false
@@ -484,6 +535,7 @@ local function flash(c, text, guid, kind)
     c.token = c.token + 1
     local token = c.token
     c.flashing = true
+    c.flight = nil
     if kind ~= "complete" then c.flashedGUID = guid end
     c.duration = nil
     hideLag(c)
@@ -503,7 +555,7 @@ local function flash(c, text, guid, kind)
     C_Timer.After(0.5, function()
         if c.token == token then
             c.flashing = false
-            c.host:Hide()
+            idle(c)   -- the flight comes back after a cast's flash (#148)
         end
     end)
 end
@@ -571,12 +623,8 @@ Engine.SetPainter("cast", function(f, event, ...)
     -- A merged batch between two crafts keeps its bar as it is (#93).
     local k = f.unit == "player" and c.craft
     if k and k.holding and mergeOn(k) and not c.flashing then return end
-    -- Nothing casting: hide, unless an interrupt/fail flash is still up.
-    if not c.flashing then
-        c.duration = nil
-        hideLag(c)
-        c.host:Hide()
-    end
+    -- Nothing casting: the flight or hidden, unless a flash is still up.
+    if not c.flashing then idle(c) end
 end)
 
 --------------------------------------------------------------------------------
@@ -1121,12 +1169,28 @@ function Castbar.Build(b, body, L)
             c.time:SetFormattedText(FMT[""], d:GetRemainingDuration())
         end
     end
+    -- A flight's time left as m:ss, "~" before an estimate (#148), from
+    -- GlassPanel's plain numbers. Past the prediction (total stays it), the
+    -- overtime as "+0:07", as GlassPanel shows it.
+    local function paintFlightTime()
+        local fl = c.flight
+        local left = fl.start + fl.total - GetTime()
+        if left >= 0 then
+            left = math.ceil(left)
+            c.time:SetFormattedText("%s%d:%02d", fl.estimate and "~" or "", math.floor(left / 60), left % 60)
+        else
+            local over = math.floor(-left)
+            c.time:SetFormattedText("+%d:%02d", math.floor(over / 60), over % 60)
+        end
+    end
     host.acc = 0
     host:SetScript("OnUpdate", function(self, elapsed)
         self.acc = self.acc + elapsed
         if self.acc < 0.05 then return end
         self.acc = 0
-        if c.duration then attempt("cast time", paintTime) end
+        if c.flight then
+            if c.duration then attempt("flight time", paintFlightTime) end
+        elseif c.duration then attempt("cast time", paintTime) end
     end)
     Castbar.bars[b.unit] = c
     Castbar.Place(c)
@@ -1169,7 +1233,7 @@ function Castbar.ResetForPreview(c)
     Castbar.TokenChanged(c)
     c.duration, c.channel, c.merged, c.delay, c.chanEnd = nil, nil, false, nil, nil
     c.castTarget, c.sentTarget, c.sentGUID, c.succeededGUID, c.flashedGUID = nil, nil, nil, nil, nil
-    c.craft, c.craftHold = nil, nil
+    c.craft, c.craftHold, c.flight = nil, nil, nil
     hideLag(c)
     c.host:Hide()
 end
@@ -1178,7 +1242,7 @@ end
 -- and a duration we own: every value plain.
 function Castbar.ShowSample(c, s, d)
     c.token = c.token + 1
-    c.flashing, c.merged = false, false
+    c.flashing, c.merged, c.flight = false, false, nil
     if not attempt("cast timer", c.bar.SetTimerDuration, c.bar, d, nil, API.TimerDirection(s.channel)) then
         c.duration = nil
         hideLag(c)

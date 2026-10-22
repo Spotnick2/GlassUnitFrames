@@ -42,7 +42,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 ## Layout
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `FiveSecond.lua` → `Zoom.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `FiveSecond.lua` → `Zoom.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -434,7 +434,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     the home spot but don't move a zoomed host.
   - **Triggers:** the combat dispatcher calls `Movers.OnCombat()` then `Zoom.OnCombat(true)`. On
     regen, `Zoom.OnCombat(false)` runs **before** the lockdown guard and the combat queue. `PLAYER_ENTERING_WORLD` sets the
-    initial state.
+    initial state. A **flight** also zooms the player's bar (`Zoom.flying`, set by
+    `Zoom.SetFlying` from Castbar's idle path, #148).
   - **Settings:** `db.zoom[global|healer|tank|dps][bar] = { on, x, y, scale }`, sparse, each field
     validated (scale 0.5–2.5). `db.zoomRole[guid]` is this character's role (read at
     `PLAYER_LOGIN`; a secret or absent GUID means global).
@@ -446,6 +447,28 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     "Reset frame positions" also resets the zoom spots of the edited table.
   - **Options:** its own sub-page, "Combat zoom" (registered after Cast bars): per bar, "zoom in
     combat" and a combat scale; this character's role.
+- **`Flight.lua`** (#148): a taxi flight on the player's cast bar (Quartz's Flight). **Glass Panel
+  owns the timing** (GlassPanel #124/#125): we only draw it, so without Glass Panel there's no
+  flight bar. Timing of our own waits on a shared embedded library (#153).
+  - **The contract:** `GlassPanel.Flight`, exactly `API == 1` (`rawget`), `Current()` under pcall
+    -> nil or a fresh `{ to, from, start, total, source, early }`. EventRegistry
+    `"GlassPanel.Flight.Changed"` repaints the player's cast channel; nothing is cached.
+    `Flight.Current()` re-checks every field (plain start; total nil when unknown, non-positive or
+    landing early) and is nil when off or in a preview.
+  - **Never hidden for Glass Panel's zoomed bar** (owner, 2026-10-22: two similar bars are fine),
+    so `Zoomed()` is never read.
+  - **On the bar** (`showFlight` in Castbar): "Flight to <to>", "Flight" for an unknown route,
+    "Landing at the next stop" early; the flight master's icon (`Flight.ICON`); it empties like a
+    channel (`c.channel = true`, so a STOP never flashes "complete"); no total is a full bar with
+    no time. The time is `m:ss` left, `~` before an estimate, then `+m:ss` past the prediction (Glass
+    Panel's `total` stays its prediction), from its plain numbers.
+  - **Real casts win.** Castbar's `idle` path (nothing casting, and a flash's end) shows the flight
+    instead of hiding; `showCast`, `flash`, `ShowSample` and `ResetForPreview` clear `c.flight`.
+  - **Zoom:** a flight counts as zoom time for the player's bar, and the target's bar is re-placed too
+    (one shared lift under the group layout; Codex, #154) (`Zoom.SetFlying`, called from
+    `idle`, so a `/reload` mid-flight zooms too).
+  - **Option:** `db.flightBar` (false when off), `Settings.SetFlightBar`, `/glass flight on|off`, a
+    checkbox under the main page's Combat timer.
 - **`Link.lua`** (#132): the group layout. The plan is GlassUI's `docs/GROUP-LAYOUT.md` (sections 4
   and 5, GlassUI#28; Codex consensus). Don't extend it here: changes go through the Glass UI session.
   - **The state:** GRF announces `GlassRaidFrames.LayoutChanged(role, l, b, w, h, top, base, mode)`
@@ -614,11 +637,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|regen on|off|link on|off`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|regen on|off|link on|off`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames

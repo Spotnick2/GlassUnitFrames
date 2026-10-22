@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Your flight on your cast bar.** With Glass Panel's flight timer installed, a taxi flight shows
+  on your cast bar: "Flight to Orgrimmar", the flight master's icon and the time left (`~` when
+  it's an estimate). It empties as you fly, steps aside for a cast you make on the way, and zooms
+  like in combat when your cast bar's combat zoom is on. Turn it off under Options > AddOns >
+  Glass Unit Frames > Combat timer, or with `/glass flight off`. Glass Panel works out the flight
+  times, so without it there's no flight on the bar.
+
 ## v0.1.0-alpha1 - 2026-10-21
 
 The first alpha. Glass Unit Frames replaces Blizzard's player, pet, target, target of target,

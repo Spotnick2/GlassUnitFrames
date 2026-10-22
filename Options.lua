@@ -431,6 +431,10 @@ local function build()
     controls.combatTimer = checkbox(right, "Show it over your portrait in a fight",
         function() return GlassUF.Timer.enabled end,
         GlassUF.Settings.SetCombatTimer)
+    -- A taxi flight on the player's cast bar (#148), from Glass Panel's timer.
+    controls.flightBar = checkbox(right, "Show a flight on your cast bar",
+        function() return GlassUF.Flight.enabled end,
+        GlassUF.Settings.SetFlightBar)
 
     -- Mana users only: the five-second rule (#94) and the regen segment (#118).
     if GlassUF.FiveSecond.Built() then

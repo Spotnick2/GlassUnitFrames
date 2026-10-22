@@ -210,6 +210,7 @@ local HELP = {
     "font arial|friz  - text font (saved)",
     "look pearl|clean|classic  - the glass: LibGlass's Pearl (the default), Clean or Classic (after /reload, saved)",
     "timer on|off  - the combat timer over your portrait (saved)",
+    "flight on|off  - a taxi flight on your cast bar, from Glass Panel's flight timer (saved)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
@@ -469,6 +470,13 @@ function Settings_.SetCombatTimer(on)
     return true
 end
 
+-- The flight on the player's cast bar (#148): db.flightBar = false when off.
+function Settings_.SetFlightBar(on)
+    if not GlassUF.Flight.SetEnabled(on) then return false end
+    if on then GlassUnitFramesDB.flightBar = nil else GlassUnitFramesDB.flightBar = false end
+    return true
+end
+
 -- The five-second rule strip (#94): db.fiveSecondRule = false when off,
 -- db.fsrCombatOnly = false to show it out of combat too.
 function Settings_.SetFiveSecond(on)
@@ -591,6 +599,12 @@ local function slash(msg)
         else
             say("timer on|off (now " .. (GlassUF.Timer.enabled and "on" or "off") .. ")")
         end
+    elseif cmd == "flight" then
+        if (arg == "on" or arg == "off") and Settings_.SetFlightBar(arg == "on") then
+            say("flight on your cast bar " .. arg)
+        else
+            say("flight on|off (now " .. (GlassUF.Flight.enabled and "on" or "off") .. ")")
+        end
     elseif cmd == "regen" then
         if not GlassUF.FiveSecond.Built() then
             say("regen: for mana users only")
@@ -698,6 +712,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         end
         local db = ensureDefaults()
         GlassUF.Link.Configure(db)
+        GlassUF.Flight.Configure(db)
         Glass.SetFont(db.font)
         -- Before the build, so every bar is born with its ramp (#117). Junk is
         -- forgotten; a saved "edge" an older winning LibGlass can't draw is kept.
