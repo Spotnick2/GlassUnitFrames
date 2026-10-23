@@ -227,6 +227,7 @@ local HELP = {
     "link on|off  - player and target beside Glass Raid Frames' centred layout, while it shows (saved)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
+    "threat on|off|always  - target threat; sound, expand, preview, reset, test",
     "totem  - where Blizzard's totem bar lives (diagnostic)",
     "frame <Name>  - where any Blizzard frame lives, e.g. /glass frame PetActionBar",
 }
@@ -453,8 +454,13 @@ function Settings_.SetZoomRole(role)
     if not GlassUF.Zoom.SetRole(role) then return false end
     GlassUF.Movers.SyncBars()
     GlassUF.Movers.Refresh()   -- the role's spot and scale in an open nudge panel
+    GlassUF.Threat.Refresh()
     return true
 end
+
+function Settings_.SetThreatMode(mode) return GlassUF.Threat.SetMode(mode) end
+function Settings_.SetThreatSound(on) return GlassUF.Threat.SetSound(on) end
+function Settings_.SetThreatExpand(on) return GlassUF.Threat.SetExpand(on) end
 
 -- The glass swing timer rows (#87): db.swingTimer = false when off.
 function Settings_.SetSwingTimer(on)
@@ -683,6 +689,19 @@ local function slash(msg)
                 .. (now == next and "" or (", " .. next .. " after /reload"))
                 .. ". /glass blizzard show|hide, then /reload")
         end
+    elseif cmd == "threat" then
+        local action, value = arg:match("^(%S+)%s*(.-)$")
+        local T = GlassUF.Threat
+        if action == "on" then Settings_.SetThreatMode("group")
+        elseif action == "off" or action == "always" or action == "group" then Settings_.SetThreatMode(action)
+        elseif action == "sound" and (value == "on" or value == "off") then Settings_.SetThreatSound(value == "on")
+        elseif action == "expand" and (value == "on" or value == "off") then Settings_.SetThreatExpand(value == "on")
+        elseif action == "view" and (value == "compact" or value == "expanded" or value == "auto") then T.SetDisplay(value)
+        elseif action == "delay" and tonumber(value) then T.SetHideDelay(tonumber(value))
+        elseif action == "preview" then T.Preview(value)
+        elseif action == "reset" then T.ResetPositions()
+        elseif action == "test" then API.ThreatSound()
+        else say("threat on|off|always (solo combat) | view compact|expanded|auto | delay 0-60 | sound on|off | expand on|off | preview compact|expanded|off | reset | test") end
     elseif cmd == "secrets" then
         secretsReport()
     elseif cmd == "totem" then
@@ -737,6 +756,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         whenOutOfCombat("build", function()
             Frames.Build(db)
             GlassUF.Movers.Load(db)
+            GlassUF.Threat.Configure(db)
             if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
             -- Blizzard's own player cast bar is hidden unless asked (#141).
             if db.hideBlizzardCast then Blizzard.HideFrame("PlayerCastingBarFrame") end

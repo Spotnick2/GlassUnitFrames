@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Target threat**, enabled by default in group combat. A Pearl plate beside the target shows
+  your rank and progress toward pulling aggro, with a thin matching fill. Hover for details;
+  click for a ranking of players and pets, sized to its contents. The actual aggro holder is
+  marked independently of rank. Both views default to an anchor eight units right of the target's
+  outer edge, beyond its portrait, aligned with the health/name row. Expanded grows upward.
+  Dragging compact or expanded saves its position independently. Cast-bar visibility does not shift this dock; existing custom positions stay until reset.
+  Non-tank colors progress smoothly from mint through amber at the existing 90% warning point
+  to coral at 100%; tank lead colors are unchanged.
+  Combat opens the meter with a 250 ms reveal away from the target (left-to-right at the default side dock); it closes in reverse after a configurable delay
+  (10 seconds by default).
+  The last combat values remain visible during that delay and closing animation. Clearing
+  the target hides the meter immediately; changing targets discards the saved combat values.
+  Options include solo combat, Off, saved compact/expanded views, automatic per-role expansion,
+  previews, and the optional Boxing Arena Gong (on by default).
+  Restricted data stays unranked. Outdoor party data was measured on build 70532; the redesigned
+  UI, dungeon/raid behavior, and animation still need in-game validation.
+
 - **Your flight on your cast bar.** On a flight master's flight, your cast bar shows "Flight to
   Orgrimmar", the flight master's icon and the time left (`~` when it's an estimate, `+0:07` once
   it runs past it). It empties as you fly, steps aside for a cast you make on the way, and zooms

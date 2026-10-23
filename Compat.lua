@@ -21,6 +21,32 @@ function API.IsSecret(v)
     return issecretvalue ~= nil and issecretvalue(v) == true
 end
 
+-- Threat APIs are optional across clients. Keep the raw returns (possibly
+-- secret) separate from the plain pcall result; never stringify an error here.
+function API.ThreatCall(name, ...)
+    local fn = rawget(_G, name)
+    if type(fn) ~= "function" then return false end
+    return pcall(fn, ...)
+end
+
+function API.ThreatTankRole()
+    local util = rawget(_G, "PlayerUtil")
+    local fn = type(util) == "table" and rawget(util, "IsPlayerEffectivelyTank")
+    if type(fn) == "function" then
+        local ok, tank = pcall(fn)
+        if ok and not API.IsSecret(tank) then return tank == true end
+    end
+    local ok, role = API.ThreatCall("UnitGroupRolesAssigned", "player")
+    return ok and not API.IsSecret(role) and role == "TANK"
+end
+
+function API.ThreatSound()
+    local fn = rawget(_G, "PlaySoundFile")
+    if type(fn) ~= "function" then return false end
+    local ok, played = pcall(fn, "Interface\\AddOns\\GlassUnitFrames\\Sounds\\BoxingArenaSound.ogg", "Master")
+    return ok and not API.IsSecret(played) and played == true
+end
+
 function API.ClientBuild()
     local version, build = GetBuildInfo()
     return tostring(version) .. "." .. tostring(build)

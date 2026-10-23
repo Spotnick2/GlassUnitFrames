@@ -82,6 +82,9 @@ jobs:
           {
             echo GlassUnitFrames/GlassUnitFrames.toc
             echo GlassUnitFrames/LICENSE
+            echo GlassUnitFrames/Sounds/BoxingArenaSound.ogg
+            echo GlassUnitFrames/Sounds/COPYING.txt
+            echo GlassUnitFrames/Sounds/README.txt
             tr -d '\r' < GlassUnitFrames.toc | grep -v '^#' | grep '\.lua$' | tr '\\' '/' | sed 's|^|GlassUnitFrames/|'
             echo "$lib/LibGlass-1.0.xml"
             echo "$lib/LICENSE"

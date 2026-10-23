@@ -20,6 +20,8 @@ Swing.lua
 Timer.lua
 FiveSecond.lua
 Zoom.lua
+Threat.lua
+ThreatView.lua
 Flight.lua
 Link.lua
 Preview.lua

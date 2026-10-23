@@ -804,6 +804,44 @@ zoomPage:SetScript("OnShow", function(self)
     controls.refreshAll()
 end)
 
+local threatPage = CreateFrame("Frame", "GlassUnitFramesThreatOptions")
+threatPage.name = "Threat"
+threatPage:Hide()
+threatPage:SetScript("OnShow", function(self)
+    if not self.built then
+        self.built = true
+        local T, S = GlassUF.Threat, GlassUF.Settings
+        local title = label(self, "Threat", "GameFontNormalHuge")
+        title:SetPoint("TOPLEFT", self, "TOPLEFT", 16, -16)
+        local left, right = column(16, -56, self), column(380, -56, self)
+        controls.threatMode = radios(left, "Display", {
+            { "group", "Group combat (default)" }, { "always", "Combat, including solo" }, { "off", "Off" },
+        }, T.Mode, S.SetThreatMode)
+        controls.threatHideDelay = slider(left, { label = "Hide after combat (seconds)", min = 0, max = 60, step = 1, fmt = "%.0f",
+            get = T.HideDelay, set = T.SetHideDelay })
+        controls.threatView = radios(left, "View", {
+            { "compact", "Compact (click to expand)" }, { "expanded", "Expanded ranking" }, { "auto", "Automatic combat expansion" },
+        }, T.Display, T.SetDisplay)
+        header(left, "Combat expansion")
+        controls.threatExpand = checkbox(left, "Expand in combat for this role", T.Expand, S.SetThreatExpand)
+        local role = note(left, "", 300)
+        controls[#controls + 1] = function() role:SetText("Editing: " .. T.EditRole() .. ". Choose your character's role on Combat zoom.") end
+        note(left, "Changing this selects Automatic. Clicking the plate or collapse chevron saves a fixed view instead.", 300)
+        header(right, "Warning sound")
+        controls.threatSound = checkbox(right, "Play warning sound (default on)", T.SoundEnabled, S.SetThreatSound)
+        note(right, "Boxing Arena Gong. Non-tanks: approaching aggro at 90%. Tanks: threat lead at risk. At most once per warning, with a 5-second cooldown.", 280)
+        place(right, button(self, "Test sound", 190, function() GlassUF.API.ThreatSound() end), 30, 4)
+        header(right, "Placement")
+        place(right, button(self, "Preview compact", 190, function() T.Preview("compact") end), 30, 4)
+        place(right, button(self, "Preview window", 190, function() T.Preview("expanded") end), 30, 4)
+        place(right, button(self, "End preview", 190, function() T.Preview("off") end), 30, 4)
+        place(right, button(self, "Reset threat positions", 190, T.ResetPositions), 30, 4)
+        note(right, "Drag either view out of combat, live or in preview. Compact and expanded positions save separately. Resize from the window's upper-left grip. Reset returns both views to the target's right side.", 280)
+        note(left, "Rank uses raw threat; % is progress toward pulling aggro. The meter opens away from the target in combat and closes after the delay. Previews work out of combat.", 300)
+    end
+    controls.refreshAll()
+end)
+
 function controls.refreshAll()
     refreshing = true
     for i, fn in ipairs(controls) do
@@ -835,6 +873,8 @@ local function register()
         if not ok then GlassUF.API.Fail("cast bars page", err) end
         ok, err = pcall(Settings.RegisterCanvasLayoutSubcategory, category, zoomPage, zoomPage.name)
         if not ok then GlassUF.API.Fail("combat zoom page", err) end
+        ok, err = pcall(Settings.RegisterCanvasLayoutSubcategory, category, threatPage, threatPage.name)
+        if not ok then GlassUF.API.Fail("threat page", err) end
     else
         GlassUF.API.Fail("cast bars page", "no Settings subcategory API")
     end
@@ -842,7 +882,7 @@ end
 
 -- The state changed from outside the page (the group layout's link): an open page follows.
 function Options.Refresh()
-    if panel:IsShown() or castPage:IsShown() then controls.refreshAll() end
+    if panel:IsShown() or castPage:IsShown() or threatPage:IsShown() then controls.refreshAll() end
 end
 
 -- Open the panel; false when the Settings framework can't (then /glass says where it is).
@@ -855,5 +895,5 @@ local reg = CreateFrame("Frame")
 GlassUF.API.RegisterEvents(reg, { "PLAYER_LOGIN" })
 reg:SetScript("OnEvent", register)
 
-Options._test = { panel = panel, castPage = castPage, zoomPage = zoomPage, controls = controls, scroll = scroll,
+Options._test = { panel = panel, castPage = castPage, zoomPage = zoomPage, threatPage = threatPage, controls = controls, scroll = scroll,
                   content = content }
