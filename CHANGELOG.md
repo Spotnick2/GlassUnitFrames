@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-alpha2 - 2026-10-22
 
 - **Target threat**, enabled by default in group combat. A Pearl plate beside the target shows
   your rank and progress toward pulling aggro, with a thin matching fill. Hover for details;
@@ -16,8 +16,8 @@
   the target hides the meter immediately; changing targets discards the saved combat values.
   Options include solo combat, Off, saved compact/expanded views, automatic per-role expansion,
   previews, and the optional Boxing Arena Gong (on by default).
-  Restricted data stays unranked. Outdoor party data was measured on build 70532; the redesigned
-  UI, dungeon/raid behavior, and animation still need in-game validation.
+  Restricted data stays unranked. Outdoor party data, the redesigned UI, and the gong were checked
+  in game; dungeon and raid behavior still need validation.
 
 - **Your flight on your cast bar.** On a flight master's flight, your cast bar shows "Flight to
   Orgrimmar", the flight master's icon and the time left (`~` when it's an estimate, `+0:07` once
