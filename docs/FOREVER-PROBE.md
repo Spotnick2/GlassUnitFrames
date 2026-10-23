@@ -4,6 +4,10 @@ Runtime measurements on the live client, recorded with the build number. The API
 exists; this file says what works. Addon-agnostic findings also belong in
 `C:\Projects\WoW\References\Docs\PORTING-TBC-TO-FOREVER.md`.
 
+Threat exploration (#86) has a separate [probe and preview checklist](THREAT-PROBE.md).
+Its current-build group measurements are pending; source inspection and offline
+tests are not runtime evidence.
+
 The probe now is `Tools/CastProbe`, a ForeverProbe module (`/fp cast`, #112). GlassProbe, the
 instrument of probe 1 below, was retired in #112; its files are in history.
 

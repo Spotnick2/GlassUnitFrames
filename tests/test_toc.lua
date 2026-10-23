@@ -63,6 +63,11 @@ end
 for _, t in ipairs({ "bar_mask", "bar_fill", "gloss", "bar_edge", "grain", "sheen2", "track_fade" }) do
     check(io.open(root .. "/Media/" .. t .. ".tga", "rb") ~= nil, "texture exists: " .. t)
 end
+for _, path in ipairs({ "Sounds/BoxingArenaSound.ogg", "Sounds/COPYING.txt", "Sounds/README.txt" }) do
+    local asset = io.open(path, "rb")
+    check(asset ~= nil, "warning sound ships with license and attribution: " .. path)
+    if asset then asset:close() end
+end
 -- Glass.MEDIA points into the embedded copy, where the packager puts it.
 eq(GlassUF.Glass.MEDIA, "Interface\\AddOns\\GlassUnitFrames\\Libs\\LibGlass-1.0\\Media\\", "MEDIA is the embedded copy's")
 

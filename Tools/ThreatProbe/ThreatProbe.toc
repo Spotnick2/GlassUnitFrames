@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: ThreatProbe
+## Notes: Development threat diagnostics and meter preview for GlassUnitFrames #86. /fp threat
+## Author: Spotnick
+## Version: dev
+## Dependencies: ForeverProbe, GlassUnitFrames
+## OptionalDeps: GlassUI
+## SavedVariables: ThreatProbeDB
+
+ThreatProbe.lua
+Preview.lua
