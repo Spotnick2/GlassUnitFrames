@@ -20,11 +20,11 @@
         pwsh Tools/deploy.ps1               # GlassUnitFrames + its LibGlass and LibTaxiTime
         pwsh Tools/deploy.ps1 -Probe        # ...and the probes (CastProbe, BarProbe, LayoutProbe, ThreatProbe), with ForeverProbe
         pwsh Tools/deploy.ps1 -ProbeOnly    # just the probes, with ForeverProbe
-        pwsh Tools/deploy.ps1 -AddOnsPath "D:\...\_classic_beta_\Interface\AddOns"
+        pwsh Tools/deploy.ps1 -AddOnsPath "D:\...\_forever_\Interface\AddOns"
 #>
 
 param(
-    [string]$AddOnsPath = "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns",
+    [string]$AddOnsPath = "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns",
     [switch]$Probe,
     [switch]$ProbeOnly
 )
