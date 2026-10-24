@@ -1019,3 +1019,25 @@ break the behaviour and confirm it goes red.
   porting guide has already had to reverse reasoned conclusions (click-casting, "park it off
   screen", persistence).
 - Match the surrounding code's idiom. Keep pure refactors in their own commit.
+
+## Consulting Codex
+
+The shared `codex-consult` skill (user level) has the invocation and the gotchas. For this repo:
+
+For GlassUnitFrames, good things to hand Codex:
+- anything that touches a secret value (health, power, cast timing, heal prediction), or that
+  does arithmetic, comparison or string work near one;
+- secure unit buttons and `RegisterUnitWatch`, and whatever combat lockdown defers;
+- the party/raid header approach;
+- the render-cost budget of the glass layers (texture count, `OnUpdate` / animation use);
+- any plan that grows scope back toward full Shadowed Unit Frames.
+
+**Always hand it `CLAUDE.md` alongside the diff or plan**, plus
+`C:/Projects/WoW/References/Docs/PORTING-TBC-TO-FOREVER.md` and any `docs/` probe results. Those findings
+were measured on the live client. Without them, a cold reviewer argues from Classic-era or Retail
+behaviour that doesn't hold here: that auras throw for the whole group in combat, that secure
+snippets and state drivers are broken, that some unit numbers are secret.
+`C:/Projects/WoW/References/Forever/api/forever-api-<version>.<build>.md` (take the highest build) is the full API surface when a question
+turns on whether something exists. The reference addons are
+`C:/Projects/WoW/References/Addons/UnitFrames/ShadowedUnitFrames` (upstream) and
+`C:/Projects/WoW/References/Addons/UnitFrames/DinoUnitFrames-Forever` (its Forever port).
