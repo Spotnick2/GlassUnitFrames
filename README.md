@@ -39,7 +39,7 @@ fonts. With **Glass UI** installed you can let it set the glass for every Glass 
   frame for a druid in bear or cat form;
 - your hunter pet's happiness.
 
-**Cast bars** for you, your target, your focus and your pet, with Quartz's touches: spell icon,
+**Cast bars** for you, your target, your focus and your pet, with these touches: spell icon,
 "Spell -> Target", remaining / total time, a spark, a green flash when a cast lands and a red one
 when it fails, pushback (`+0.4`), a craft count (`Heavy Linen Bandage (3/5)`) and one bar for a
 whole craft batch. Your own bar shows a red **latency block**: roughly the end of the cast that is
@@ -129,7 +129,7 @@ frames failed to draw.
 ## Credits
 
 - The design follows [Shadowed Unit Frames](https://github.com/Nevcairiel/ShadowedUnitFrames) and
-  its Forever port, DinoUnitFrames; the cast bars follow Quartz. No code is copied from them.
+  its Forever port, DinoUnitFrames. No code is copied from them.
 - The glass comes from [LibGlass-1.0](https://github.com/Spotnick2/LibGlass), and the flight times
   from [LibTaxiTime-1.0](https://github.com/Spotnick2/LibTaxiTime), both included in the download.
   The flight times were checked against InFlight's measured Classic times.

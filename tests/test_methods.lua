@@ -78,7 +78,7 @@ local cnp = GlassUF.Movers._test.panel()
 cnp.buttons.center._scripts.OnClick(cnp.buttons.center)
 GlassUF.Movers.Lock()
 GlassUF.Settings.SetCastDetached("player", false)
--- The Quartz look (#78): colours (texts, spark, background), icon, precision.
+-- The cast look (#78): colours (texts, spark, background), icon, precision.
 GlassUF.Settings.SetCastColor("spell", 1, 0.8, 0, 1)
 GlassUF.Settings.SetCastColor("background", 0.1, 0.1, 0.2, 0.9)
 GlassUF.Settings.SetCastIcon("player", "right")

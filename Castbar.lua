@@ -17,7 +17,7 @@
 -- db.castBars[unit]. Nothing secure anchors to a host, and a host is never
 -- protected (measured in combat: move, scale, resize, hide, re-dock all ok).
 --
--- Quartz's look and options (#78): a spell icon at either end, "Spell ->
+-- The look and options (#78): a spell icon at either end, "Spell ->
 -- Target" on the player's bar (SENT's plain target name), "remaining / total",
 -- a spark on the fill's moving edge, a short "complete" flash when a cast
 -- finishes, the cast time precision, and colours for the texts, the fills,
@@ -66,7 +66,7 @@ local function validColor(v)
     return { v[1], v[2], v[3], a }
 end
 
--- The cast time precision (decimals), 0..3, Quartz's slider.
+-- The cast time precision (decimals), 0..3.
 Castbar.precision = 1
 
 -- The time text's formats, built once per precision / option change (the
@@ -235,7 +235,7 @@ local function deriveBatch(k)
     if not pcall(k.dur.SetTimeFromStart, k.dur, k.start, total) then k.merged = false end
 end
 
--- A hold that sees no next craft within HOLD_GUARD drops the merge (Quartz's
+-- A hold that sees no next craft within HOLD_GUARD drops the merge (a
 -- stuck bar): its own generation, never the bar's token (showCast and flash
 -- bump that).
 local function armGuard(c, k)
@@ -413,7 +413,7 @@ local function paintLag(c, d, channel)
     c.lag:SetReverseFill(not channel)
     c.lag:SetValue(math.max(0, math.min(1, est / total)))
     c.lag:Show()
-    -- The ms figure: inside the block, at its bottom corner (Quartz), on a
+    -- The ms figure: inside the block, at its bottom corner, on a
     -- bar at least 20 tall (under that it runs into the time text); just above
     -- a smaller detached bar; never on the docked 14 px row.
     local lt = c.lagText
@@ -606,14 +606,14 @@ Engine.SetPainter("cast", function(f, event, ...)
         if mayFlash(c, guid) then flash(c, CAST_FAIL[event], guid) end
     elseif event == "UNIT_SPELLCAST_STOP" and c.duration and not c.channel and not c.flashing
         and Castbar.options.complete then
-        -- A cast (not a channel) that ended without failing: Quartz's short
+        -- A cast (not a channel) that ended without failing: a short
         -- "complete" flash. Only the newest cast's STOP.
         local guid = plainGUID((...))
         local newest = guid == nil or c.latestGUID == nil or guid == c.latestGUID
         local failed = c.failedGUID == true or (guid ~= nil and c.failedGUID == guid)
         -- The player's own: only a cast whose SUCCEEDED we saw (a cast that
         -- fails as it lands never gets one). Other units have no SUCCEEDED
-        -- for us: their STOP, as Quartz does.
+        -- for us: their STOP.
         if f.unit == "player" and guid ~= nil and c.succeededGUID ~= guid then failed = true end
         -- A craft with more of its batch to come: no flash (#91).
         if newest and not failed and not c.craftHold then flash(c, nil, nil, "complete") end
@@ -661,7 +661,7 @@ local PILL_H = 20
 Castbar.DETACHED = { player = { x = 0, y = -182, w = 340, h = 20, scale = 1.5 },
                      target = { x = 0, y = -152, w = 340, h = 20, scale = 1.5 },
                      -- #76: focus above the target's bar, the pet's under the player's
-                     -- (thinner, as Quartz's pet bar).
+                     -- (thinner).
                      focus  = { x = 0, y = 1, w = 340, h = 16, scale = 1 },
                      pet    = { x = 0, y = -71, w = 220, h = 16, scale = 1 },
                      -- #87: the swing rows' pill (h = one row), under the player's bar.
@@ -794,7 +794,7 @@ local function prune(unit)
 end
 
 -- The spell icon's side (#78): yours and the pet's on the left, the target's
--- and the focus's on the right (Quartz's mirrored pair); "none" hides it.
+-- and the focus's on the right (the mirrored pair); "none" hides it.
 local ICON_SIDES = { left = true, right = true, none = true }
 local ICON_DEFAULT = { player = "left", pet = "left", target = "right", focus = "right" }
 function Castbar.IconSide(unit)

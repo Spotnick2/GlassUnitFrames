@@ -1,4 +1,4 @@
--- Quartz's look and options on the cast bars (#78): the spell icon, "Spell ->
+-- The look and options on the cast bars (#78): the spell icon, "Spell ->
 -- Target", "remaining / total", the precision, the spark, the complete flash,
 -- the colours (validated, saved, applied; the picker), the ms figure inside
 -- the block.
@@ -27,7 +27,7 @@ local function stop(unit, g, channel)
     WoW.fire(channel and "UNIT_SPELLCAST_CHANNEL_STOP" or "UNIT_SPELLCAST_STOP", unit, g, 2061, "CastBar-1")
 end
 
--- The icon: yours on the left, the target's on the right (Quartz's mirrored
+-- The icon: yours on the left, the target's on the right (the mirrored
 -- pair); the bar shortened by the icon's room.
 eq(Castbar.IconSide("player"), "left", "your icon: left by default")
 eq(Castbar.IconSide("target"), "right", "the target's: right")
@@ -170,7 +170,7 @@ info.opacityFunc()
 eq(Castbar.colors.background[4], 0.5, "its alpha from the picker")
 S.ResetCastColors()
 
--- The ms figure inside the block on a bar tall enough (Quartz).
+-- The ms figure inside the block on a bar tall enough.
 S.SetCastDetached("player", true)
 S.SetCastSize("player", nil, 26)   -- bar 26 - 6 = 20 px
 pc.bar._height = 20

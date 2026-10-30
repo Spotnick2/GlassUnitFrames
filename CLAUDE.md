@@ -240,7 +240,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       CastProbe `hier`, #74).
     - In unlock mode a detached bar is a mover source `cast:<unit>` (`Castbar.MoverSource`: W/H,
       Attach).
-  - **Quartz's look and options** (#78), on every bar unless noted:
+  - **The cast bar look and options** (#78), on every bar unless noted:
     - **Spell icon** at either end, as tall as the bar, which is shortened to make room
       (`placeBar`). Yours and the pet's are on the left, the target's and the focus's on the right
       (the mirrored pair), and it can be set to "none" (`castBars[unit].icon`, saved only when not
@@ -259,7 +259,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       it marks the newest cast failed (`c.failedGUID`, forgotten on a token change), and its STOP
       then doesn't flash green. The player's bar also needs that cast's SUCCEEDED
       (`c.succeededGUID`): a cast that fails as it lands gets none. Other units have no
-      SUCCEEDED for us, so their STOP flashes, as in Quartz.
+      SUCCEEDED for us, so their STOP flashes.
     - **Colours** (`db.castColors[key] = { r, g, b, a }`, validated, saved only when set): spell
       text, time text, casting, channeling, complete, failed, spark, and background. The
       background is the pill's own glass tint, through LibGlass's `SetSurfaceTint(g, ...)`;
@@ -278,7 +278,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       queuing by "an end event in the SENT frame": an unrelated SUCCEEDED (Auto Shot) would drop
       real samples.
     - Shown: the median of the last 7 samples; `GetNetStats` (`~`) before the first. The `ms`
-      figure sits **inside the block, at its bottom corner** (Quartz) on a bar at least 20 tall (`MS_INSIDE`),
+      figure sits **inside the block, at its bottom corner** on a bar at least 20 tall (`MS_INSIDE`),
       just above a smaller detached bar, and never on the docked 14 px row.
     - `Frames.OverlayBar` places only its clip frame: the caller anchors the bar it returns.
   - **Pushback:** `+0.4` / `-0.4` before the time. It's **assigned** from the cumulative
@@ -448,7 +448,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     "Reset frame positions" also resets the zoom spots of the edited table.
   - **Options:** its own sub-page, "Combat zoom" (registered after Cast bars): per bar, "zoom in
     combat" and a combat scale; this character's role.
-- **`Flight.lua`** (#148, #153): a taxi flight on the player's cast bar (Quartz's Flight). The
+- **`Flight.lua`** (#148, #153): a taxi flight on the player's cast bar. The
   timing is **LibTaxiTime-1.0**'s (see "Flight times" below), shared with GlassPanel's Flight plugin;
   this file draws it, with or without Glass Panel. **Checked in game** by the owner on
   `_classic_beta_` (2026-10-22): a flight on the cast bar timed by the library alone.
@@ -603,7 +603,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   a mover opens the nudge panel (X/Y offsets, arrows 1 / Shift 10, reset this frame, lock; W/H
   scale and Attach for a cast bar; **Center X** for anything, the exact horizontal middle of
   what it's placed on, alone: never mirrored). While unlocked, a glass **unlock dialog** at the top centre
-  (Quartz's idea) holds Lock and the switches. It sits under the nudge panel and over the
+  holds Lock and the switches. It sits under the nudge panel and over the
   movers, and can be dragged aside (not saved).
   Unlock and nudges are refused in combat; a combat start locks. While dragging, a frame's
   edges/centre **align** to other frames' (and the screen centre) within 8 units with a yellow guide

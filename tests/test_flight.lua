@@ -1,4 +1,4 @@
--- A taxi flight on the player's cast bar (#148), Quartz's Flight: drawn from
+-- A taxi flight on the player's cast bar (#148): drawn from
 -- LibTaxiTime-1.0's Current() and its "LibTaxiTime.Changed" event (#153), taken
 -- by a real cast and given back after it, and zoomed like combat when the
 -- player's zoom is on. The library here is a fake registered through LibStub
