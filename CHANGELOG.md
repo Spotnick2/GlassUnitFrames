@@ -41,7 +41,7 @@ focus and focus target frames with liquid-glass ones (plus your target's target'
 - **Pearl glass** by default, or Clean and Classic, with a clear or smoked body (Options > AddOns
   > Glass Unit Frames > Look). With Glass UI installed, it can set the glass for all your Glass
   addons.
-- **Cast bars** for you, your target, focus and pet, in Quartz's style: spell icon, "Spell ->
+- **Cast bars** for you, your target, focus and pet, with these touches: spell icon, "Spell ->
   Target", remaining / total time, spark, complete and interrupt flashes, pushback, a latency
   block on your own bar, and a craft count with one bar for a whole batch. Dock them on their
   frames or detach, drag, size, scale and colour them (the Cast bars options page).

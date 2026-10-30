@@ -1,5 +1,5 @@
--- GlassUnitFrames: taxi flight progress on the player's cast bar (#148),
--- Quartz's Flight. The timing is LibTaxiTime-1.0's (#153), an embedded
+-- GlassUnitFrames: taxi flight progress on the player's cast bar (#148).
+-- The timing is LibTaxiTime-1.0's (#153), an embedded
 -- library shared with GlassPanel's Flight plugin: the route lengths, the
 -- tracker (takeoff, landing, early landing, a /reload mid-flight) and the
 -- learned times. We draw it.

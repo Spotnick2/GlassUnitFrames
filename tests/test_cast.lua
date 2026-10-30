@@ -4,7 +4,7 @@ dofile("tests/harness.lua")
 
 standardUnits()
 loadAddon()
--- The Quartz extras (#78) have their own test: off here, so these keep
+-- The cast look extras (#78) have their own test: off here, so these keep
 -- testing the plain bar ("1.2s", the spell name alone, hidden on STOP).
 GlassUF.Castbar.options.totalTime, GlassUF.Castbar.options.targetName, GlassUF.Castbar.options.complete = false, false, false
 local c = button("target").cast

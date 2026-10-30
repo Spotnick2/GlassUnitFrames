@@ -17,7 +17,7 @@
 -- buttons (1 unit, Shift 10), Center X (the exact horizontal middle of what
 -- it's placed on, alone: never mirrored), reset this frame, lock; for a
 -- detached cast bar (#74) also W/H, scale and Attach. While unlocked, a glass dialog at the top centre
--- (Quartz's idea) says so, with Lock and the snapping / mirroring switches.
+-- says so, with Lock and the snapping / mirroring switches.
 -- Out of combat only: a combat start locks everything; unlock and nudges are
 -- refused in combat.
 
@@ -540,7 +540,7 @@ local function makePanel()
     return p
 end
 
--- The unlock dialog (#74, Quartz's idea): a glass panel at the top centre
+-- The unlock dialog (#74): a glass panel at the top centre
 -- while unlocked, with Lock and the snapping / mirroring switches.
 local function makeDialog()
     local d = CreateFrame("Frame", nil, UIParent)
