@@ -116,6 +116,7 @@ function Preview.Start()
     local p = Frames.byUnit.player
     if p then Frames.PaintDruidManaSample(p) end
     GlassUF.Swing.SetPreview(true)
+    GlassUF.Mirror.SetPreview(true)
     GlassUF.Timer.SetPreview(true)
     GlassUF.FiveSecond.SetPreview(true)
     return true
@@ -148,6 +149,7 @@ function Preview.Stop()
         if Preview.CYCLES[unit] then Castbar.ResetForPreview(c) end
     end
     GlassUF.Swing.SetPreview(false)
+    GlassUF.Mirror.SetPreview(false)
     GlassUF.Timer.SetPreview(false)
     GlassUF.FiveSecond.SetPreview(false)
     -- Real data over every sample; a cast in progress shows again.
