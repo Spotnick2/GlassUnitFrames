@@ -454,6 +454,14 @@ local function build()
 
     header(right, "Cast bars")
     note(right, "On their own page: Glass Unit Frames > Cast bars.", 270)
+    -- Here because that page doesn't scroll and is full (#149, #152).
+    local Castbar = GlassUF.Castbar
+    controls.cast_gcd = checkbox(right, "Global cooldown line on your cast bar",
+        function() return Castbar.options.gcd end,
+        function(v) GlassUF.Settings.SetCastOption("gcd", v) end)
+    controls.cast_range = checkbox(right, "Grey your cast bar out of range",
+        function() return Castbar.options.range end,
+        function(v) GlassUF.Settings.SetCastOption("range", v) end)
 
     header(right, "Positions")
     place(right, button(content, "Unlock frames", 190, Options.Unlock), 30, 4)

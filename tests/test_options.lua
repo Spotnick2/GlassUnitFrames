@@ -73,6 +73,18 @@ eq(GlassUnitFramesDB.hideBlizzardCast, true, "cast bar toggle saved")
 cast:SetChecked(false)
 cast._scripts.OnClick(cast)
 eq(GlassUnitFramesDB.hideBlizzardCast, false, "unticked: saved as false (hidden is the default, #141)")
+-- The GCD line and the range colour (#149, #152): on the main page.
+for key, dbKey in pairs({ gcd = "castGCD", range = "castRange" }) do
+    local cb = controls["cast_" .. key]
+    check(cb ~= nil and cb:GetParent() == content, key .. ": a checkbox on the main page")
+    cb:SetChecked(false)
+    cb._scripts.OnClick(cb)
+    eq(GlassUnitFramesDB[dbKey], false, key .. " off: saved")
+    eq(GlassUF.Castbar.options[key], false, key .. " off: applied")
+    cb:SetChecked(true)
+    cb._scripts.OnClick(cb)
+    eq(GlassUnitFramesDB[dbKey], nil, key .. " on: the default, not saved")
+end
 local hide = controls.hideBlizzard
 hide:SetChecked(false)
 hide._scripts.OnClick(hide)

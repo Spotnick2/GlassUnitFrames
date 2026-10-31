@@ -305,6 +305,55 @@ function API.TimerDirection(channel)
     return dirs.ElapsedTime
 end
 
+-- Whether a spell can reach a unit: true, false, or nil when unknown (no
+-- such API, a throw, a secret, no answer). Never treat nil as out of range
+-- (#152). C_Spell.IsSpellInRange(spell, optional unit) -> optional bool.
+function API.SpellInRange(spellID, unit)
+    local s = rawget(_G, "C_Spell")
+    local fn = type(s) == "table" and rawget(s, "IsSpellInRange")
+    if type(fn) ~= "function" then return nil end
+    local ok, r = pcall(fn, spellID, unit)
+    if not ok or API.IsSecret(r) or type(r) ~= "boolean" then return nil end
+    return r
+end
+
+-- A player's name from their GUID (GetPlayerInfoByGUID's 6th return), plain,
+-- or nil. Nothing simple names an NPC (#150).
+function API.PlayerNameByGUID(guid)
+    local fn = rawget(_G, "GetPlayerInfoByGUID")
+    if type(fn) ~= "function" then return nil end
+    local ok, name = pcall(function() return select(6, fn(guid)) end)
+    if not ok or API.IsSecret(name) or type(name) ~= "string" or name == "" then return nil end
+    return name
+end
+
+-- The global cooldown as a LuaDurationObject, or nil (#149). Retail's GCD
+-- spell (61304) never read active on Forever (porting guide, NodeRadar), so
+-- the spell just cast answers too: its cooldown IS the GCD while isOnGCD is
+-- true (NeverSecret, trusted only inside SPELL_UPDATE_COOLDOWN, which is where
+-- this is called). A spell with a cooldown of its own reads false: no GCD.
+API.GCD_SPELL = 61304
+function API.GCDDuration(spellID)
+    local s = rawget(_G, "C_Spell")
+    if type(s) ~= "table" then return nil end
+    local info, dur = rawget(s, "GetSpellCooldown"), rawget(s, "GetSpellCooldownDuration")
+    if type(info) ~= "function" or type(dur) ~= "function" then return nil end
+    for _, id in ipairs({ API.GCD_SPELL, spellID }) do
+        local ok, cd = pcall(info, id)
+        if ok and type(cd) == "table" and not API.IsSecret(cd) then
+            -- The GCD spell's own cooldown is the GCD; another spell's is only
+            -- while the client says it's on the GCD.
+            local on = cd.isOnGCD
+            if id == API.GCD_SPELL then on = cd.isActive end
+            if not API.IsSecret(on) and on == true then
+                local okD, d = pcall(dur, id)
+                if okD and not API.IsSecret(d) and d ~= nil then return d end
+            end
+        end
+    end
+    return nil
+end
+
 -- Class colour from the documented API (RAID_CLASS_COLORS is a FrameXML
 -- table the dump cannot confirm). Returns r, g, b or nil.
 function API.ClassColor(classFile)

@@ -101,6 +101,10 @@ function WoW.reset()
     WoW.swingInRange = {}     -- swing type -> IsTargetWithinSwingRange's answer (nil = unknown)
     WoW.cvars = { showSwingTimer = "1" }
     WoW.spellCosts = {}       -- spellID -> GetSpellPowerCost's table ("error": it throws)
+    WoW.cooldowns = {}        -- spellID -> { isActive, isOnGCD, start, duration, secret } ("error": it throws)
+    WoW.inRange = {}          -- unit -> IsSpellInRange's answer (nil, true, false, "secret", "error")
+    WoW.rangeAsked = {}       -- IsSpellInRange calls: { spellID, unit }
+    WoW.players = {}          -- guid -> { name, realm, level } for GetPlayerInfoByGUID
     WoW.uiScale = 0.64        -- UIParent's effective scale
     WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
     WoW.repeating = false
@@ -611,6 +615,45 @@ C_Spell = { GetSpellPowerCost = function(id)
     if c == "error" then error("GetSpellPowerCost failed") end
     return c
 end }
+-- C_Spell.GetSpellCooldown(spell) -> SpellCooldownInfo { startTime, duration,
+-- isEnabled, isActive, modRate, isOnGCD (NeverSecret) } and
+-- GetSpellCooldownDuration(spell, ignoreGCD) -> LuaDurationObject (dump 70532).
+-- WoW.cooldowns[id] = { isActive, isOnGCD, start, duration } drives them.
+function C_Spell.GetSpellCooldown(id)
+    local cd = WoW.cooldowns[id]
+    if cd == "error" then error("GetSpellCooldown failed") end
+    if not cd then return { startTime = 0, duration = 0, isEnabled = true, isActive = false, modRate = 1 } end
+    return { startTime = cd.start or 0, duration = cd.duration or 0, isEnabled = true,
+             isActive = cd.isActive == true, modRate = 1, isOnGCD = cd.isOnGCD }
+end
+function C_Spell.GetSpellCooldownDuration(id, ignoreGCD)
+    local cd = WoW.cooldowns[id]
+    if type(cd) ~= "table" then return nil end
+    local d = C_DurationUtil.CreateDuration()
+    d:SetTimeFromStart(cd.start or WoW.now, cd.duration or 0)
+    if cd.secret then
+        function d:GetRemainingDuration() return WoW.Secret("cooldownRemaining") end
+        function d:HasSecretValues() return true end
+    end
+    return d
+end
+-- C_Spell.IsSpellInRange(spell, optional unit) -> optional inRange (dump
+-- 70532). WoW.inRange[unit] drives it (nil = unknown; "secret"; "error").
+function C_Spell.IsSpellInRange(id, unit)
+    WoW.rangeAsked[#WoW.rangeAsked + 1] = { id, unit }
+    local r = WoW.inRange[unit]
+    if r == "error" then error("IsSpellInRange failed") end
+    if r == "secret" then return WoW.Secret("inRange") end
+    return r
+end
+
+-- GetPlayerInfoByGUID(guid) -> localizedClass, englishClass, localizedRace,
+-- englishRace, sex, name, realmName, level (dump 70532). WoW.players[guid].
+function GetPlayerInfoByGUID(guid)
+    local p = WoW.players[guid]
+    if not p then return nil end
+    return "Mage", "MAGE", "Human", "Human", 2, p.name, p.realm or "", p.level
+end
 
 -- The swing timer API (dump 70338): EnableRangeCheck(swingType, enable),
 -- IsTargetWithinSwingRange(swingType) -> optional isInRange.
