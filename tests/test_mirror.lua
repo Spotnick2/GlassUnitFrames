@@ -118,6 +118,39 @@ for _, bad in ipairs({ { nil, "x", 5 }, { "a", "", 5 }, { "a", "x", 0 }, { "a", 
 end
 eq(Mirror.Stop("nothing"), false, "stopping an unknown id: false")
 
+-- Rows shift: each bar is bound again to the timer it now shows (Codex, #163).
+-- Two custom timers, the first stopped: row 1 shows B's own duration.
+Mirror.Start("a", "A", 30)
+Mirror.Start("b", "B", 12)
+local bDur = rowOf("B").bar._timer.duration
+Mirror.Stop("a")
+eq(textOf(rows[1].label), "B", "B moved up to row 1")
+eq(rows[1].bar._timer.duration, bDur, "row 1's fill is B's duration, not A's")
+eq(rows[1].bar._timer.duration:GetTotalDuration(), 12, "B's length")
+-- A paused mirror timer moving into a row that held a custom timer: its own max and held value.
+start("BREATH", 60000, 60000, 0, "Breath")      -- row 2, under B
+WoW.mirror.BREATH.value = 41000
+WoW.tick(0.1)
+WoW.fire("MIRROR_TIMER_PAUSE", "BREATH", 1)
+WoW.mirror.BREATH.value = 5000                    -- the client moves on; a paused row doesn't
+Mirror.Stop("b")
+local moved = rows[1]
+eq(moved.timer and moved.timer.mirror, "BREATH", "breath moved up to row 1")
+eq(moved.bar._max, 60000, "its own max on the bar")
+eq(moved.bar._value, 41000, "its held value, not B's fill")
+eq(textOf(moved.time), "41", "and its seconds")
+WoW.fire("MIRROR_TIMER_PAUSE", "BREATH", 0)
+WoW.tick(0.1)
+eq(moved.bar._value, 5000, "resumed: live again")
+-- A custom timer moving into a row that held a mirror timer: timer-bound again.
+Mirror.Start("c", "C", 20)                        -- row 2
+WoW.mirror.BREATH = nil
+WoW.fire("MIRROR_TIMER_STOP", "BREATH")
+eq(textOf(rows[1].label), "C", "C moved up to row 1")
+eq(rows[1].bar._timer.duration:GetTotalDuration(), 20, "row 1 bound to C's duration")
+Mirror.Stop("c")
+check(not c.host._shown, "all stopped: hidden")
+
 -- The option: off drops the rows and the events, saved; on rebuilds.
 start("BREATH", 60000, 60000, 0, "Breath")
 S.SetMirrorTimers(false)

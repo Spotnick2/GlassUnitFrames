@@ -29,7 +29,7 @@ Mirror.COLORS = {
     FEIGNDEATH = { 0.95, 0.60, 0.20 }, DEATH = { 0.75, 0.75, 0.75 },
 }
 local CUSTOM_COLOR = { 0.55, 0.65, 0.95 }
-local SAMPLE = { label = "Breath", color = Mirror.COLORS.BREATH, value = 0.65 }
+local SAMPLE = { label = "Breath", color = Mirror.COLORS.BREATH, max = 1, value = 0.65, text = "39" }
 
 Mirror.enabled = true
 local c                -- the pill (Castbar.bars.mirror)
@@ -53,6 +53,26 @@ end
 
 local function sampling() return sampleOn.unlock or sampleOn.preview end
 
+-- What a row's bar shows belongs to its timer, not to the row: whenever a row
+-- gets a different timer (a start, or a stop moving the rows up), its bar is
+-- bound again (Codex, #163). A mirror timer keeps the client's max and its
+-- last value (a paused one holds it there), a custom one its duration, and
+-- each its last seconds text. SetMinMaxValues + SetValue take a bar back from
+-- a timer binding, as Castbar's flash does.
+local function bind(row, t)
+    local bar = row.bar
+    if t.dur then
+        bar:SetTimerDuration(t.dur, nil, API.TimerDirection(true))
+    else
+        local ok = pcall(function()
+            bar:SetMinMaxValues(0, t.max)
+            bar:SetValue(t.value)
+        end)
+        if not ok then API.Fail("mirror timer", "values refused") end
+    end
+    row.time:SetText(t.text or "")
+end
+
 -- The rows that show, top to bottom: the live timers, or the sample alone.
 local function layout()
     if not c then return end
@@ -65,6 +85,7 @@ local function layout()
     local h, inset = c.rowH or 14, Glass.Inset("small")
     for i, row in ipairs(rows) do
         local t = shown[i]
+        if t and row.timer ~= t then bind(row, t) end
         row.timer = t
         if t then
             row.bar:ClearAllPoints()
@@ -73,11 +94,6 @@ local function layout()
             row.bar:SetHeight(h)
             row.bar:SetStatusBarColor(t.color[1], t.color[2], t.color[3])
             row.label:SetText(t.label)
-            if t == SAMPLE then
-                row.bar:SetMinMaxValues(0, 1)
-                row.bar:SetValue(t.value)
-                row.time:SetText("39")
-            end
             row.bar:Show()
         else
             row.bar:Hide()
@@ -129,19 +145,11 @@ local function startMirror(name, value, maxValue, paused, label)
         API.Fail("mirror timer", "unreadable timer name")
         return
     end
-    local t = { mirror = key, label = label, color = Mirror.COLORS[key] or CUSTOM_COLOR,
+    -- max and value may be secret: kept only to hand back to the client.
+    local t = { mirror = key, label = label, color = Mirror.COLORS[key] or CUSTOM_COLOR, max = maxValue, value = value,
                 paused = not API.IsSecret(paused) and paused ~= nil and paused ~= 0 and paused ~= false }
     add("mirror:" .. key, t)
     layout()
-    for _, row in ipairs(rows) do
-        if row.timer == t then
-            local ok = pcall(function()
-                row.bar:SetMinMaxValues(0, maxValue)
-                row.bar:SetValue(value)
-            end)
-            if not ok then API.Fail("mirror timer", "values refused") end
-        end
-    end
 end
 
 -- One row's value and seconds, from the client (every frame it runs).
@@ -153,8 +161,10 @@ local function update(row)
         local v = GetMirrorTimerProgress(t.mirror)
         local s = plainNumber(v)
         if s == nil and not API.IsSecret(v) then return end   -- no progress (it just ended)
+        t.value = v
         row.bar:SetValue(v)
-        if s then row.time:SetFormattedText("%d", math.max(0, math.ceil(s / 1000))) else row.time:SetText("") end
+        t.text = s and string.format("%d", math.max(0, math.ceil(s / 1000))) or ""
+        row.time:SetText(t.text)
     else
         local left = t.ends - GetTime()
         if left <= 0 then
@@ -162,7 +172,8 @@ local function update(row)
             layout()
             return
         end
-        row.time:SetFormattedText("%d", math.ceil(left))
+        t.text = string.format("%d", math.ceil(left))
+        row.time:SetText(t.text)
     end
 end
 
@@ -223,10 +234,7 @@ function Mirror.Start(id, label, seconds, color)
     add("custom:" .. id, t)
     layout()
     for _, row in ipairs(rows) do
-        if row.timer == t then
-            row.bar:SetTimerDuration(t.dur, nil, API.TimerDirection(true))
-            update(row)
-        end
+        if row.timer == t then update(row) end
     end
     return true
 end

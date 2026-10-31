@@ -407,6 +407,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **Values to the client only:** `maxValue` to `SetMinMaxValues`, `GetMirrorTimerProgress` to
     `SetValue` (their secrecy is unmeasured). The seconds are written only from a plain progress.
     A timer name keys its row, so a secret name is skipped (`API.Fail("mirror timer")`).
+  - **A row's binding is its timer's** (Codex, #163): a row given a different timer (a start, a
+    stop moving rows up) is bound again (`bind`): a mirror timer's max and last value (a paused one
+    holds it), a custom one's duration, and its last seconds text.
   - **The pill** is a bar of Castbar's, `Castbar.bars.mirror` (its own `place` and `paintColors`,
     like the swing rows), in `Castbar.ALWAYS_DETACHED`: no docked home, `SetDetached(false)`
     refused, no Attach on its mover (`cast:mirror`). Saved in `db.castBars.mirror` (`h` is one
