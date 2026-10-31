@@ -106,6 +106,7 @@ function WoW.reset()
     WoW.rangeAsked = {}       -- IsSpellInRange calls: { spellID, unit }
     WoW.players = {}          -- guid -> { name, realm, level } for GetPlayerInfoByGUID
     WoW.mirror = {}           -- mirror timers: name -> { index, value, max, scale, paused, label }
+    WoW.ccSpells = {}         -- spellID -> true: C_Spell.IsSpellCrowdControl
     WoW.uiScale = 0.64        -- UIParent's effective scale
     WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
     WoW.repeating = false
@@ -683,6 +684,9 @@ function GetPlayerInfoByGUID(guid)
     if not p then return nil end
     return "Mage", "MAGE", "Human", "Human", 2, p.name, p.realm or "", p.level
 end
+-- C_Spell.IsSpellCrowdControl(spell) -> isCrowdControl (dump 70532): the
+-- Vanilla CC ids in WoW.ccSpells.
+function C_Spell.IsSpellCrowdControl(id) return WoW.ccSpells[id] == true end
 
 -- The swing timer API (dump 70338): EnableRangeCheck(swingType, enable),
 -- IsTargetWithinSwingRange(swingType) -> optional isInRange.

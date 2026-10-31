@@ -1388,6 +1388,7 @@ local function applyPortrait(b, mode)
     placeLevel(b)
     placeHappiness(b)
     placeMark(b)
+    GlassUF.Auras.PlaceCC(b)   -- over the tile, or where it would be (#159)
     if b.unit == "player" and GlassUF.Timer then GlassUF.Timer.Place() end   -- over the tile, or not (#120)
     Engine.MarkDirty(b, "portrait")
     Engine.MarkDirty(b, "name")
@@ -1544,6 +1545,7 @@ local function build(unit)
     if L.druidMana and class == "DRUID" then attempt("build druid mana", buildDruidMana, b, body, L) end
     if L.healPrediction then attempt("build heal prediction", buildHealPrediction, b) end
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
+    attempt("build cc", GlassUF.Auras.AttachCC, b)   -- target and focus, when on (#159)
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     placeLevel(b)
@@ -1569,9 +1571,11 @@ Engine.OnTokenChanged = function(base)
     local f = Frames.byUnit[base]
     -- The old unit's cast state is not the new one's; a preview's sample is its own (#109).
     if f and f.cast and not GlassUF.Preview.active then GlassUF.Castbar.TokenChanged(f.cast) end
+    -- The crowd-control icon follows a new focus (#159); the target's below.
+    if f and f.ccContainer and base == "focus" then GlassUF.Auras.Refresh(f) end
     if base ~= "target" then return end
     local t = f
-    if t and t.auraContainers then GlassUF.Auras.Refresh(t) end
+    if t and (t.auraContainers or t.ccContainer) then GlassUF.Auras.Refresh(t) end
     if t and t.sheen and UnitExists("target") then
         t.sheen:Stop()
         t.sheen:Play()
@@ -1584,6 +1588,7 @@ function Frames.Build(db)
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
     if db.aggroRed == false then Frames.aggroRed = false end
     GlassUF.Castbar.Configure(db)
+    GlassUF.Auras.ConfigureCC(db)
     GlassUF.Zoom.Configure(db)
     if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
     if Frames.HAPPINESS_POSITIONS[db.happiness] then Frames.happinessPos = db.happiness end
