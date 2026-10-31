@@ -997,10 +997,14 @@ break the behaviour and confirm it goes red.
   approval each turn.
 - **Projects:** CurseForge `1715351`, Wago `4N2bV0NL` (`## X-Curse-Project-ID` / `## X-Wago-ID`, both checked
   by `test_toc.lua`; #144). The repo is public; the CurseForge webhook builds every tag.
-- Releases are built by **CurseForge's own packager from the tag webhook**, reading `.pkgmeta`.
-  Don't add a GitHub release workflow. CI (`package-check.yml`) only dry-runs
-  `BigWigsMods/packager` with `-d`. The packager derives the `forever` flavor from
-  `## Interface: 16001`.
+- A tag ships three ways (#69, `References\Docs\RELEASING.md`): **CurseForge's own packager from
+  the tag webhook**, reading `.pkgmeta`; and, from `package-check.yml` (the shared template in
+  `References\Docs\release\`), a **GitHub Release** (`release` job: the zip, `release.json`, the
+  tag's changelog section) and a **Wago upload** (`wago` job, the `WAGO_API_TOKEN` secret). Both
+  publish the zip `check` built and checked, which dry-runs `BigWigsMods/packager` with `-d`:
+  the packager itself never uploads. `tests/release_files.sh` is the template's copy, unchanged.
+  An existing tag is published again from Actions > Run workflow (`tag`, `publish`). The packager
+  derives the `forever` flavor from `## Interface: 16001`.
 - **Every tag needs a `CHANGELOG.md` entry committed first**, written for players. The tag name
   sets the channel: `alpha` / `beta` / anything else → Release. That's a distribution channel,
   not a stability claim.
