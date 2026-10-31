@@ -101,6 +101,7 @@ function WoW.reset()
     WoW.swingInRange = {}     -- swing type -> IsTargetWithinSwingRange's answer (nil = unknown)
     WoW.cvars = { showSwingTimer = "1" }
     WoW.spellCosts = {}       -- spellID -> GetSpellPowerCost's table ("error": it throws)
+    WoW.ccSpells = {}         -- spellID -> true: C_Spell.IsSpellCrowdControl
     WoW.uiScale = 0.64        -- UIParent's effective scale
     WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
     WoW.repeating = false
@@ -611,6 +612,9 @@ C_Spell = { GetSpellPowerCost = function(id)
     if c == "error" then error("GetSpellPowerCost failed") end
     return c
 end }
+-- C_Spell.IsSpellCrowdControl(spell) -> isCrowdControl (dump 70532): the
+-- Vanilla CC ids in WoW.ccSpells.
+function C_Spell.IsSpellCrowdControl(id) return WoW.ccSpells[id] == true end
 
 -- The swing timer API (dump 70338): EnableRangeCheck(swingType, enable),
 -- IsTargetWithinSwingRange(swingType) -> optional isInRange.
