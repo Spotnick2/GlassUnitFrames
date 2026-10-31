@@ -337,7 +337,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       guide measured `interruptedBy` nil every time on 70338: if `kick` confirms that, close #150.
     - **Out of range** (#152, the player's bar): at START the recipient is bound from SENT's target
       name (`isNameOf`, the same match as the self-cast check) to `target` or `focus` with its
-      GUID and the spell. Five times a second while casting, `API.SpellInRange` == **false** greys
+      GUID and the spell; a name matching two different units (or an unreadable GUID) binds nothing
+      (Codex, #162). Five times a second while casting, `API.SpellInRange` == **false** greys
       the bar (`RANGE_COLOR`); true, nil, secret, a throw, another GUID behind the token, or no
       recipient keep the cast colour. No swatch (the page is full).
     - **GCD line** (#149, the player's bar): a 2 px StatusBar, a child of the button (it shows with

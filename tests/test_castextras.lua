@@ -138,6 +138,27 @@ eq(WoW.rangeAsked[#WoW.rangeAsked][2], "focus", "the focus when SENT named it")
 check(sameColor(pc.bar, RANGE), "the focus out of range: dimmed")
 stopPlayer(r2)
 
+-- Target and focus are different units with the same name: SENT can't say
+-- which one the cast is for, so the recipient stays unknown (Codex, #162).
+WoW.SetUnit("focus", { name = "Defias Pillager", guid = "GUID-Pillager-2", reaction = 2 })
+WoW.inRange.target, WoW.inRange.focus = false, true
+asked = #WoW.rangeAsked
+local r4 = guid()
+cast("player", r4, { sentTo = "Defias Pillager" })
+settle()
+check(sameColor(pc.bar, CAST), "same-named target and focus: never greyed")
+eq(#WoW.rangeAsked, asked, "and neither is asked about")
+stopPlayer(r4)
+-- The same unit behind both tokens is one recipient.
+WoW.SetUnit("focus", { name = "Defias Pillager", reaction = 2 })   -- the target's GUID
+WoW.inRange.focus = false
+local r5 = guid()
+cast("player", r5, { sentTo = "Defias Pillager" })
+settle()
+check(sameColor(pc.bar, RANGE), "one unit as target and focus: bound, greyed out of range")
+stopPlayer(r5)
+standardUnits()
+
 -- A self-cast, or a name that is neither target nor focus: never asked.
 WoW.inRange.target, WoW.inRange.focus = false, false
 asked = #WoW.rangeAsked

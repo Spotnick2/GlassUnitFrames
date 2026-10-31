@@ -412,14 +412,26 @@ local function trackPlayer(c, event, ...)
         local guid = plainGUID((...))
         c.castTarget = (guid ~= nil and guid == c.sentGUID) and c.sentTarget or nil
         -- The recipient for the range colour (#152): bound now or not at all.
+        -- A name alone can't tell two units apart: when the target and the
+        -- focus are different units of that name (Codex, #162), or one's
+        -- GUID can't be read, the recipient stays unknown. The same unit
+        -- behind both tokens is one recipient.
         c.outOfRange, c.rangeUnit, c.rangeGUID, c.rangeSpell = false, nil, nil, nil
         if c.castTarget then
+            local unit, guid, ambiguous
             for _, u in ipairs(RANGE_UNITS) do
                 if isNameOf(u, c.castTarget) then
-                    c.rangeGUID, c.rangeSpell = plainGUID(UnitGUID(u)), plainNumber((select(2, ...)))
-                    if c.rangeGUID and c.rangeSpell then c.rangeUnit = u end
-                    break
+                    local g = plainGUID(UnitGUID(u))
+                    if not g or (guid and g ~= guid) then
+                        ambiguous = true
+                    elseif not guid then
+                        unit, guid = u, g
+                    end
                 end
+            end
+            local spell = plainNumber((select(2, ...)))
+            if unit and not ambiguous and spell then
+                c.rangeUnit, c.rangeGUID, c.rangeSpell = unit, guid, spell
             end
         end
         if event == "UNIT_SPELLCAST_CHANNEL_START" then
