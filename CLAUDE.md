@@ -35,7 +35,8 @@ GlassActionBars and Glass UI). (Hosted shaman totems were removed in #58: `Totem
 managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
-  druid mana strip (bear/cat).
+  druid mana strip (bear/cat); the cast bar's GCD line, interrupter name and out-of-range colour
+  (#149, #150, #152: `/fp steps cast gcd|kick|range`, after 2026-11-04).
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -66,6 +67,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     combo pips use it. Nothing may depend on `Enum.LuaCurveType.Step` existing. `ManaAlpha` is
     the same over MANA by type (1 below full, 0 at full): `PowerAlpha` reads the current bar, rage
     or energy for a druid in a form;
+  - `SpellInRange` (true / false / nil: unknown is never out of range), `PlayerNameByGUID`,
+    `GCDDuration(spellID)` (the cast bar's extras, #149-#152);
   - `SafeFrame(type, parent, template, proof)`: a template that may be missing returns a bare
     frame rather than throwing, so `proof` names a field the template would make.
 
@@ -323,8 +326,29 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - `UPDATE_TRADESKILL_CAST_STOPPED` repaints the player's bar, so a held bar hides while a flash
       or a replacement cast stays.
   - **Options:** `latency`, `latencyText`, `pushback`, `targetName`, `totalTime`, `complete`,
-    `craftCount`, `craftMerge` (`Castbar.SetOption`, saved only when off).
-  - Measuring tool: `Tools/CastProbe`.
+    `craftCount`, `craftMerge`, `gcd`, `range` (`Castbar.SetOption`, saved only when off). `gcd` and
+    `range` are checkboxes under the **main** page's Cast bars header: the Cast bars page is full.
+  - **Built offline, each gated on a CastProbe procedure** (no in-game check yet):
+    - **Interrupter** (#150, every bar): INTERRUPTED and CHANNEL_STOP carry `interruptedBy`. A plain
+      GUID is named by `Castbar.InterrupterName` (a token showing it, else
+      `API.PlayerNameByGUID`), kept per cast (`c.interrupter`, cleared at START and on a token
+      change), and the flash says `Interrupted by <name>`. A channel's STOP after the flash renames
+      that flash. No name (NPC nobody targets, nil, secret) is plain "Interrupted". The porting
+      guide measured `interruptedBy` nil every time on 70338: if `kick` confirms that, close #150.
+    - **Out of range** (#152, the player's bar): at START the recipient is bound from SENT's target
+      name (`isNameOf`, the same match as the self-cast check) to `target` or `focus` with its
+      GUID and the spell; a name matching two different units (or an unreadable GUID) binds nothing
+      (Codex, #162). Five times a second while casting, `API.SpellInRange` == **false** greys
+      the bar (`RANGE_COLOR`); true, nil, secret, a throw, another GUID behind the token, or no
+      recipient keep the cast colour. No swatch (the page is full).
+    - **GCD line** (#149, the player's bar): a 2 px StatusBar, a child of the button (it shows with
+      no cast), along the top of the power bar when docked (the five-second rule owns its bottom),
+      along the bar's bottom when detached. Its own frame registers `SPELL_UPDATE_COOLDOWN` while
+      the option is on; `API.GCDDuration` takes the GCD spell 61304 when it reads active (it never
+      did, porting guide), else the spell SENT in the last 0.5 s while its `isOnGCD` is true, and
+      the duration goes to `SetTimerDuration`. Hidden after its plain remaining time, else 1.5 s
+      (generation-checked). A spell with its own cooldown shows no line.
+  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above).
 - **`Swing.lua`** (#87): the player's swing timer.
   - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
     type)`. It's plain in combat, and it still arrives with Blizzard's "Enable Swing Timer" off
@@ -641,7 +665,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;

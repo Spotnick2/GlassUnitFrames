@@ -22,6 +22,11 @@
 -- a spark on the fill's moving edge, a short "complete" flash when a cast
 -- finishes, the cast time precision, and colours for the texts, the fills,
 -- the spark and the pill's background (LibGlass's SetSurfaceTint).
+--
+-- Built offline, awaiting the in-game check (/fp steps cast gcd|kick|range):
+-- "Interrupted by <name>" when interruptedBy is readable (#150), a dimmed bar
+-- while your cast's target is out of range (#152), and the global cooldown as
+-- a thin line on your bar (#149).
 
 GlassUF = GlassUF or {}
 local API, Glass, Engine, Frames = GlassUF.API, GlassUF.Glass, GlassUF.Engine, GlassUF.Frames
@@ -33,10 +38,12 @@ local LAG = { 0.95, 0.20, 0.18, 0.55 }
 
 -- Options (the Cast bars page): all on by default, saved only when off.
 Castbar.options = { latency = true, latencyText = true, pushback = true,
-                    targetName = true, totalTime = true, complete = true, craftCount = true, craftMerge = true }
+                    targetName = true, totalTime = true, complete = true, craftCount = true, craftMerge = true,
+                    gcd = true, range = true }
 Castbar.DB_KEYS = { latency = "castLatency", latencyText = "castLatencyText", pushback = "castPushback",
                     targetName = "castTargetName", totalTime = "castTotalTime", complete = "castComplete",
-                    craftCount = "castCraftCount", craftMerge = "castCraftMerge" }
+                    craftCount = "castCraftCount", craftMerge = "castCraftMerge",
+                    gcd = "castGCD", range = "castRange" }
 
 -- Colours, every bar (#78). Plain numbers only: they go to SetStatusBarColor
 -- on glass bars, whose LibGlass hook compares them. `background` nil = the
@@ -115,6 +122,59 @@ local function plainGUID(v)
 end
 local plainString = plainGUID   -- the same test: a plain, non-empty string
 local paintColors   -- one bar's colours (defined with the colour setters)
+
+-- Whether a plain name is the unit's, in every form a SENT target can take:
+-- the display name (its format unmeasured), the first name, and first +
+-- surname (UnitName gives the surname where the realm should be).
+local function isNameOf(unit, name)
+    if not (name and UnitExists(unit)) then return false end
+    local first, surname = UnitName(unit)
+    first, surname = plainString(first), plainString(surname)
+    return name == plainString(GetUnitName(unit, false)) or name == first
+        or (first ~= nil and surname ~= nil and name == first .. " " .. surname)
+end
+
+-- Who interrupted a cast (#150), from the interruptedBy GUID: a unit we can
+-- see by a token, else a player's name from the GUID. An NPC nobody targets
+-- has no name: nil, and the flash says "Interrupted" as before. The porting
+-- guide measured interruptedBy nil every time on 70338 (re-measured by /fp
+-- steps cast kick).
+local NAME_UNITS = { "player", "pet", "target", "focus", "targettarget", "focustarget", "mouseover" }
+for i = 1, 4 do NAME_UNITS[#NAME_UNITS + 1] = "party" .. i; NAME_UNITS[#NAME_UNITS + 1] = "partypet" .. i end
+for i = 1, 40 do NAME_UNITS[#NAME_UNITS + 1] = "raid" .. i end
+function Castbar.InterrupterName(guid)
+    if not plainGUID(guid) then return nil end
+    local ok, name = pcall(function()
+        for _, u in ipairs(NAME_UNITS) do
+            if UnitExists(u) and plainGUID(UnitGUID(u)) == guid then
+                local n = plainString(GetUnitName(u, false))
+                if n then return n end
+            end
+        end
+    end)
+    if ok and name then return name end
+    return API.PlayerNameByGUID(guid)
+end
+
+-- The out-of-range colour (#152): a dimmed bar while the unit your cast is
+-- for can't be reached. The recipient is bound at the START from SENT's
+-- target name, among these tokens, and stays bound only while the token holds
+-- the same GUID: a target change mid-cast never recolours by the new target.
+-- Unknown (nil) is never out of range.
+local RANGE_UNITS = { "target", "focus" }
+local RANGE_COLOR = { 0.50, 0.50, 0.55 }
+local RANGE_EVERY = 0.2   -- seconds between checks while casting
+
+local function checkRange(c)
+    local out = false
+    if c.rangeUnit and Castbar.options.range and plainGUID(UnitGUID(c.rangeUnit)) == c.rangeGUID then
+        out = API.SpellInRange(c.rangeSpell, c.rangeUnit) == false
+    end
+    if out == c.outOfRange then return end
+    c.outOfRange = out
+    local col = out and RANGE_COLOR or Castbar.colors[c.channel and "channel" or "cast"]
+    c.bar:SetStatusBarColor(col[1], col[2], col[3])
+end
 
 --------------------------------------------------------------------------------
 -- Latency estimate (#72). On Forever the SENT and START of a hard cast arrive
@@ -299,15 +359,11 @@ local function trackPlayer(c, event, ...)
         -- display name's format is unmeasured; UnitName gives the first name
         -- with the surname where the realm should be).
         local target = plainString((...))
-        if target then
-            local first, surname = UnitName("player")
-            first, surname = plainString(first), plainString(surname)
-            if target == plainString(GetUnitName("player", false)) or target == first
-                or (first and surname and target == first .. " " .. surname) then
-                target = nil
-            end
-        end
+        if target and isNameOf("player", target) then target = nil end
         c.sentTarget = target
+        -- The GCD line (#149): the spell sent, asked about at the
+        -- SPELL_UPDATE_COOLDOWN that follows it.
+        c.sentSpell, c.sentAt = plainNumber((select(3, ...))), GetTime()
         local now, stamp = GetTime(), lat.stamp
         lat.stamp = nil
         if stamp and now > stamp and now - stamp <= STALE then addSample(now - stamp) end
@@ -355,6 +411,29 @@ local function trackPlayer(c, event, ...)
         -- SENT and START share a frame (measured): the target is this cast's.
         local guid = plainGUID((...))
         c.castTarget = (guid ~= nil and guid == c.sentGUID) and c.sentTarget or nil
+        -- The recipient for the range colour (#152): bound now or not at all.
+        -- A name alone can't tell two units apart: when the target and the
+        -- focus are different units of that name (Codex, #162), or one's
+        -- GUID can't be read, the recipient stays unknown. The same unit
+        -- behind both tokens is one recipient.
+        c.outOfRange, c.rangeUnit, c.rangeGUID, c.rangeSpell = false, nil, nil, nil
+        if c.castTarget then
+            local unit, guid, ambiguous
+            for _, u in ipairs(RANGE_UNITS) do
+                if isNameOf(u, c.castTarget) then
+                    local g = plainGUID(UnitGUID(u))
+                    if not g or (guid and g ~= guid) then
+                        ambiguous = true
+                    elseif not guid then
+                        unit, guid = u, g
+                    end
+                end
+            end
+            local spell = plainNumber((select(2, ...)))
+            if unit and not ambiguous and spell then
+                c.rangeUnit, c.rangeGUID, c.rangeSpell = unit, guid, spell
+            end
+        end
         if event == "UNIT_SPELLCAST_CHANNEL_START" then
             c.craft = nil
         else
@@ -500,7 +579,8 @@ local function showCast(f, c, d, channel)
     end
     -- Colour AFTER attaching the timer: attaching can reset the bar's visual
     -- state (DinoUF re-applies it afterwards too, modules/cast.lua).
-    local col = Castbar.colors[channel and "channel" or "cast"]
+    local col = (c.outOfRange and Castbar.options.range) and RANGE_COLOR
+        or Castbar.colors[channel and "channel" or "cast"]
     c.bar:SetStatusBarColor(col[1], col[2], col[3])
     c.duration, c.channel = d, channel
     local info = channel and UnitChannelInfo or UnitCastingInfo
@@ -537,6 +617,7 @@ local function flash(c, text, guid, kind)
     c.flashing = true
     c.flight = nil
     if kind ~= "complete" then c.flashedGUID = guid end
+    c.flashText = text
     c.duration = nil
     hideLag(c)
     c.spark:Hide()
@@ -544,7 +625,12 @@ local function flash(c, text, guid, kind)
     c.bar:SetValue(1)
     local col = Castbar.colors[kind or "failed"]
     c.bar:SetStatusBarColor(col[1], col[2], col[3])
-    if text then c.spell:SetText(text) end
+    local by = c.interrupter
+    if text == "Interrupted" and by and by.guid == guid then
+        c.spell:SetFormattedText("Interrupted by %s", by.name)
+    elseif text then
+        c.spell:SetText(text)
+    end
     -- The icon still shows the last cast shown: wrong for a failure of
     -- another cast (an instant refused after SENT, no START). Codex, #79.
     if kind ~= "complete" and guid ~= nil and c.latestGUID ~= nil and guid ~= c.latestGUID then
@@ -558,6 +644,18 @@ local function flash(c, text, guid, kind)
             idle(c)   -- the flight comes back after a cast's flash (#148)
         end
     end)
+end
+
+-- An interrupt's interruptedBy (#150), kept for the cast's flash. The flash
+-- starts on a repeat (mayFlash), and a channel's STOP may come after its
+-- INTERRUPTED: a flash already up for that cast gets the name too.
+local function noteInterrupter(c, guid, by)
+    local name = by and Castbar.InterrupterName(by)
+    if not name then return end
+    c.interrupter = { guid = guid, name = name }
+    if c.flashing and c.flashText == "Interrupted" and c.flashedGUID == guid then
+        c.spell:SetFormattedText("Interrupted by %s", name)
+    end
 end
 
 -- May a FAILED/INTERRUPTED for `guid` start a flash? The client repeats an
@@ -586,7 +684,10 @@ Engine.SetPainter("cast", function(f, event, ...)
     if TRACK_ONLY[event] then return end
     if CAST_START[event] then
         c.latestGUID = plainGUID((...))
-        c.failedGUID = nil
+        c.failedGUID, c.interrupter = nil, nil
+    elseif event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+        -- Payload: castGUID, spellID, interruptedBy, castBarID.
+        noteInterrupter(c, plainGUID((...)), plainGUID((select(3, ...))))
     end
 
     local d, channel = currentCast(f.unit)
@@ -626,6 +727,67 @@ Engine.SetPainter("cast", function(f, event, ...)
     -- Nothing casting: the flight or hidden, unless a flash is still up.
     if not c.flashing then idle(c) end
 end)
+
+--------------------------------------------------------------------------------
+-- The global cooldown (#149): a thin line on the player's bar, filled by the
+-- client from the GCD's LuaDurationObject (SetTimerDuration: no time read in
+-- Lua, so a secret duration works too). Its own event frame:
+-- SPELL_UPDATE_COOLDOWN is a world event only this needs, registered only
+-- while the option is on. It shows with no cast too: that's the point after
+-- an instant.
+--------------------------------------------------------------------------------
+
+local GCD_H = 2
+local GCD_MAX = 1.5     -- Vanilla's GCD: the hide when the duration can't say
+local GCD_FRESH = 0.5   -- seconds after SENT that its spell answers for the GCD
+local gcdFrame = CreateFrame("Frame")
+local gcdGen = 0
+
+local function hideGCD()
+    gcdGen = gcdGen + 1
+    local c = Castbar.bars.player
+    if c and c.gcd then c.gcd:Hide() end
+end
+
+local function onCooldown()
+    local c = Castbar.bars.player
+    if not (c and c.gcd and Castbar.options.gcd) then return end
+    local P = GlassUF.Preview
+    if P and P.active then return end
+    -- The spell just sent (SPELL_UPDATE_COOLDOWN follows it at once), else
+    -- the GCD spell alone. Any other update while the GCD runs re-attaches
+    -- the same cooldown, which changes nothing.
+    local spell = c.sentAt and GetTime() - c.sentAt <= GCD_FRESH and c.sentSpell or nil
+    local d = API.GCDDuration(spell)
+    if not d then return end
+    local g = c.gcd
+    if not attempt("gcd timer", g.SetTimerDuration, g, d, nil, API.TimerDirection(false)) then
+        hideGCD()
+        return
+    end
+    local col = Castbar.colors.spark
+    g:SetStatusBarColor(col[1], col[2], col[3], col[4])
+    g:Show()
+    gcdGen = gcdGen + 1
+    local gen = gcdGen
+    -- Hidden when it ends: the remaining time when it's plain, else Vanilla's.
+    local ok, left = pcall(d.GetRemainingDuration, d)
+    left = ok and plainNumber(left) or nil
+    if not left or left <= 0 or left > GCD_MAX then left = GCD_MAX end
+    C_Timer.After(left, function() if gen == gcdGen then hideGCD() end end)
+end
+gcdFrame:SetScript("OnEvent", function() attempt("gcd", onCooldown) end)
+
+-- Registered while the option is on and the player's bar exists.
+local function syncGCD()
+    local c = Castbar.bars.player
+    if Castbar.options.gcd and c and c.gcd then
+        API.RegisterEvents(gcdFrame, { "SPELL_UPDATE_COOLDOWN" })
+    else
+        gcdFrame:UnregisterEvent("SPELL_UPDATE_COOLDOWN")
+        hideGCD()
+    end
+end
 
 --------------------------------------------------------------------------------
 -- Building
@@ -868,6 +1030,19 @@ function placeCast(c)
     end
     if c.inside then layoutRows(c.b, not detached and host:IsShown()) end
     if c.lagText and not detached then c.lagText:SetText("") end
+    -- The GCD line (#149): docked inside, along the top of the power bar (the
+    -- five-second rule owns its bottom); otherwise along the bar's bottom.
+    local g = c.gcd
+    if g then
+        g:ClearAllPoints()
+        if c.inside and not detached then
+            g:SetPoint("TOPLEFT", c.b.power, "TOPLEFT", 0, 0)
+            g:SetPoint("TOPRIGHT", c.b.power, "TOPRIGHT", 0, 0)
+        else
+            g:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
+            g:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+        end
+    end
 end
 
 function Castbar.IsDetached(unit)
@@ -1145,6 +1320,15 @@ function Castbar.Build(b, body, L)
         c.lag:SetAllPoints(bar)
         c.lag:Hide()
         c.lagText = Glass.Font(txt, 8, "RIGHT")
+        -- The GCD line (#149): a bar of its own, a child of the button, not of
+        -- the host: it shows with no cast (after an instant). Placed by
+        -- placeCast, above the bar's text.
+        local g = CreateFrame("StatusBar", nil, b)
+        g:SetStatusBarTexture(Glass.MEDIA .. "bar_fill")
+        g:SetHeight(GCD_H)
+        g:SetFrameLevel(level + 12)
+        g:Hide()
+        c.gcd = g
     end
     if c.inside then
         host:SetScript("OnShow", function() layoutRows(b, not c.detached) end)
@@ -1183,18 +1367,30 @@ function Castbar.Build(b, body, L)
             c.time:SetFormattedText("+%d:%02d", math.floor(over / 60), over % 60)
         end
     end
-    host.acc = 0
+    host.acc, host.rangeAcc = 0, 0
     host:SetScript("OnUpdate", function(self, elapsed)
         self.acc = self.acc + elapsed
         if self.acc < 0.05 then return end
+        local step = self.acc
         self.acc = 0
         if c.flight then
             if c.duration then attempt("flight time", paintFlightTime) end
-        elseif c.duration then attempt("cast time", paintTime) end
+        elseif c.duration then
+            attempt("cast time", paintTime)
+            -- The range colour (#152): a few times a second, a live cast only.
+            if c.rangeUnit and not c.flashing then
+                self.rangeAcc = self.rangeAcc + step
+                if self.rangeAcc >= RANGE_EVERY then
+                    self.rangeAcc = 0
+                    attempt("cast range", checkRange, c)
+                end
+            end
+        end
     end)
     Castbar.bars[b.unit] = c
     Castbar.Place(c)
     paintColors(c)
+    if c.gcd then syncGCD() end
     return c
 end
 
@@ -1203,7 +1399,8 @@ end
 -- full repaint: that would let an interrupt's repeats flash again.
 function Castbar.TokenChanged(c)
     c.flashing = false
-    c.latestGUID, c.failedGUID = nil, nil
+    c.latestGUID, c.failedGUID, c.interrupter = nil, nil, nil
+    c.rangeUnit, c.outOfRange = nil, false
     -- The old unit's spell icon: with no newest guid, a later FAILED (no
     -- START) would flash it (Codex, #79). The repaint that follows (deferred)
     -- shows the new unit's icon if it is casting.
@@ -1217,6 +1414,7 @@ function Castbar.SetOption(key, on)
     -- Off mid-batch: this batch stops merging (on: from the next batch).
     local p = Castbar.bars.player
     if key == "craftMerge" and not on and p and p.craft then p.craft.merged, p.craft.holding = false, nil end
+    if key == "gcd" then syncGCD() end
     Engine.RepaintChannel("cast")
     return true
 end
@@ -1234,7 +1432,9 @@ function Castbar.ResetForPreview(c)
     c.duration, c.channel, c.merged, c.delay, c.chanEnd = nil, nil, false, nil, nil
     c.castTarget, c.sentTarget, c.sentGUID, c.succeededGUID, c.flashedGUID = nil, nil, nil, nil, nil
     c.craft, c.craftHold, c.flight = nil, nil, nil
+    c.sentSpell, c.sentAt = nil, nil
     hideLag(c)
+    if c.gcd then hideGCD() end
     c.host:Hide()
 end
 
@@ -1275,4 +1475,5 @@ function Castbar.SampleEnd(c, failed, channel)
     end
 end
 
-Castbar._test = { lat = lat, mayFlash = mayFlash, SAMPLES = SAMPLES, STALE = STALE, geometry = geometry }
+Castbar._test = { lat = lat, mayFlash = mayFlash, SAMPLES = SAMPLES, STALE = STALE, geometry = geometry,
+                  RANGE_COLOR = RANGE_COLOR, RANGE_EVERY = RANGE_EVERY, GCD_MAX = GCD_MAX, gcdFrame = gcdFrame }

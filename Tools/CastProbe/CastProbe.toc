@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: CastProbe
-## Notes: Throwaway probe for GlassUnitFrames: cast, swing, craft and mana event traces. A ForeverProbe module: /fp cast
+## Notes: Throwaway probe for GlassUnitFrames: cast, swing, craft and mana event traces; the GCD, interrupt and range checks. A ForeverProbe module: /fp cast
 ## Author: Spotnick
 ## Version: dev
 ## Dependencies: ForeverProbe

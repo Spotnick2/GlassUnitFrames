@@ -63,6 +63,30 @@ for _, entry in ipairs(FP.lines) do
 end
 check(inHost, "and in the host's console")
 
+-- #149: the cooldown update after a SENT reads the GCD spell and the spell sent.
+WoW.cooldowns[2061] = { isActive = true, isOnGCD = true, start = WoW.now, duration = 1.5 }
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "", "Cast-3-2", 2061)
+WoW.fire("SPELL_UPDATE_COOLDOWN")
+check(has("^.*GCD payload=.* gcdSpell id=61304 .*isActive=false.* sent id=2061 .*isOnGCD=true"), "the GCD line")
+check(has("dur{secretVals=false total=1%.500"), "the cooldown's duration object")
+eq(T.seen.gcdOn, 1, "counted as on the GCD")
+WoW.fire("SPELL_UPDATE_COOLDOWN")
+eq(T.seen.gcd, 1, "one line per SENT, not per update")
+-- #150: a target's interrupt, with the name GUF would show.
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", "Cast-3-3", 133, "GUID-Morphisto", "CastBar-1")
+check(has("TARGET INTERRUPTED target Cast%-3%-3 133 GUID%-Morphisto .* gufName=Morphisto isPlayer=true"),
+    "the target's interrupt and GUF's name for it")
+WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target", "Cast-3-4", 133, WoW.Secret("by"), "CastBar-1")
+check(has("TARGET INTERRUPTED target Cast%-3%-4 133 S"), "a secret interruptedBy is S")
+check(not has("TARGET ERR"), "no error on the target's events")
+-- #152: the range line.
+WoW.inRange.target = false
+check(T.rangeLine():find("inRange=false"), "the range line reads IsSpellInRange")
+-- The procedures exist.
+for _, name in ipairs({ "gcd", "kick", "range" }) do
+    check(FP.procedures["CastProbe/" .. name] ~= nil, "procedure " .. name .. " defined")
+end
+
 -- Nothing in chat: the console and the saved log only.
 for _, line in ipairs(WoW.chat) do
     check(not line:find("CastProbe") and not line:find("====") and not line:find("START"), "no probe line in chat: " .. line)
