@@ -37,7 +37,8 @@ Blizzard.active = false   -- true once anything was hidden this session
 -- puts it back in its container (ManagedFrameSystem UpdateFrame), inside Edit
 -- Mode's secure pass, so a reparent hook fights Blizzard there. Plus the ToT
 -- frames, which call GetParent():ConfigureAuraContainer() on show and hide.
-Blizzard.KEEP_PARENT = { TargetFrameToT = true, FocusFrameToT = true }
+-- MirrorTimerContainer (#151) is an Edit Mode system: Edit Mode places it.
+Blizzard.KEEP_PARENT = { TargetFrameToT = true, FocusFrameToT = true, MirrorTimerContainer = true }
 
 local function keepsParent(frame, name)
     return frame.isManagedFrame == true or Blizzard.KEEP_PARENT[name] == true

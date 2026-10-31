@@ -86,6 +86,16 @@ check(T.rangeLine():find("inRange=false"), "the range line reads IsSpellInRange"
 for _, name in ipairs({ "gcd", "kick", "range" }) do
     check(FP.procedures["CastProbe/" .. name] ~= nil, "procedure " .. name .. " defined")
 end
+-- #151: the mirror timers' file, the same module.
+assert(loadfile("Tools/CastProbe/Mirror.lua"))("CastProbe", ns)
+WoW.mirror.BREATH = { index = 1, value = 30000, max = 60000, label = "Breath" }
+fp("cast mirror")
+check(has("mirror combat=false 1:{name=BREATH value=30000 max=60000 .* progress=30000}"), "/fp cast mirror")
+WoW.secretFields.mirror = true
+fp("cast mirror")
+check(has("1:{name=BREATH value=<secret> max=<secret>"), "secret values shown as <secret>")
+WoW.secretFields.mirror = nil
+check(FP.procedures["CastProbe/mirror"] ~= nil, "procedure mirror defined")
 
 -- Nothing in chat: the console and the saved log only.
 for _, line in ipairs(WoW.chat) do

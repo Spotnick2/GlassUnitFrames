@@ -36,7 +36,8 @@ managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
   druid mana strip (bear/cat); the cast bar's GCD line, interrupter name and out-of-range colour
-  (#149, #150, #152: `/fp steps cast gcd|kick|range`, after 2026-11-04).
+  (#149, #150, #152: `/fp steps cast gcd|kick|range`, after 2026-11-04); the mirror timers
+  (#151: `/fp steps cast mirror`).
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -44,7 +45,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 `Libs\LibTaxiTime-1.0\LibTaxiTime-1.0.xml` (flight times) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `FiveSecond.lua` → `Zoom.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `Mirror.lua` → `FiveSecond.lua` → `Zoom.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -399,6 +400,28 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     its controls inside the canvas). Idempotent; off -> on in a fight starts counting
     from now.
   - `Timer.enabled` is public: ForeverCombatAssistant hides its own timer while it's true.
+- **`Mirror.lua`** (#151): the client's mirror timers (breath, fatigue, feign death) as glass rows,
+  plus a custom-timer hook. **Built offline; awaiting `/fp steps cast mirror`.**
+  - **Events:** `MIRROR_TIMER_START` / `PAUSE` / `STOP` on its own frame, and a rebuild from
+    `GetMirrorTimerInfo(1..3)` at `PLAYER_ENTERING_WORLD` (Blizzard's container does the same).
+  - **Values to the client only:** `maxValue` to `SetMinMaxValues`, `GetMirrorTimerProgress` to
+    `SetValue` (their secrecy is unmeasured). The seconds are written only from a plain progress.
+    A timer name keys its row, so a secret name is skipped (`API.Fail("mirror timer")`).
+  - **The pill** is a bar of Castbar's, `Castbar.bars.mirror` (its own `place` and `paintColors`,
+    like the swing rows), in `Castbar.ALWAYS_DETACHED`: no docked home, `SetDetached(false)`
+    refused, no Attach on its mover (`cast:mirror`). Saved in `db.castBars.mirror` (`h` is one
+    row); default 220×14 at (0, 270), where Blizzard's sit. A UIParent child, up to 5 rows in start
+    order. Colours are fixed (`Mirror.COLORS`): the Cast bars page has no room for swatches.
+  - **Samples:** a "Breath" row while unlocked (`Mirror.SetSample`, so the pill has a size to
+    drag) and in a preview (`Mirror.SetPreview`). A live timer replaces the sample.
+  - **Custom timers:** `GlassUF.Mirror.Start(id, label, seconds[, { r, g, b }])` /
+    `Mirror.Stop(id)`, plain arguments only; a duration we own drains the row and it ends itself.
+  - **Blizzard's** `MirrorTimerContainer` (an Edit Mode system) is hidden at load by
+    `Blizzard.HideFrame` while ours are on and `hideBlizzard` is set, and kept under its parent
+    (`KEEP_PARENT`).
+  - **Option:** `db.mirrorTimers` (false when off), `Settings.SetMirrorTimers`, `/glass breath
+    on|off` (`/glass mirror` is the frame mirroring), a checkbox under the main page's Combat timer.
+    Ours follow live; Blizzard's after a `/reload`.
 - **`FiveSecond.lua`** (#94): the five-second rule, for mana users only (none for warriors or rogues).
   - **The strip:** 2 px red along the bottom of the player's power bar, or of the druid mana strip in
     a form (chosen by power token; `UNIT_DISPLAYPOWER` re-picks it). An `OverlayBar` inside the
@@ -646,7 +669,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - The steps: `UnregisterUnitWatch`, unregister events, hide, reparent to a hidden frame.
   - **Kept parents** (#58): every **managed frame** (`isManagedFrame`, set by
     `ManagedFrameTemplate`: PetFrame, PlayerCastingBarFrame) and the `KEEP_PARENT` names
-    (TargetFrameToT, FocusFrameToT) are never reparented or `SetParent`-hooked. A managed frame is
+    (TargetFrameToT, FocusFrameToT, MirrorTimerContainer: #151) are never reparented or `SetParent`-hooked. A managed frame is
     put back in its container on every show (`ManagedFrameSystem` `UpdateFrame`) inside Edit
     Mode's secure pass, and a hook fighting that threw "attempt to call a nil value" on Edit Mode
     exit. The ToT frames call `GetParent():ConfigureAuraContainer()`. **Never reparent a managed
@@ -665,11 +688,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `mirrorTimers` (#151, false when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|regen on|off|link on|off`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|breath on|off|regen on|off|link on|off`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames
