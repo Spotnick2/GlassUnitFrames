@@ -35,7 +35,7 @@ GlassActionBars and Glass UI). (Hosted shaman totems were removed in #58: `Totem
 managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
-  druid mana strip (bear/cat).
+  druid mana strip (bear/cat); the crowd-control icon (#159: `/fp steps cast cc`, after 2026-11-04).
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -579,6 +579,17 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - We only style the client's buttons (`SetIcon`, `SetDurationCooldown`, `SetDurationText`,
     `SetApplicationCount`). **No scripts on them, no aura reads, no filtering** (impossible
     under secrecy).
+  - **The crowd-control icon** (#159, target and focus, **off by default**; built offline,
+    gated on `/fp steps cast cc`): one more container per unit, filtered `HARMFUL|CROWD_CONTROL`
+    (`AuraUtil.AuraFilters.CrowdControl`), `maxFrameCount = 1`, its button the portrait's size
+    (`styleButton(button, size, ...)`). Built the first time it's on (`Auras.AttachCC`, also from
+    `Frames.Build`). `Auras.PlaceCC`: **portrait** = CENTER on the tile, above the model and under
+    the tile's rim; with no tile shown, where the tile would be (focus: its left). **beside** =
+    the same at scale 0.6 outside the tile (or the body). It's a child of the secure button, so
+    every placement runs out of combat (`WhenOutOfCombat("cc:<unit>")`, also from a 3D/2D switch
+    in combat). Target and focus changes refresh it. `db.ccIcon[unit]` ("portrait" | "beside";
+    off not saved), `Settings.SetCCIcon`, `/glass cc target|focus off|portrait|beside`, radio rows
+    under the main page's Portraits. If the filter matches nothing on Forever, #159 closes.
   - The container API isn't in the dump; `test_methods.lua` allowlists exactly those methods,
     with DinoUF as the evidence.
 - **Class resources** (#29): combo pips on the target frame for rogues and cat-form druids, each
@@ -641,11 +652,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `ccIcon[unit]` (#159), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|regen on|off|link on|off`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|cc <unit> <mode>|regen on|off|link on|off`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames

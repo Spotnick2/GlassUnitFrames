@@ -211,6 +211,7 @@ local HELP = {
     "look pearl|clean|classic  - the glass: LibGlass's Pearl (the default), Clean or Classic (after /reload, saved)",
     "timer on|off  - the combat timer over your portrait (saved)",
     "flight on|off  - a taxi flight on your cast bar, from Glass Panel's flight timer (saved)",
+    "cc target|focus off|portrait|beside  - the crowd-control icon, over the portrait or beside the frame (saved)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
@@ -392,6 +393,17 @@ function Settings_.SetPortraitMode(unit, mode)
     GlassUnitFramesDB.portrait[unit] = mode ~= "3d" and mode or nil
     if next(GlassUnitFramesDB.portrait) == nil then GlassUnitFramesDB.portrait = nil end
     return true, why
+end
+
+-- The crowd-control icon (#159), per unit: db.ccIcon[unit] = "portrait" |
+-- "beside"; off is not saved, and an empty table goes. Applied out of combat.
+function Settings_.SetCCIcon(unit, mode)
+    if not GlassUF.Auras.SetCCMode(unit, mode) then return false end
+    local db = GlassUnitFramesDB
+    db.ccIcon = type(db.ccIcon) == "table" and db.ccIcon or {}
+    db.ccIcon[unit] = mode ~= "off" and mode or nil
+    if next(db.ccIcon) == nil then db.ccIcon = nil end
+    return true
 end
 
 function Settings_.SetHappinessPosition(pos)
@@ -584,6 +596,13 @@ local function slash(msg)
             say(unit .. " portrait " .. mode)
         else
             say("portrait player|target|pet 3d|2d|none")
+        end
+    elseif cmd == "cc" then
+        local unit, mode = arg:match("^(%S+)%s+(%S+)$")
+        if unit and Settings_.SetCCIcon(unit, mode) then
+            say(unit .. " crowd-control icon " .. mode)
+        else
+            say("cc target|focus off|portrait|beside")
         end
     elseif cmd == "mark" then
         if Settings_.SetMark(arg) then

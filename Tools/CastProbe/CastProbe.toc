@@ -8,3 +8,4 @@
 ## SavedVariables: CastProbeDB
 
 CastProbe.lua
+CC.lua
