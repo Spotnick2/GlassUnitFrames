@@ -105,6 +105,7 @@ function WoW.reset()
     WoW.inRange = {}          -- unit -> IsSpellInRange's answer (nil, true, false, "secret", "error")
     WoW.rangeAsked = {}       -- IsSpellInRange calls: { spellID, unit }
     WoW.players = {}          -- guid -> { name, realm, level } for GetPlayerInfoByGUID
+    WoW.mirror = {}           -- mirror timers: name -> { index, value, max, scale, paused, label }
     WoW.uiScale = 0.64        -- UIParent's effective scale
     WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
     WoW.repeating = false
@@ -566,7 +567,35 @@ function WoW.CreateBlizzardFrames()
         end
         f:RegisterEvent("PLAYER_ENTERING_WORLD")
     end
+    -- Blizzard's mirror timers (Blizzard_MirrorTimer): an Edit Mode system, not a unit frame.
+    local mc = CreateFrame("Frame", "MirrorTimerContainer", UIParent)
+    mc._blizzard = true
+    for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "MIRROR_TIMER_START", "MIRROR_TIMER_STOP", "MIRROR_TIMER_PAUSE" }) do
+        mc:RegisterEvent(ev)
+    end
     UIParent._protected = nil   -- the client's UIParent is not protected by its children
+end
+
+-- The mirror timers (dump 70532): GetMirrorTimerInfo(index) -> name, startValue,
+-- maxValue, scale, paused, label, spellID ("UNKNOWN" when idle);
+-- GetMirrorTimerProgress(name) -> optional progress (ms). WoW.mirror[name] =
+-- { index, value, max, scale, paused, label }; WoW.secretFields.mirror makes
+-- the values secret.
+function GetMirrorTimerInfo(i)
+    for name, t in pairs(WoW.mirror) do
+        if t.index == i then
+            local s = WoW.secretFields.mirror
+            return name, s and WoW.Secret("value") or t.value, s and WoW.Secret("max") or t.max, t.scale or -1,
+                t.paused or 0, t.label or name, 0
+        end
+    end
+    return "UNKNOWN", 0, 0, 0, 0, "", 0
+end
+function GetMirrorTimerProgress(name)
+    local t = WoW.mirror[name]
+    if not t then return nil end
+    if WoW.secretFields.mirror then return WoW.Secret("progress") end
+    return t.value
 end
 function WoW.SetEditMode(open)
     if open and not rawget(_G, "EditModeManagerFrame") then

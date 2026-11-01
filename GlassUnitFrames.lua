@@ -211,6 +211,7 @@ local HELP = {
     "look pearl|clean|classic  - the glass: LibGlass's Pearl (the default), Clean or Classic (after /reload, saved)",
     "timer on|off  - the combat timer over your portrait (saved)",
     "flight on|off  - a taxi flight on your cast bar, from Glass Panel's flight timer (saved)",
+    "breath on|off  - glass breath, fatigue and feign death bars (saved; Blizzard's follow after /reload)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
@@ -483,6 +484,16 @@ function Settings_.SetFlightBar(on)
     return true
 end
 
+-- The mirror timers (#151): db.mirrorTimers = false when off. Ours turn on and
+-- off live; Blizzard's are hidden at load only while ours are on, so they
+-- come back (or go) after a /reload.
+function Settings_.SetMirrorTimers(on)
+    if not GlassUF.Castbar.bars.mirror then return false end
+    GlassUF.Mirror.SetEnabled(on)
+    if on then GlassUnitFramesDB.mirrorTimers = nil else GlassUnitFramesDB.mirrorTimers = false end
+    return true
+end
+
 -- The five-second rule strip (#94): db.fiveSecondRule = false when off,
 -- db.fsrCombatOnly = false to show it out of combat too.
 function Settings_.SetFiveSecond(on)
@@ -610,6 +621,12 @@ local function slash(msg)
             say("flight on your cast bar " .. arg)
         else
             say("flight on|off (now " .. (GlassUF.Flight.enabled and "on" or "off") .. ")")
+        end
+    elseif cmd == "breath" then
+        if (arg == "on" or arg == "off") and Settings_.SetMirrorTimers(arg == "on") then
+            say("breath, fatigue and feign death bars " .. arg .. " (Blizzard's follow after /reload)")
+        else
+            say("breath on|off (now " .. (GlassUF.Mirror.enabled and "on" or "off") .. ")")
         end
     elseif cmd == "regen" then
         if not GlassUF.FiveSecond.Built() then
@@ -760,6 +777,10 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             if db.hideBlizzard then Blizzard.HideFor(Frames.byUnit) end
             -- Blizzard's own player cast bar is hidden unless asked (#141).
             if db.hideBlizzardCast then Blizzard.HideFrame("PlayerCastingBarFrame") end
+            -- Blizzard's mirror timers, while ours draw them (#151).
+            if db.hideBlizzard and GlassUF.Castbar.bars.mirror and db.mirrorTimers ~= false then
+                Blizzard.HideFrame("MirrorTimerContainer")
+            end
             -- Our combo pips replace Blizzard's (only built for rogues and druids).
             local t = Frames.byUnit.target
             if db.hideBlizzard and t and t.combo then Blizzard.HideFrame("ComboFrame") end

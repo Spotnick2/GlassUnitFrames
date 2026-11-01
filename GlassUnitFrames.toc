@@ -18,6 +18,7 @@ Frames.lua
 Castbar.lua
 Swing.lua
 Timer.lua
+Mirror.lua
 FiveSecond.lua
 Zoom.lua
 Threat.lua

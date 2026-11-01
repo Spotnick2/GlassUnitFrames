@@ -435,6 +435,10 @@ local function build()
     controls.flightBar = checkbox(right, "Show a flight on your cast bar",
         function() return GlassUF.Flight.enabled end,
         GlassUF.Settings.SetFlightBar)
+    -- The mirror timers (#151): breath, fatigue, feign death.
+    controls.mirrorTimers = checkbox(right, "Glass breath and fatigue bars",
+        function() return GlassUF.Mirror.enabled end,
+        GlassUF.Settings.SetMirrorTimers)
 
     -- Mana users only: the five-second rule (#94) and the regen segment (#118).
     if GlassUF.FiveSecond.Built() then

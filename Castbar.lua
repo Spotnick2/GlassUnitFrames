@@ -827,7 +827,11 @@ Castbar.DETACHED = { player = { x = 0, y = -182, w = 340, h = 20, scale = 1.5 },
                      focus  = { x = 0, y = 1, w = 340, h = 16, scale = 1 },
                      pet    = { x = 0, y = -71, w = 220, h = 16, scale = 1 },
                      -- #87: the swing rows' pill (h = one row), under the player's bar.
-                     swing  = { x = 0, y = -66, w = 340, h = 6, scale = 1 } }
+                     swing  = { x = 0, y = -66, w = 340, h = 6, scale = 1 },
+                     -- #151: the mirror timers (h = one row), where Blizzard's sit.
+                     mirror = { x = 0, y = 270, w = 220, h = 14, scale = 1 } }
+-- Bars with no docked home (#151): always detached, no Attach.
+Castbar.ALWAYS_DETACHED = { mirror = true }
 Castbar.LIMITS = { x = { -4096, 4096 }, y = { -4096, 4096 }, w = { 80, 800 }, h = { 12, 40 },
                    scale = { 0.5, 2 } }
 -- A bar's own limits where they differ (the swing rows: h is one thin row).
@@ -861,7 +865,8 @@ local function geometry(unit)
         if inLimits(e[k], k, unit) then return e[k] end
         return d[k]
     end
-    return pick("x"), pick("y"), pick("w"), pick("h"), e.detached == true, pick("scale")
+    return pick("x"), pick("y"), pick("w"), pick("h"), e.detached == true or Castbar.ALWAYS_DETACHED[unit] == true,
+        pick("scale")
 end
 Castbar.Geometry = geometry   -- the swing rows (Swing.lua) place themselves from it
 
@@ -1054,7 +1059,7 @@ end
 function Castbar.SetDetached(unit, on)
     local c = Castbar.bars[unit]
     -- Allowed while the group layout places too: it only lifts the bar (#142).
-    if not c then return false end
+    if not c or Castbar.ALWAYS_DETACHED[unit] then return false end
     entry(unit).detached = on and true or nil
     prune(unit)
     placeStack(c)
@@ -1236,7 +1241,7 @@ end
 -- The unlock-mode source for a detached bar (Movers.lua: id, label, frame,
 -- rel, position, set, save, reset, follows; plus size, setSize and attach).
 local LABELS = { player = "Player cast bar", target = "Target cast bar", focus = "Focus cast bar", pet = "Pet cast bar",
-                 swing = "Swing timer" }
+                 swing = "Swing timer", mirror = "Mirror timers" }
 function Castbar.MoverSource(unit)
     local c = Castbar.bars[unit]
     if not c then return nil end
@@ -1264,7 +1269,8 @@ function Castbar.MoverSource(unit)
         scale = function() return Castbar.ScaleOf(unit) end,
         setScale = function(s) return GlassUF.Settings.SetCastScale(unit, s) end,
         setSize = function(w, h) return Castbar.SetSize(unit, w, h) end,
-        attach = function() return GlassUF.Settings.SetCastDetached(unit, false) end,
+        attach = not Castbar.ALWAYS_DETACHED[unit] and function() return GlassUF.Settings.SetCastDetached(unit, false) end
+            or nil,
     }
 end
 

@@ -698,6 +698,7 @@ function Movers.Unlock()
     end
     -- A detached swing pill shows every row while unlocked, so it has a size to drag (#87).
     if GlassUF.Swing then GlassUF.Swing.SetSample(true) end
+    if GlassUF.Mirror then GlassUF.Mirror.SetSample(true) end   -- the mirror pill too (#151)
     Movers.unlocked = true   -- before syncCast: the zoom outlines show while unlocked
     syncCast()
     for id, src in pairs(sources) do
@@ -718,6 +719,7 @@ function Movers.Lock()
     if dialog then dialog:Hide() end
     if overlay then overlay:Hide() end
     if GlassUF.Swing then GlassUF.Swing.SetSample(false) end
+    if GlassUF.Mirror then GlassUF.Mirror.SetSample(false) end
     GlassUF.Zoom.ShowProxies(false)
     selected = nil
     Movers.unlocked = false

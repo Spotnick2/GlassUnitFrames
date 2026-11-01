@@ -1604,6 +1604,8 @@ function Frames.Build(db)
     if Frames.byUnit.player then attempt("build timer", GlassUF.Timer.Build, Frames.byUnit.player, db) end
     -- The five-second rule (#94): on the player's mana bar and druid strip.
     if Frames.byUnit.player then attempt("build fsr", GlassUF.FiveSecond.Build, Frames.byUnit.player, db) end
+    -- The mirror timers (#151): a detached pill of Castbar's.
+    attempt("build mirror", GlassUF.Mirror.Build, db)
     -- The group layout (#132): GRF's state, once every frame and bar exists.
     GlassUF.Link.Built()
 end
