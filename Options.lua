@@ -393,6 +393,21 @@ local function build()
     end
     note(left, "None narrows the frame; in combat it waits until the fight ends.", 340)
 
+    -- The crowd-control icon (#159): the client's own CC filter, off by default.
+    header(left, "Crowd control icon")
+    local CC = { { "off", "Off" }, { "portrait", "Portrait" }, { "beside", "Beside" } }
+    controls.ccRows = {}
+    for _, r in ipairs({ { "target", "Target" }, { "focus", "Focus" } }) do
+        local unit = r[1]
+        if Frames.byUnit[unit] then
+            controls.ccRows[unit] = radioRow(left, r[2], CC,
+                function() return GlassUF.Auras.ccMode[unit] or "off" end,
+                function(mode) return GlassUF.Settings.SetCCIcon(unit, mode) end,
+                100, { 0, 50, 128 })
+        end
+    end
+    note(left, "A stun, fear or root with its timer, picked by the game. Portrait covers it; with none, where it would be.", 340)
+
     header(right, "Raid mark")
     radios(right, "Placement", { { "name", "Before the name" }, { "top", "On the top edge" }, { "right", "Right of the frame" } },
         function() return Frames.markPos end,

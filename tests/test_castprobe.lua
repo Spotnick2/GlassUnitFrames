@@ -96,6 +96,14 @@ fp("cast mirror")
 check(has("1:{name=BREATH value=<secret> max=<secret>"), "secret values shown as <secret>")
 WoW.secretFields.mirror = nil
 check(FP.procedures["CastProbe/mirror"] ~= nil, "procedure mirror defined")
+-- #159: the crowd-control file, the same module.
+assert(loadfile("Tools/CastProbe/CC.lua"))("CastProbe", ns)
+WoW.ccSpells[853] = true
+fp("cast cc")
+check(has("filter valid="), "/fp cast cc: the filter line")
+check(has("IsSpellCrowdControl 853=true 118=false"), "the Vanilla CC spells")
+check(has("icon target mode=nil container=false"), "GUF's target icon, off")
+check(FP.procedures["CastProbe/cc"] ~= nil, "procedure cc defined")
 
 -- Nothing in chat: the console and the saved log only.
 for _, line in ipairs(WoW.chat) do
