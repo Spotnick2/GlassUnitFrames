@@ -7,7 +7,8 @@ CurseForge.
 
 - **Global cooldown line.** A thin line along the top of your power bar (or along the bottom of
   your cast bar when it's detached) runs down the global cooldown after each spell. Turn it off
-  under Options > AddOns > Glass Unit Frames, Cast bars: "Global cooldown line on your cast bar".
+  on the main Options > AddOns > Glass Unit Frames page (not its Cast bars page), in the Cast bars
+  section: "Global cooldown line on your cast bar".
 - **Who interrupted it.** When a cast is kicked, the bar says "Interrupted by <name>" when the game
   tells us who it was, and plain "Interrupted" otherwise.
 - **Out of range.** Your cast bar turns grey while the target or focus you're casting on is out
