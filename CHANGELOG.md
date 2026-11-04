@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.0-beta1 - 2026-11-03
+
+The first beta. Glass Unit Frames now also ships on Wago and as a GitHub release, next to
+CurseForge.
+
+- **Global cooldown line.** A thin line along the top of your power bar (or along the bottom of
+  your cast bar when it's detached) runs down the global cooldown after each spell. Turn it off
+  under Options > AddOns > Glass Unit Frames, Cast bars: "Global cooldown line on your cast bar".
+- **Who interrupted it.** When a cast is kicked, the bar says "Interrupted by <name>" when the game
+  tells us who it was, and plain "Interrupted" otherwise.
+- **Out of range.** Your cast bar turns grey while the target or focus you're casting on is out
+  of the spell's range, and back to its colour when you're in range again. Turn it off with "Grey
+  your cast bar out of range", next to the GCD line option.
+- **Glass breath, fatigue and feign death bars** replace Blizzard's, near the top of the screen,
+  with the time left. Move and resize them in unlock mode. Turn them off under Combat timer
+  ("Glass breath and fatigue bars") or with `/glass breath off`.
+- **Crowd-control icon** for your target and focus, off by default: a stun, fear or root with its
+  timer, picked by the game, over the portrait or beside it. Choose it under Crowd control
+  icon on the options page, or with `/glass cc target portrait` (`focus`, `beside`, `off`).
+
 ## v0.1.0-alpha2 - 2026-10-22
 
 - **Target threat**, enabled by default in group combat. A Pearl plate beside the target shows

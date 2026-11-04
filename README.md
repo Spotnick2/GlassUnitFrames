@@ -5,14 +5,16 @@ target (and its target), focus and focus target, in the glass look shared by the
 It is a streamlined take on Shadowed Unit Frames: the parts that earn their place, and no party
 or raid frames (that's Glass Raid Frames).
 
-> **Alpha.** It's in daily use, but it is young: expect rough edges, and please report them.
+> **Beta.** It's in daily use and close to done, but some of the newest parts haven't been
+> checked in game yet (see "Good to know"): please report anything odd.
 
 ![Every frame in glass, in preview mode: the player with its pet below and a combat timer over the portrait, the target with its target and its target's target above it, the focus and focus target higher up, and two detached cast bars](https://raw.githubusercontent.com/Spotnick2/GlassUnitFrames/main/docs/screenshots/frames.png)
 
 ## Install
 
-Install **Glass Unit Frames** from CurseForge, with the CurseForge app or by unzipping it into the
-`Interface\AddOns` folder inside your Forever game folder. Then `/reload`, or start the game.
+Install **Glass Unit Frames** from CurseForge or Wago (with their apps), or download the
+zip from [GitHub Releases](https://github.com/Spotnick2/GlassUnitFrames/releases) and unzip it into
+the `Interface\AddOns` folder inside your Forever game folder. Then `/reload`, or start the game.
 Your Blizzard player, pet, target and focus frames are replaced at once; there is nothing to set
 up. `/glass options` (or Esc > Options > AddOns > Glass Unit Frames) has every setting.
 
@@ -37,15 +39,19 @@ fonts. With **Glass UI** installed you can let it set the glass for every Glass 
 - neutral creatures turn red while they fight you or your group;
 - combo points on the target for rogues and cat-form druids, and a thin mana strip under your
   frame for a druid in bear or cat form;
-- your hunter pet's happiness.
+- your hunter pet's happiness;
+- optionally, a **crowd-control icon** for your target and focus: a stun, fear or root with its
+  timer, picked by the game, over the portrait or beside it (off by default).
 
 **Cast bars** for you, your target, your focus and your pet, with these touches: spell icon,
 "Spell -> Target", remaining / total time, a spark, a green flash when a cast lands and a red one
 when it fails, pushback (`+0.4`), a craft count (`Heavy Linen Bandage (3/5)`) and one bar for a
 whole craft batch. Your own bar shows a red **latency block**: roughly the end of the cast that is
-too late to cancel, measured from your own key presses. Each bar can stay docked on its frame or
-be **detached** into its own glass bar you can drag, size and scale. Colours for every part are
-on the Cast bars options page.
+too late to cancel, measured from your own key presses. Your bar also has a thin **global
+cooldown line**, and turns grey while the target or focus you're casting on is **out of range**.
+A kicked cast says who interrupted it ("Interrupted by <name>") when the game tells us. Each bar
+can stay docked on its frame or be **detached** into its own glass bar you can drag, size and
+scale. Colours for every part are on the Cast bars options page.
 
 **Combat zoom.** In combat, your cast bar and your target's glide to a spot above your frames and
 grow (1.5×), then glide home when the fight ends. Turn it on or off per bar, with your own spot
@@ -64,7 +70,9 @@ off).
 - a **swing timer** (main hand, off hand, ranged) inside your frame, or detached;
 - the **five-second rule**: a thin red line on your mana bar while spirit regen is paused;
 - your **next 2 seconds of mana regen**, a faint segment just past your mana fill;
-- a **combat timer** over your portrait, counting the fight.
+- a **combat timer** over your portrait, counting the fight;
+- **breath, fatigue and feign death** bars in glass, in place of Blizzard's (movable in unlock
+  mode).
 
 **Place everything.** `/glass unlock` (or Unlock frames in the options) shows a handle on every
 frame and detached bar. Drag them, or click one to type its position or nudge it with the arrows.
@@ -98,6 +106,8 @@ place and colour things without a target, a pet or a fight.
 - `/glass level power|name|portrait`, `/glass mark name|top|right`,
   `/glass happiness left|right|under` - where the target's level, raid marks and pet happiness go
 - `/glass timer on|off`, `/glass regen on|off` - the combat timer and the mana regen segment
+- `/glass breath on|off` - the glass breath and fatigue bars
+- `/glass cc target|focus off|portrait|beside` - the crowd-control icon
 - `/glass flight on|off` - a taxi flight on your cast bar
 - `/glass link on|off` - the frames beside Glass Raid Frames' layout
 - `/glass mirror on|off`, `/glass snap grid|align on|off` - unlock mode's mirroring and snapping
@@ -117,8 +127,9 @@ place and colour things without a target, a pet or a fight.
   The game doesn't let addons move these frames in combat. You're told when one is waiting.
 - **Shaman totems** don't show while Blizzard's frames are hidden. The game hides totem details
   from addons, so Glass Unit Frames can't draw them.
-- **Not yet checked in game:** the combo points and the druid mana strip are built and tested
-  offline only. Reports welcome.
+- **Not yet checked in game:** the combo points, the druid mana strip, the cast bar's GCD line,
+  interrupter name and out-of-range colour, the breath and fatigue bars, and the crowd-control
+  icon are built and tested offline only. Reports welcome.
 
 ## Bugs and ideas
 
