@@ -29,8 +29,8 @@ targettargettarget, focus, focustarget. Every "Owner's picks" item in `docs/SUF-
 done, plus: an options panel (Options > AddOns > Glass Unit Frames), unlock mode (movers, group
 moves, nudging, grid snap, alignment guides, player/target mirroring), the red health-loss
 segment, the hidden-power fade, neutral NPCs red in a fight, raid mark / target level / pet
-happiness placement, per-frame health text, combo points, the druid mana strip, and the group
-layout (#132, `Link.lua`: player and target beside Glass Raid Frames' grid, in sync with
+happiness placement, per-frame health text, combo points, the druid mana strip, the target
+threat meter (#86, `Threat.lua`), and the group layout (#132, `Link.lua`: player and target beside Glass Raid Frames' grid, in sync with
 GlassActionBars and Glass UI). (Hosted shaman totems were removed in #58: `TotemFrame` is a
 managed frame, see `Blizzard.lua` below.)
 
@@ -46,7 +46,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 `Libs\LibTaxiTime-1.0\LibTaxiTime-1.0.xml` (flight times) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `Mirror.lua` → `FiveSecond.lua` → `Zoom.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `Mirror.lua` → `FiveSecond.lua` → `Zoom.lua` → `Threat.lua` → `ThreatView.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -499,6 +499,48 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     "Reset frame positions" also resets the zoom spots of the edited table.
   - **Options:** its own sub-page, "Combat zoom" (registered after Cast bars): per bar, "zoom in
     combat" and a combat scale; this character's role.
+- **`Threat.lua`** / **`ThreatView.lua`** (#86, PR #157; shipped in v0.1.0-alpha2): your threat on
+  the **target**, as a compact plate beside the target frame or an expanded ranking window.
+  `docs/THREAT-PROBE.md` holds the full behaviour, the measurements and the open in-game checks.
+  - **The data** (`Threat.lua`, `GlassUF.Threat`): `UnitDetailedThreatSituation(unit, "target")`
+    for the player, pet and every party/raid member and pet (the player's own `raidN` alias is
+    skipped only when `UnitIsUnit` says so plainly). Every call goes through `API.ThreatCall`
+    (`rawget` + pcall). Measured **plain** on `target` in outdoor party combat (70532); the same
+    mob through `targettargettarget` is secret. Only `target` is read.
+    - **Rank** is descending raw threat, pets included; one unknown raw value unranks the whole
+      list (roster order, `#—`). **%** is the scaled percent to pull aggro, not percent of the
+      leader; text keeps values over 100, fills clamp. `isTanking` marks the holder,
+      independently of rank. Missing is a dash, never 0; secret values go only to widgets.
+    - **Colour and warning** (`T.Feedback`): non-tanks fade mint → amber at 90% → coral at 100%
+      and warn at 90% (rearm below 85%); tanks (`Zoom.role`, else `API.ThreatTankRole`) use
+      `UnitThreatLeadSituation`, so holding aggro never warns. The sound (`API.ThreatSound`,
+      "Boxing Arena Gong") plays only in group combat, once per warning, 5 s cooldown, never in a
+      preview, never from a secret value.
+    - **When it shows:** a hostile live target and `mode` "group" (the default, `nil` saved) in
+      combat; "always" adds solo combat; "off". No idle display. Combat end keeps the last combat
+      snapshot for `hideDelay` (0–60, default 10 s), then closes. A target change or clear hides at
+      once and drops the snapshot. Refreshed by its own frame: target, roster, pet, combat and world
+      events at once, threat events through a 0.2 s OnUpdate pass (idle while off).
+  - **The view** (`ThreatView.lua`, `GlassUF.ThreatView`): its **own LibGlass Pearl instance**
+    (`New{ preset = "pearl" }`, the addon's font), whatever `db.look` says. Compact = rank + % with a
+    thin fill; hover = a tooltip with up to five rows; click expands, the chevron collapses (both
+    save the view). `view` is "compact" (new profiles), "expanded" or "auto" (expand in combat per
+    role, `expand[role]`). Opens/closes with a 0.25 s reveal away from the target.
+    - **Placement:** docked 8 units right of the target's outer visual edge
+      (`Frames.EdgeVisual`), level with the health/name row, re-anchored on target show/hide/size,
+      position and portrait changes, and `GlassUnitFrames.LayoutChanged`. Plain UIParent frames,
+      dragged out of combat; compact and expanded save separately (`compactAnchor` /
+      `expandedAnchor`, plus the window's size and row limit). "Reset threat positions"
+      (`T.ResetPositions`) re-docks both.
+  - **Settings:** `db.threat = { mode, view, expand[role], hideDelay, sound, ...geometry }`,
+    the **Threat** sub-page (registered after Combat zoom: Display, hide delay, View, combat
+    expansion for this role, sound + Test, previews, reset), and `/glass threat on|off|always |
+    view compact|expanded|auto | delay N | sound on|off | expand on|off | preview
+    compact|expanded|off | reset | test`. `Settings.SetThreatMode|Sound|Expand`.
+  - **The sound file** `Sounds/BoxingArenaSound.ogg` is WeakAuras' (GPL-2, `Sounds/COPYING.txt`,
+    `Sounds/README.txt`), not MIT; it ships, and CI's allowlist names all three files.
+  - **Still to check in game:** dungeon and raid restrictions, secret-value rendering, screen
+    edges, role warnings. Measuring tool: `Tools/ThreatProbe` (`/fp threat`, `test_threatprobe.lua`).
 - **`Flight.lua`** (#148, #153): a taxi flight on the player's cast bar. The
   timing is **LibTaxiTime-1.0**'s (see "Flight times" below), shared with GlassPanel's Flight plugin;
   this file draws it, with or without Glass Panel. **Checked in game** by the owner on
@@ -703,11 +745,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|breath on|off|cc <unit> <mode>|regen on|off|link on|off`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames
@@ -1075,7 +1117,9 @@ break the behaviour and confirm it goes red.
   `CHANGELOG.md`, plus the library's non-dot dev files under `Libs/LibGlass-1.0/` (CurseForge's
   packager doesn't apply an external's own ignore list), and the same under `Libs/LibTaxiTime-1.0/`.
   Three `LICENSE` files ship: the addon's own (MIT, #145), `Libs/LibGlass-1.0/LICENSE` and
-  `Libs/LibTaxiTime-1.0/LICENSE` (both MIT); CI's exact allowlist expects all three.
+  `Libs/LibTaxiTime-1.0/LICENSE` (both MIT); CI's exact allowlist expects all three. The threat
+  warning's `Sounds/` folder ships too, under its own GPL-2 (`Sounds/COPYING.txt`, see
+  `Threat.lua` above).
 
 ## Conventions
 
