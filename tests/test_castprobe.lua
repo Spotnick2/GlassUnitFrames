@@ -105,6 +105,23 @@ check(has("IsSpellCrowdControl 853=true 118=false"), "the Vanilla CC spells")
 check(has("icon target mode=nil container=false"), "GUF's target icon, off")
 check(FP.procedures["CastProbe/cc"] ~= nil, "procedure cc defined")
 
+-- #171: the absorb file, the same module. The stub has no absorb API, so
+-- every read says absent rather than throwing; the events count by unit.
+assert(loadfile("Tools/CastProbe/Absorb.lua"))("CastProbe", ns)
+fp("cast absorb")
+check(has("absorb player exists=true combat=false total=absent healAbsorbs=absent"), "/fp cast absorb: the totals")
+check(has("calc{damage=absent total=absent"), "the calculator's damage absorbs")
+check(has("aura=absent events=0/0"), "the aura cross-check and the event counts")
+fp("cast absorb target")
+check(has("absorb target exists="), "/fp cast absorb <unit>")
+WoW.fire("UNIT_ABSORB_AMOUNT_CHANGED", "player")
+check(has("UNIT_ABSORB_AMOUNT_CHANGED %-> absorb player .* events=1/0"), "a change on you is logged with a read")
+WoW.fire("UNIT_ABSORB_AMOUNT_CHANGED", "nameplate3")
+WoW.fire("UNIT_ABSORB_AMOUNT_CHANGED", WoW.Secret("unit"))
+eq(T.absorbSeen.other, 2, "other units (and a secret token) only counted")
+check(not has("UNIT_ABSORB_AMOUNT_CHANGED %-> absorb nameplate3"), "and not logged")
+check(FP.procedures["CastProbe/absorb"] ~= nil, "procedure absorb defined")
+
 -- Nothing in chat: the console and the saved log only.
 for _, line in ipairs(WoW.chat) do
     check(not line:find("CastProbe") and not line:find("====") and not line:find("START"), "no probe line in chat: " .. line)
