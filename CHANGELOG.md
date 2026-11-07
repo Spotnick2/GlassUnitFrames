@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.0.0 - 2026-11-07
+
+The first release out of beta.
+
+- **Absorb shields on the health bar.** On your frame, your target's and your focus's, a Power
+  Word: Shield (or any absorb) shows as a darker shade of the health colour just past the health
+  fill, after any incoming heal. It shrinks as the shield soaks damage and goes when it breaks.
+  Near full health only the missing part shows, and at full health there's no room for it. Turn
+  it off under Colours on the options page ("Absorb shields on the health bars") or with
+  `/glass absorb off`.
+
 ## v1.0.0-beta1 - 2026-11-03
 
 The first beta. Glass Unit Frames now also ships on Wago and as a GitHub release, next to
