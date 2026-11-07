@@ -439,7 +439,7 @@ local function build()
         function() return Frames.aggroRed end,
         GlassUF.Settings.SetAggroRed)
     note(right, "While they fight you or your group.", 270)
-    controls.absorbs = checkbox(right, "Absorb shields over the health",
+    controls.absorbs = checkbox(right, "Absorb shields on the health bars",
         function() return Frames.absorbs end,
         GlassUF.Settings.SetAbsorbs)
 

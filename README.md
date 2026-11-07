@@ -5,9 +5,6 @@ target (and its target), focus and focus target, in the glass look shared by the
 It is a streamlined take on Shadowed Unit Frames: the parts that earn their place, and no party
 or raid frames (that's Glass Raid Frames).
 
-> **Beta.** It's in daily use and close to done, but some of the newest parts haven't been
-> checked in game yet (see "Good to know"): please report anything odd.
-
 ![Every frame in glass, in preview mode: the player with its pet below and a combat timer over the portrait, the target with its target and its target's target above it, the focus and focus target higher up, and two detached cast bars](https://raw.githubusercontent.com/Spotnick2/GlassUnitFrames/main/docs/screenshots/frames.png)
 
 ## Install
@@ -33,7 +30,10 @@ fonts. With **Glass UI** installed you can let it set the glass for every Glass 
 
 **What the frames show**:
 - health and power text in a few fixed formats per frame (current, current/max, percent);
-- a red segment for health just lost, and incoming heals on the player, target and focus;
+- a red segment for health just lost;
+- on the player, target and focus, incoming heals and **absorb shields** (Power Word: Shield and
+  the like): a darker shade of the health colour just past the fill, shrinking as the shield
+  soaks damage;
 - the target's buffs and debuffs in two rows under it (the game picks and sorts them);
 - raid marks, leader and master looter, PvP and resting icons, AFK and your raid group number;
 - neutral creatures turn red while they fight you or your group;
@@ -65,6 +65,12 @@ it), emptying as you fly, and zoomed like in combat when your cast bar's zoom is
 make on the way takes the bar; the flight comes back after it. The game gives no flight times, so
 they come from each route's length, then from your own landings (`/glass flight off` to turn it
 off).
+
+**Target threat.** In group combat, a small glass plate beside your target shows your threat
+rank and how close you are to pulling aggro, shading from mint to amber at 90% and coral at 100%,
+with an optional warning gong. Hover it for the top five; click it for the whole ranking of
+players and pets. A tank isn't warned while holding aggro. It can also show in solo combat, or
+not at all, on the Threat options page.
 
 **For casters and fighters**:
 - a **swing timer** (main hand, off hand, ranged) inside your frame, or detached;
@@ -108,6 +114,9 @@ place and colour things without a target, a pet or a fight.
 - `/glass timer on|off`, `/glass regen on|off` - the combat timer and the mana regen segment
 - `/glass breath on|off` - the glass breath and fatigue bars
 - `/glass cc target|focus off|portrait|beside` - the crowd-control icon
+- `/glass absorb on|off` - absorb shields on the health bars
+- `/glass threat on|off|always` - target threat in group combat, always, or never (more options
+  in `/glass help`)
 - `/glass flight on|off` - a taxi flight on your cast bar
 - `/glass link on|off` - the frames beside Glass Raid Frames' layout
 - `/glass mirror on|off`, `/glass snap grid|align on|off` - unlock mode's mirroring and snapping
@@ -128,8 +137,10 @@ place and colour things without a target, a pet or a fight.
 - **Shaman totems** don't show while Blizzard's frames are hidden. The game hides totem details
   from addons, so Glass Unit Frames can't draw them.
 - **Not yet checked in game:** the combo points, the druid mana strip, the cast bar's GCD line,
-  interrupter name and out-of-range colour, the breath and fatigue bars, and the crowd-control
-  icon are built and tested offline only. Reports welcome.
+  interrupter name and out-of-range colour, the breath and fatigue bars, the crowd-control icon
+  and the absorb shield segment are built and tested offline only (the game was checked to report
+  shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids.
+  Reports welcome.
 
 ## Bugs and ideas
 
