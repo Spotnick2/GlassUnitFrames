@@ -143,3 +143,25 @@ sweep) was not inspected.
 | Power fade (#27): `UnitPowerPercent(unit, nil, false, colorCurve)` alpha → `SetAlpha` on a unit whose max power is secret | **Works**: on a level 12 warrior player target at 0 rage, the power bar and its numbers faded out and the level text stayed. `SetAlpha` takes the curve's secret alpha, and 0% power evaluates to the curve's 0 point. The 0/0 case works too: an Undercity Guardian (level 55 NPC, no power) shows no power bar or numbers, only its level |
 | Neutral NPC fighting you (#28), `/glass secrets` in combat on a neutral Greater Duskbat targeting the player | `UnitSelectionType` stays **2 (neutral)** in combat, so it never flips. `UnitThreatSituation("player", "target")` is **plain** (3 = tanking), which turns the frame red. `UnitIsUnit(u.."target", "player")` and `UnitAffectingCombat(u)` are plain. The player's own `UnitThreatSituation("player")` is plain (3). **The same mob through `targettargettarget` gave a secret threat**: secrecy can depend on the token, not only on the unit |
 | Hunter pet happiness (#51) | **Works**: `C_PetInfo.GetPetHappiness()` returns a **plain** 3 (happy) out of combat on a hunter's pet, and the icon shows. The legacy global `GetPetHappiness` is gone (DinoUF hid the indicator for that reason), but the `C_PetInfo` one works |
+
+## Absorb shields (#171, build 1.60.1.70790, 2026-11-07)
+
+`/fp steps cast absorb` (CastProbe run #83), a priest's Power Word: Shield (spell 592) on the
+owner, then on a shielded target; the shield broke from damage.
+
+- **The server reports the absorb.** `UNIT_ABSORB_AMOUNT_CHANGED` fired for `player` 4 s after the
+  cast, then about every 2 s while a mob hit the shield, and again as it broke; it fired for the
+  shielded `target` too.
+- **Every amount is secret, in and out of combat, before any shield too:** `UnitGetTotalAbsorbs`,
+  `UnitGetTotalHealAbsorbs`, and the calculator's `GetDamageAbsorbs` (both returns),
+  `GetTotalDamageAbsorbs`, `GetMaximumDamageAbsorbs`, `GetHealAbsorbs`, `GetMaximumHealth`.
+  `GetDamageAbsorbClampMode()` is plain 0.
+- The shield's aura (`GetAuraDataBySpellName`) reads out of combat only: `points=87`, `duration=30`;
+  nil in combat.
+- The player's `UnitHealthMax` was plain (342) in and out of combat; the target's secret.
+
+**For #171:** the amount can't be read, compared or truth-tested, so the bar is client-drawn only:
+the calculator's `GetDamageAbsorbs` straight into a StatusBar (min/max 0..max health), repainted on
+`UNIT_ABSORB_AMOUNT_CHANGED` and health events. A 0 absorb draws an empty bar, so nothing needs
+hiding. That the secret really shrinks with each hit (rather than staying at the cast value) is
+the one thing left, and it shows on the bar itself: the feature's in-game check.

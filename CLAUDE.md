@@ -38,7 +38,7 @@ managed frame, see `Blizzard.lua` below.)
   druid mana strip (bear/cat); the cast bar's GCD line, interrupter name and out-of-range colour
   (#149, #150, #152: `/fp steps cast gcd|kick|range`, after 2026-11-04); the mirror timers
   (#151: `/fp steps cast mirror`); the crowd-control icon (#159:
-  `/fp steps cast cc`).
+  `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?).
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -134,7 +134,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     look) still clears it: that copy draws the whole bar anyway.
 - **`Engine.lua`**: who gets painted and when:
   - one tracker per unit (`RegisterUnitEvent`);
-  - events grouped into channels (name, color, health, heal, power, portrait, indicators,
+  - events grouped into channels (name, color, health, heal, absorb, power, portrait, indicators,
     happiness, combo, druidmana, cast), each registered only on frames that have it. `color`
     repaints just the health colour (a neutral NPC's fight state). `resourceWatcher` routes the
     PLAYER's power/form events to channels drawn on other frames (combo pips on the target),
@@ -175,6 +175,19 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   show up as heals there). Its own `heal` channel exists only on frames that predict. The
   calculator gets `SetIncomingHealOverflowPercent(1)`: DinoUF recorded an empty bar on Forever
   without it. The bar is cleared on a failed read and for offline or dead units.
+- **Absorb shields** (#171, the same three frames): a segment **past**
+  the health fill (owner's pick, Blizzard's layout), the full health-bar width, clipped at the
+  bar's end, so near full health only the missing part shows. It starts where the incoming heals
+  end: anchored to the heal prediction's own fill edge (the health fill's without a prediction
+  bar), so the client chains them. Its colour is the health colour times `Frames.ABSORB_SHADE`
+  (0.5; owner), set with it (`healthColor`). The values are
+  `UnitGetTotalAbsorbs` and `UnitHealthMax` (`API.TotalAbsorbs`), straight to the bar, snapped:
+  measured **secret in and out of combat, even with no shield** (CastProbe `absorb`, 70790), so
+  nothing is compared or truth-tested; a plain non-number clears. Not the calculator's
+  `GetDamageAbsorbs`: its default clamp is the MISSING health, so a shield at full health reads 0.
+  Its own `absorb` channel (`UNIT_ABSORB_AMOUNT_CHANGED`, which fires as a shield lands, at each hit
+  and as it breaks). Cleared for offline or dead units. `db.absorbBar` (false when off),
+  `Settings.SetAbsorbs`, `/glass absorb on|off`, a checkbox under the main page's Colours.
 - **Default positions** in `Frames.LAYOUT` are sized for WoW's UIParent, which is **768 units
   tall at the default UI scale**: check new frames in those units, not on the owner's 4K screen.
   The defaults are the owner's tested setup (#141): player and target at (∓304, −272), focus at
@@ -350,7 +363,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       did, porting guide), else the spell SENT in the last 0.5 s while its `isOnGCD` is true, and
       the duration goes to `SetTimerDuration`. Hidden after its plain remaining time, else 1.5 s
       (generation-checked). A spell with its own cooldown shows no line.
-  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above).
+  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above; `mirror`, `cc`, `absorb`).
 - **`Swing.lua`** (#87): the player's swing timer.
   - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
     type)`. It's plain in combat, and it still arrives with Blizzard's "Enable Swing Timer" off
@@ -745,11 +758,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `absorbBar` (#171, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|absorb on|off|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames

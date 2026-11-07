@@ -273,6 +273,18 @@ function API.IncomingHeals(unit, calc)
     return incoming, calc:GetMaximumHealth()
 end
 
+-- Damage absorbs (#171): (the unit's absorb shields, maximum health), both as
+-- the client returns them. Measured secret in and out of combat on 70790,
+-- even with no shield up: they go only to a StatusBar. UnitGetTotalAbsorbs is
+-- unclamped (the calculator's GetDamageAbsorbs clamps to MISSING health by
+-- default, so a shield at full health would read 0). Nil when it's absent.
+function API.HasAbsorbs() return rawget(_G, "UnitGetTotalAbsorbs") ~= nil end
+function API.TotalAbsorbs(unit)
+    local fn = rawget(_G, "UnitGetTotalAbsorbs")
+    if not fn then return nil end
+    return fn(unit), UnitHealthMax(unit)
+end
+
 -- The client's world latency in seconds (GetNetStats' 4th return, else its
 -- 3rd), or nil when unreadable. Only the latency block's fallback (#72): it
 -- measured 33 ms where a cast's keypress-to-start took 139 ms.
