@@ -213,7 +213,7 @@ local HELP = {
     "flight on|off  - a taxi flight on your cast bar, from Glass Panel's flight timer (saved)",
     "breath on|off  - glass breath, fatigue and feign death bars (saved; Blizzard's follow after /reload)",
     "cc target|focus off|portrait|beside  - the crowd-control icon, over the portrait or beside the frame (saved)",
-    "absorb on|off  - the absorb shields left (Power Word: Shield, ...) as a pale tint over the health fill (saved)",
+    "absorb on|off  - the absorb shields left (Power Word: Shield, ...) as a darker segment past the health fill (saved)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",

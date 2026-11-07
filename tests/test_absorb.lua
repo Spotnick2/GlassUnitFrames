@@ -22,18 +22,18 @@ check(p.absorbBar and t.absorbBar and button("focus").absorbBar, "player, target
 check(button("pet").absorbBar == nil and button("targettarget").absorbBar == nil, "small chained frames do not")
 check(p.channels.absorb and button("pet").channels.absorb == nil, "only those frames carry the absorb channel")
 
--- Geometry: the full health-bar width, its right end on the fill's moving
--- edge, filling leftward over the fill, clipped at the bar.
+-- Geometry: the full health-bar width, past the fill, starting where the
+-- incoming heals end, clipped at the bar.
 local bar = p.absorbBar
 eq(bar._width, p.healthWidth, "spans the full health bar width")
-eq(bar._points[1][1], "TOPRIGHT", "its right end")
-eq(bar._points[1][2], p.health:GetStatusBarTexture(), "on the health fill's moving edge")
-eq(bar._points[1][3], "TOPRIGHT", "at the fill's right edge")
-eq(bar._reverse, true, "fills leftward, over the fill")
+eq(bar._points[1][1], "TOPLEFT", "its left end")
+eq(bar._points[1][2], p.healPred:GetStatusBarTexture(), "on the heal prediction's fill edge")
+eq(bar._points[1][3], "TOPRIGHT", "at that fill's right edge")
+check(not bar._reverse, "fills rightward, past the fill")
 check(bar._parent._clips == true, "clipped at the health bar's boundary")
-eq(bar._parent._points[1][1], "ALL", "the clip is the whole health bar (not from the edge)")
+eq(bar._parent._points[1][1], "ALL", "the clip is the whole health bar")
 local hl = p.health:GetFrameLevel()
-eq(bar._parent._level, hl + 3, "over the fill")
+eq(bar._parent._level, hl + 3, "over the track, level with the heal prediction")
 eq(p.health.overlay._level, hl + 4, "the glass overlay stays above it")
 
 -- Values go straight through, snapped.
@@ -130,6 +130,19 @@ GlassUF = nil
 stubAbsorbs()
 loadAddon({ db = { font = "arial", hideBlizzard = true, absorbBar = false, pos = {} } })
 eq(GlassUF.Frames.absorbs, false, "saved off applied at build")
+
+-- No heal prediction calculator: the shield starts at the health fill's edge.
+WoW.reset()
+standardUnits()
+GlassUF = nil
+stubAbsorbs()
+local realCreate = CreateUnitHealPredictionCalculator
+CreateUnitHealPredictionCalculator = nil
+loadAddon()
+local pb = button("player")
+check(pb.healPred == nil and pb.absorbBar ~= nil, "no prediction bar, but an absorb bar")
+eq(pb.absorbBar._points[1][2], pb.health:GetStatusBarTexture(), "anchored to the health fill's edge")
+CreateUnitHealPredictionCalculator = realCreate
 
 -- No absorb API: no bar, nothing breaks.
 WoW.reset()

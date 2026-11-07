@@ -1250,19 +1250,20 @@ local function buildHealPrediction(b)
     b.healCalc, b.healPred = calc, pred
 end
 
--- Absorb shields left (#171): a pale tint over the health FILL, its right end
--- on the fill's moving edge, filling leftward (reverse fill) across the full
--- health-bar width, so a shield of X% of max covers X% of the bar. Inside the
--- fill, not past it: a shield usually goes up at full health, and the missing
--- part is the heal prediction's. A shield bigger than the health left is
--- clipped at the bar's start. No Lua geometry from secrets.
-local ABSORB_COLOR = { 0.85, 0.95, 1.00, 0.55 }
+-- Absorb shields left (#171): a darker grey segment PAST the health fill
+-- (owner's pick, Blizzard's layout), the full health-bar width, so a shield of
+-- X% of max reads as X% of the bar. It starts where the incoming heals end:
+-- anchored to the heal prediction's own fill edge (to the health fill's
+-- when there's no prediction bar), so the client chains them with no Lua
+-- geometry from secrets. Clipped at the bar's end: near full health only the
+-- missing part shows.
+local ABSORB_COLOR = { 0.50, 0.50, 0.50, 0.90 }
 local function buildAbsorb(b)
     if not API.HasAbsorbs() then return end
     local bar = overlayBar(b.health, ABSORB_COLOR, 3, false)
-    bar:SetReverseFill(true)
     bar:SetSize(b.healthWidth, b.health:GetHeight())
-    bar:SetPoint("TOPRIGHT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+    local edge = (b.healPred or b.health):GetStatusBarTexture()
+    bar:SetPoint("TOPLEFT", edge, "TOPRIGHT", 0, 0)
     b.absorbBar = bar
     b.channels.absorb = true
 end

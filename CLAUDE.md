@@ -38,7 +38,7 @@ managed frame, see `Blizzard.lua` below.)
   druid mana strip (bear/cat); the cast bar's GCD line, interrupter name and out-of-range colour
   (#149, #150, #152: `/fp steps cast gcd|kick|range`, after 2026-11-04); the mirror timers
   (#151: `/fp steps cast mirror`); the crowd-control icon (#159:
-  `/fp steps cast cc`); the absorb shield tint (#171: does the secret total shrink with each hit?).
+  `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?).
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -175,10 +175,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   show up as heals there). Its own `heal` channel exists only on frames that predict. The
   calculator gets `SetIncomingHealOverflowPercent(1)`: DinoUF recorded an empty bar on Forever
   without it. The bar is cleared on a failed read and for offline or dead units.
-- **Absorb shields** (#171, the same three frames): a pale tint (`ABSORB_COLOR`) over the health
-  **fill**, its right end on the fill's moving edge, filling leftward (`SetReverseFill`) across the
-  full health-bar width, clipped at the bar's start. Inside the fill, not past it: a shield goes up
-  at full health, and the missing part is the heal prediction's. The values are
+- **Absorb shields** (#171, the same three frames): a darker grey segment (`ABSORB_COLOR`) **past**
+  the health fill (owner's pick, Blizzard's layout), the full health-bar width, clipped at the
+  bar's end, so near full health only the missing part shows. It starts where the incoming heals
+  end: anchored to the heal prediction's own fill edge (the health fill's without a prediction
+  bar), so the client chains them. The values are
   `UnitGetTotalAbsorbs` and `UnitHealthMax` (`API.TotalAbsorbs`), straight to the bar, snapped:
   measured **secret in and out of combat, even with no shield** (CastProbe `absorb`, 70790), so
   nothing is compared or truth-tested; a plain non-number clears. Not the calculator's
