@@ -439,6 +439,9 @@ local function build()
         function() return Frames.aggroRed end,
         GlassUF.Settings.SetAggroRed)
     note(right, "While they fight you or your group.", 270)
+    controls.absorbs = checkbox(right, "Absorb shields over the health",
+        function() return Frames.absorbs end,
+        GlassUF.Settings.SetAbsorbs)
 
     -- The combat timer (#120): a pill over the player's portrait. Here, not on
     -- the Cast bars page: that page doesn't scroll and is full.

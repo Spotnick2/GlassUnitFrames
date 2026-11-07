@@ -536,6 +536,13 @@ function Frames.SetAggroRed(on)
     Engine.RepaintChannel("color")
 end
 
+-- Absorb shields on the health bars (#171): on by default.
+Frames.absorbs = true
+function Frames.SetAbsorbs(on)
+    Frames.absorbs = on and true or false
+    Engine.RepaintChannel("absorb")
+end
+
 -- Pet happiness placement: "left" (default, the owner's pick: left of the
 -- pet's portrait, which sits at the frame's left edge), "right" (right of
 -- the frame, where Blizzard's PetFrame shows it) or "under" (under the portrait).
@@ -728,6 +735,29 @@ Engine.SetPainter("heal", function(f)
     if not attempt("heal prediction", paintHeal, f, u) then clearHeal(f) end
 end)
 
+-- Absorb shields left (#171): the client's total straight to the bar, snapped.
+-- Both values are secret (measured), so the only Lua checks are on type and
+-- secrecy: a plain non-number (nil for a unit the client can't read) clears.
+local function clearAbsorb(f) f.absorbBar:SetMinMaxValues(0, 1); f.absorbBar:SetValue(0) end
+
+local function readable(v) return API.IsSecret(v) or type(v) == "number" end
+
+local function paintAbsorb(f, u)
+    local absorbs, maxHealth = API.TotalAbsorbs(u)
+    if not (readable(absorbs) and readable(maxHealth)) then clearAbsorb(f) return end
+    Glass.SetBar(f.absorbBar, maxHealth, absorbs, true)
+end
+
+Engine.SetPainter("absorb", function(f)
+    local u = f.unit
+    if not (f.absorbBar and UnitExists(u)) then return end
+    if not Frames.absorbs or plain(UnitIsConnected, u) == false or plain(UnitIsDeadOrGhost, u) == true then
+        clearAbsorb(f)
+        return
+    end
+    if not attempt("absorbs", paintAbsorb, f, u) then clearAbsorb(f) end
+end)
+
 --------------------------------------------------------------------------------
 -- Preview (#109): sample data on a frame, plain values only
 --------------------------------------------------------------------------------
@@ -797,6 +827,7 @@ function Frames.PaintSample(f, portrait)
         f.lossBar:SetValue(s.maxHp * 0.8)
     end
     if f.healPred then Glass.SetBar(f.healPred, s.maxHp, s.maxHp * 0.15, true) end
+    if f.absorbBar then Glass.SetBar(f.absorbBar, s.maxHp, Frames.absorbs and s.maxHp * 0.2 or 0, true) end
     local pos = f.levelText and Frames.LevelPosOf(f)
     local lvl = (pos == "name" and s.level) and (s.level .. " ") or ""
     f.nameText:SetFormattedText("%s%s", lvl, s.name)
@@ -1219,6 +1250,23 @@ local function buildHealPrediction(b)
     b.healCalc, b.healPred = calc, pred
 end
 
+-- Absorb shields left (#171): a pale tint over the health FILL, its right end
+-- on the fill's moving edge, filling leftward (reverse fill) across the full
+-- health-bar width, so a shield of X% of max covers X% of the bar. Inside the
+-- fill, not past it: a shield usually goes up at full health, and the missing
+-- part is the heal prediction's. A shield bigger than the health left is
+-- clipped at the bar's start. No Lua geometry from secrets.
+local ABSORB_COLOR = { 0.85, 0.95, 1.00, 0.55 }
+local function buildAbsorb(b)
+    if not API.HasAbsorbs() then return end
+    local bar = overlayBar(b.health, ABSORB_COLOR, 3, false)
+    bar:SetReverseFill(true)
+    bar:SetSize(b.healthWidth, b.health:GetHeight())
+    bar:SetPoint("TOPRIGHT", b.health:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+    b.absorbBar = bar
+    b.channels.absorb = true
+end
+
 -- Combo points: five glossy pips on the target body's top edge, right half,
 -- over dim slots (0 points reads as five empty slots). No sliced masks: they
 -- break on tiles this small.
@@ -1316,6 +1364,7 @@ function Frames.ReflowRows(b)
     local health, gap, power = Frames.RowHeights(b)
     b.health:SetHeight(health)
     if b.healPred then b.healPred:SetHeight(health) end
+    if b.absorbBar then b.absorbBar:SetHeight(health) end
     b.power:ClearAllPoints()
     b.power:SetPoint("TOPLEFT", b.health, "BOTTOMLEFT", 0, -gap)
     b.power:SetPoint("TOPRIGHT", b.health, "BOTTOMRIGHT", 0, -gap)
@@ -1544,6 +1593,7 @@ local function build(unit)
     if L.combo and (class == "ROGUE" or class == "DRUID") then attempt("build combo", buildCombo, b, body, g) end
     if L.druidMana and class == "DRUID" then attempt("build druid mana", buildDruidMana, b, body, L) end
     if L.healPrediction then attempt("build heal prediction", buildHealPrediction, b) end
+    if L.healPrediction then attempt("build absorbs", buildAbsorb, b) end
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     attempt("build cc", GlassUF.Auras.AttachCC, b)   -- target and focus, when on (#159)
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
@@ -1587,6 +1637,7 @@ function Frames.Build(db)
     Frames.db = db
     if Frames.MARK_POSITIONS[db.mark] then Frames.markPos = db.mark end
     if db.aggroRed == false then Frames.aggroRed = false end
+    if db.absorbBar == false then Frames.absorbs = false end
     GlassUF.Castbar.Configure(db)
     GlassUF.Auras.ConfigureCC(db)
     GlassUF.Zoom.Configure(db)

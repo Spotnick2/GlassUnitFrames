@@ -213,6 +213,7 @@ local HELP = {
     "flight on|off  - a taxi flight on your cast bar, from Glass Panel's flight timer (saved)",
     "breath on|off  - glass breath, fatigue and feign death bars (saved; Blizzard's follow after /reload)",
     "cc target|focus off|portrait|beside  - the crowd-control icon, over the portrait or beside the frame (saved)",
+    "absorb on|off  - the absorb shields left (Power Word: Shield, ...) as a pale tint over the health fill (saved)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
@@ -424,6 +425,13 @@ function Settings_.SetAggroRed(on)
     -- Saved only when turned off (the default is on). Not `(not on) and false
     -- or nil`: `false or nil` is nil, so "off" would never be saved.
     if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
+end
+
+-- Absorb shields on the health bars (#171): db.absorbBar = false when off.
+function Settings_.SetAbsorbs(on)
+    Frames.SetAbsorbs(on)
+    if on then GlassUnitFramesDB.absorbBar = nil else GlassUnitFramesDB.absorbBar = false end
+    return true
 end
 
 -- Detach a cast bar from its frame (or attach it back), #74: saved in
@@ -646,6 +654,12 @@ local function slash(msg)
             say("breath, fatigue and feign death bars " .. arg .. " (Blizzard's follow after /reload)")
         else
             say("breath on|off (now " .. (GlassUF.Mirror.enabled and "on" or "off") .. ")")
+        end
+    elseif cmd == "absorb" then
+        if (arg == "on" or arg == "off") and Settings_.SetAbsorbs(arg == "on") then
+            say("absorb shields on the health bars " .. arg)
+        else
+            say("absorb on|off (now " .. (Frames.absorbs and "on" or "off") .. ")")
         end
     elseif cmd == "regen" then
         if not GlassUF.FiveSecond.Built() then

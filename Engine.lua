@@ -21,6 +21,9 @@ Engine.CHANNEL_EVENTS = {
     -- Incoming heals (#13), only on frames that predict them. Never refresh
     -- from spellcast events: DinoUF saw damage casts show up as heals there.
     heal     = { "UNIT_HEAL_PREDICTION", "UNIT_MAXHEALTH", "UNIT_HEALTH", "UNIT_CONNECTION" },
+    -- Absorb shields left (#171), on the same frames. The client fires the
+    -- absorb event as a shield lands, at each hit it soaks, and as it breaks.
+    absorb   = { "UNIT_ABSORB_AMOUNT_CHANGED", "UNIT_MAXHEALTH", "UNIT_HEALTH", "UNIT_CONNECTION" },
     power    = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" },
     -- The name painter also paints the target's level/classification text.
     name     = { "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_LEVEL", "UNIT_CLASSIFICATION_CHANGED",
@@ -46,7 +49,7 @@ Engine.CHANNEL_EVENTS = {
 -- The player's own cast events that only the latency estimate needs (#72):
 -- registered on the player's tracker alone, routed to the cast painter.
 Engine.PLAYER_CAST_EVENTS = { "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED" }
-Engine.ORDER = { "name", "color", "health", "heal", "power", "portrait", "indicators", "happiness",
+Engine.ORDER = { "name", "color", "health", "heal", "absorb", "power", "portrait", "indicators", "happiness",
                  "combo", "druidmana", "cast" }
 
 local painters = {}
