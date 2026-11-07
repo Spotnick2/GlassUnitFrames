@@ -175,11 +175,12 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   show up as heals there). Its own `heal` channel exists only on frames that predict. The
   calculator gets `SetIncomingHealOverflowPercent(1)`: DinoUF recorded an empty bar on Forever
   without it. The bar is cleared on a failed read and for offline or dead units.
-- **Absorb shields** (#171, the same three frames): a darker grey segment (`ABSORB_COLOR`) **past**
+- **Absorb shields** (#171, the same three frames): a segment **past**
   the health fill (owner's pick, Blizzard's layout), the full health-bar width, clipped at the
   bar's end, so near full health only the missing part shows. It starts where the incoming heals
   end: anchored to the heal prediction's own fill edge (the health fill's without a prediction
-  bar), so the client chains them. The values are
+  bar), so the client chains them. Its colour is the health colour times `Frames.ABSORB_SHADE`
+  (0.5; owner), set with it (`healthColor`). The values are
   `UnitGetTotalAbsorbs` and `UnitHealthMax` (`API.TotalAbsorbs`), straight to the bar, snapped:
   measured **secret in and out of combat, even with no shield** (CastProbe `absorb`, 70790), so
   nothing is compared or truth-tested; a plain non-number clears. Not the calculator's

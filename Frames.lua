@@ -282,9 +282,20 @@ end
 -- The health bar's colour depends on death and connection as well as class
 -- and reaction, so both the name and the health painters apply it: a unit
 -- revived (UNIT_HEALTH) must lose its dead grey without waiting for a name event.
+-- The absorb segment (#171) is a darker shade of the health colour (owner).
+-- The colours are plain tables, never secret.
+Frames.ABSORB_SHADE = 0.5
+local function healthColor(f, r, g, b)
+    f.health:SetStatusBarColor(r, g, b)
+    if f.absorbBar then
+        local k = Frames.ABSORB_SHADE
+        f.absorbBar:SetStatusBarColor(r * k, g * k, b * k)
+    end
+end
+
 local function paintColor(f, u)
     local c = unitColor(u)
-    f.health:SetStatusBarColor(c[1], c[2], c[3])
+    healthColor(f, c[1], c[2], c[3])
 end
 
 Engine.SetPainter("color", function(f)
@@ -819,7 +830,7 @@ function Frames.PaintSample(f, portrait)
         col = r and { r, g, b } or FRIENDLY
     end
     Glass.SetBar(f.health, s.maxHp, s.hp, true)
-    f.health:SetStatusBarColor(col[1], col[2], col[3])
+    healthColor(f, col[1], col[2], col[3])
     -- A real loss already queued applies nothing (its timer reads lossPending).
     f.lossPending = nil
     if f.lossBar then
@@ -1250,13 +1261,14 @@ local function buildHealPrediction(b)
     b.healCalc, b.healPred = calc, pred
 end
 
--- Absorb shields left (#171): a darker grey segment PAST the health fill
--- (owner's pick, Blizzard's layout), the full health-bar width, so a shield of
--- X% of max reads as X% of the bar. It starts where the incoming heals end:
--- anchored to the heal prediction's own fill edge (to the health fill's
--- when there's no prediction bar), so the client chains them with no Lua
--- geometry from secrets. Clipped at the bar's end: near full health only the
--- missing part shows.
+-- Absorb shields left (#171): a segment PAST the health fill (owner's pick,
+-- Blizzard's layout), the full health-bar width, so a shield of X% of max
+-- reads as X% of the bar. It starts where the incoming heals end: anchored to
+-- the heal prediction's own fill edge (to the health fill's when there's no
+-- prediction bar), so the client chains them with no Lua geometry from
+-- secrets. Clipped at the bar's end: near full health only the missing part
+-- shows. Its colour is the health colour's darker shade (healthColor); this
+-- grey is only until the first paint, the alpha is kept.
 local ABSORB_COLOR = { 0.50, 0.50, 0.50, 0.90 }
 local function buildAbsorb(b)
     if not API.HasAbsorbs() then return end

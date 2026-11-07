@@ -36,6 +36,16 @@ local hl = p.health:GetFrameLevel()
 eq(bar._parent._level, hl + 3, "over the track, level with the heal prediction")
 eq(p.health.overlay._level, hl + 4, "the glass overlay stays above it")
 
+-- Its colour: the health colour's darker shade, following it.
+local function shadeOf(b)
+    local h, a, k = b.health._color, b.absorbBar._color, GlassUF.Frames.ABSORB_SHADE
+    return math.abs(a[1] - h[1] * k) < 1e-9 and math.abs(a[2] - h[2] * k) < 1e-9 and math.abs(a[3] - h[3] * k) < 1e-9
+end
+check(GlassUF.Frames.ABSORB_SHADE < 1 and shadeOf(p), "the player's absorb: its class colour, darker")
+check(shadeOf(t), "the target's: its reaction colour, darker")
+check(t.absorbBar._color[1] ~= p.absorbBar._color[1] or t.absorbBar._color[2] ~= p.absorbBar._color[2],
+    "so a warlock's and a hostile mob's differ")
+
 -- Values go straight through, snapped.
 Enum.StatusBarInterpolation = { Immediate = 0, ExponentialEaseOut = 1 }
 WoW.units.player.absorbs = 87
@@ -56,6 +66,7 @@ WoW.SetUnit("target", { name = "Shielded Friend", reaction = 5, health = 500, ma
 WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
 eq(t.absorbBar._value, 120, "the new target's shield")
 eq(t.absorbBar._max, 600, "over its own maximum health")
+check(shadeOf(t), "recoloured for the new (friendly) target")
 
 -- Dead or offline: cleared.
 WoW.units.target.dead = true
@@ -108,6 +119,7 @@ eq(GlassUF.Frames.absorbs, true, "/glass absorb on")
 -- The preview's sample shows a shield on the target (only while on).
 GlassUF.Frames.PaintSample(t)
 eq(t.absorbBar._value, GlassUF.Frames.SAMPLES.target.maxHp * 0.2, "the sample's shield")
+check(shadeOf(t), "in the sample's colour")
 GlassUF.Frames.absorbs = false
 GlassUF.Frames.PaintSample(t)
 eq(t.absorbBar._value, 0, "no sample shield while off")
