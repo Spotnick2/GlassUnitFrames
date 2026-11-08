@@ -199,7 +199,7 @@ local function showStripe(on)
             local t = sample:CreateTexture(nil, "ARTWORK")
             t:SetAllPoints(bg)
             if s.atlas then
-                pcall(t.SetAtlas, t, s.atlas, false, "LINEAR", "REPEAT", "REPEAT")
+                pcall(t.SetAtlas, t, s.atlas, false, nil, nil, "REPEAT", "REPEAT")   -- (atlas, useAtlasSize, filterMode, resetTexCoords, wrapH, wrapV)
             else
                 t:SetTexture(s.file, "REPEAT", "REPEAT")
             end

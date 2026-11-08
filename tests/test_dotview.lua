@@ -49,6 +49,19 @@ eq(m._points[2][1], "BOTTOMRIGHT", "the bar's full height")
 check(t.dotClip._clips, "clipped")
 eq(t.dotClip._points[1][1], "ALL", "at the health bar's bounds")
 eq(t.dotClip._level, t.health:GetFrameLevel() + 3, "over the fill, under the glass overlay")
+-- The stripes' SetAtlas, argument by argument against the dump's signature:
+-- (atlas, useAtlasSize, filterMode, resetTexCoords, wrapModeHorizontal, wrapModeVertical).
+local got = {}
+local fake = { SetAtlas = function(_, ...) got = { n = select("#", ...), ... } end }
+check(DotView.SetStripes(fake), "the stripes call succeeds")
+eq(got[1], DotView.STRIPE_ATLAS, "atlas")
+eq(got[2], false, "useAtlasSize")
+eq(got[3], nil, "filterMode: the default")
+eq(got[4], nil, "resetTexCoords: a boolean or nil, never a wrap mode")
+eq(got[5], "REPEAT", "wrapModeHorizontal")
+eq(got[6], "REPEAT", "wrapModeVertical")
+eq(got.n, 6, "all six")
+eq(t.dotStripes._atlas, DotView.STRIPE_ATLAS, "the marker's stripes use it")
 local line = t.dotLines[1]
 check(line._reverse and line._points[1][2] == t.health:GetStatusBarTexture(), "tick lines share the edge")
 

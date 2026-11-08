@@ -45,6 +45,14 @@ end
 
 local function mediaFill() return GlassUF.Glass.MEDIA .. "bar_fill" end
 
+-- The stripe atlas, tiling both ways. The dump's signature (70862):
+-- SetAtlas(atlas, useAtlasSize, filterMode, resetTexCoords, wrapModeHorizontal,
+-- wrapModeVertical); Blizzard's SetTextureWithAddressModeOptions passes nil
+-- for the filter and the reset, and "REPEAT" for a wrap. False if it threw.
+function DotView.SetStripes(tex)
+    return pcall(tex.SetAtlas, tex, DotView.STRIPE_ATLAS, false, nil, nil, "REPEAT", "REPEAT")
+end
+
 -- A reverse-fill bar the health bar's width, its right end on the health
 -- fill's moving edge: its fill grows leftward from there.
 local function onEdge(bar, b)
@@ -72,7 +80,7 @@ local function buildMarker(b)
     local stripes = marker:CreateTexture(nil, "OVERLAY")
     stripes:SetPoint("TOPLEFT", span, "TOPLEFT", 0, 0)
     stripes:SetPoint("BOTTOMRIGHT", span, "BOTTOMRIGHT", 0, 0)
-    if pcall(stripes.SetAtlas, stripes, DotView.STRIPE_ATLAS, false, "LINEAR", "REPEAT", "REPEAT") then
+    if DotView.SetStripes(stripes) then
         stripes:SetHorizTile(true)
         stripes:SetVertTile(true)
         stripes:SetAlpha(DotView.STRIPE_ALPHA)
@@ -80,7 +88,7 @@ local function buildMarker(b)
     else
         stripes:Hide()                               -- the tinted fill alone
     end
-    b.dotMarker, b.dotClip = marker, marker:GetParent()
+    b.dotMarker, b.dotClip, b.dotStripes = marker, marker:GetParent(), stripes
 
     -- Tick lines: transparent-fill bars on the same edge, each filled to the
     -- running total up to its tick; a 1 px line rides its fill's far end.
