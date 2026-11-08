@@ -1,243 +1,92 @@
--- wow_stubs.lua: a minimal WoW: Forever mock for Lua 5.1 unit tests.
+-- wow_stubs.lua: GlassUnitFrames' WoW: Forever mock for Lua 5.1 unit tests.
 -- dofile("tests/wow_stubs.lua") FIRST in every test; drive it via the WoW table.
 --
--- What it models, on purpose:
--- - STRICT globals: reading any global it does not define is an error. The
---   stub is the allowlist of APIs verified present in the API dump; defining
---   something Forever lacks is how a missing API survives into a build.
--- - SECRETS as newproxy userdata: arithmetic, ordering, tostring, concat and
---   string.format on one throw. Lua 5.1 cannot make a truth test or == throw,
---   so those two misuses are NOT caught here (only in game / in review).
--- - PROTECTED frames: secure-template frames and their ancestors. Touching one
---   under InCombatLockdown() is recorded in WoW.blocked instead of applied.
--- - EVENT names: RegisterEvent throws on a name the API dump does not declare.
--- - METHOD calls: every widget method called is recorded (WoW.methodsCalled)
---   so test_methods.lua can check each against the dump's widget methods.
+-- The mechanics come from WowTestKit (tests/kit.lua loads the commit
+-- tests/kit.pin names; its README is the reference): strict globals, secrets,
+-- event names checked against the pinned build, widgets that record every
+-- method called, protected frames, print (with the stray-"|" check done()
+-- fails on), timers, fire / tick. This file adds GUF's own client APIs (units,
+-- casts, heal prediction, the aura container, Blizzard's unit frames, ...),
+-- the methods the core doesn't have, and replaces a WoW.Methods entry where a
+-- test relies on it.
 
-WoW = {}
-local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70450.md"
+-- WowTestKit #8: a test that loads this file again for a fresh client
+-- (test_cc) keeps its counts: the kit, with its assertions, is loaded once; a
+-- reload rebuilds only the stub core.
+if rawget(_G, "Kit") and Kit.counts then
+    local strays = WoW.strays
+    setmetatable(_G, nil)
+    dofile(Kit.ROOT .. "/core/stubs.lua")
+    for _, line in ipairs(strays) do table.insert(WoW.strays, line) end
+else
+    dofile("tests/kit.lua")
+end
+local Methods = WoW.Methods
+local newWidget = WoW.newWidget
+local secrets = WoW.secrets
+
+function WoW.IsSecret(v) return issecretvalue(v) end
 
 --------------------------------------------------------------------------------
--- Secrets
+-- Protected frames
 --------------------------------------------------------------------------------
 
-local secrets = setmetatable({}, { __mode = "k" })
-
-function WoW.Secret(label)
-    local p = newproxy(true)
-    local mt = getmetatable(p)
-    local function boom() error("secret value touched in Lua: " .. label, 2) end
-    for _, k in ipairs({ "__tostring", "__concat", "__add", "__sub", "__mul", "__div", "__mod",
-                         "__pow", "__unm", "__lt", "__le", "__len", "__index", "__newindex", "__call" }) do
-        mt[k] = boom
-    end
-    secrets[p] = label
-    return p
-end
-
-function issecretvalue(v) return secrets[v] ~= nil end
-function WoW.IsSecret(v) return secrets[v] ~= nil end
-
---------------------------------------------------------------------------------
--- Known events (from the dump when present)
---------------------------------------------------------------------------------
-
-WoW.KNOWN_EVENTS = {}
-WoW.dumpAvailable = false
-do
-    local f = io.open(DUMP, "r")
-    if f then
-        local inEvents = false
-        for line in f:lines() do
-            if line:match("^## Documented events") then inEvents = true
-            elseif line:match("^## ") then inEvents = false
-            elseif inEvents then
-                local name = line:match("^([A-Z][A-Z0-9_]+)%s+%(")
-                if name then WoW.KNOWN_EVENTS[name] = true end
-            end
-        end
-        f:close()
-        WoW.dumpAvailable = next(WoW.KNOWN_EVENTS) ~= nil
-    end
-    -- Without the dump (CI: it is local only) no name can be judged, so every
-    -- one is accepted. A hand-kept fallback list went stale: events wired
-    -- later (UNIT_THREAT_LIST_UPDATE, UNIT_FLAGS) failed to register and
-    -- test_aggro went red only where the dump was missing.
-    if not WoW.dumpAvailable then
-        setmetatable(WoW.KNOWN_EVENTS, { __index = function() return true end })
-    end
-end
-
---------------------------------------------------------------------------------
--- State
---------------------------------------------------------------------------------
-
-function WoW.reset()
-    WoW.frames = {}
-    WoW.fontStrings = {}
-    WoW.blocked = {}
-    WoW.chat = {}
-    WoW.addonVersion = "dev"
-    WoW.timers = {}
-    WoW.tickers = {}
-    WoW.onTaxi = nil
-    WoW.timerDue = setmetatable({}, { __mode = "k" })
-    WoW.now = 1000            -- GetTime(): the frame time, advanced by tests
-    WoW.netStats = { 3.4, 0.15, 29, 33 }   -- GetNetStats(): in, out, home ms, world ms (measured)
-    WoW.unitWatch = {}
-    WoW.methodsCalled = {}
-    WoW.combat = false
-    WoW.shift = false
-    WoW.alt = false
-    WoW.secretFields = {}     -- field -> true: that unit field comes back secret for every unit
-    WoW.units = {}
-    WoW.raid = nil
-    WoW.masterLooter = false
-    WoW.resting = false
-    WoW.settings = {}
-    WoW.atlases = { ["UI-HUD-UnitFrame-Player-Rest-Flipbook"] = true }
-    WoW.loadedAddOns = {}
-    WoW.rangeChecks = {}      -- C_SwingTimer.EnableRangeCheck calls, in order: { type, enable }
-    WoW.swingInRange = {}     -- swing type -> IsTargetWithinSwingRange's answer (nil = unknown)
-    WoW.cvars = { showSwingTimer = "1" }
-    WoW.spellCosts = {}       -- spellID -> GetSpellPowerCost's table ("error": it throws)
-    WoW.cooldowns = {}        -- spellID -> { isActive, isOnGCD, start, duration, secret } ("error": it throws)
-    WoW.inRange = {}          -- unit -> IsSpellInRange's answer (nil, true, false, "secret", "error")
-    WoW.rangeAsked = {}       -- IsSpellInRange calls: { spellID, unit }
-    WoW.players = {}          -- guid -> { name, realm, level } for GetPlayerInfoByGUID
-    WoW.mirror = {}           -- mirror timers: name -> { index, value, max, scale, paused, label }
-    WoW.ccSpells = {}         -- spellID -> true: C_Spell.IsSpellCrowdControl
-    WoW.uiScale = 0.64        -- UIParent's effective scale
-    WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
-    WoW.repeating = false
-    WoW.layout = false        -- true: frames' rects resolved from their anchors (GetCenter)
-    WoW.callbacks = {}        -- EventRegistry: event -> { { fn, owner } }
-    rawset(_G, "EditModeManagerFrame", nil)
-    if UIParent then WoW.CreateBlizzardFrames() end
-end
-
--- Unit fields: exists, health, maxHealth, power, maxPower, powerToken, name,
--- class, player, reaction, dead, connected, visible, tapDenied,
--- casting = { name, channel, remaining }.
-function WoW.SetUnit(token, t)
-    if t == nil then WoW.units[token] = nil return end
-    local u = { exists = true, health = 1000, maxHealth = 1000, power = 500, maxPower = 500,
-                powerToken = "MANA", name = token, class = "WARRIOR", player = false, reaction = 5,
-                dead = false, connected = true, visible = true, tapDenied = false,
-                level = 10, classification = "normal", afk = false,
-                leader = false, assistant = false, pvp = false, ffa = false, faction = "Horde" }
-    for k, v in pairs(t) do u[k] = v end
-    WoW.units[token] = u
-end
-
-local function unitField(token, field)
-    local u = WoW.units[token]
-    if not u then return nil end
-    local v = u[field]
-    if WoW.secretFields[field] and v ~= nil then return WoW.Secret(token .. "." .. field) end
-    return v
-end
-
---------------------------------------------------------------------------------
--- Widgets
---------------------------------------------------------------------------------
-
-local Methods = {}   -- shared implementations, by method name
-
-local function record(w, name)
-    WoW.methodsCalled[w._type .. ":" .. name] = true
-end
-
-local function isProtected(w)
-    return w._protected == true
-end
-
-local function guard(w, what)
-    if WoW.combat and isProtected(w) then
-        table.insert(WoW.blocked, (w._name or w._type) .. ":" .. what)
-        return false
-    end
-    return true
-end
-
-local widgetMT = {
-    __index = function(w, k)
-        if type(k) ~= "string" or not k:match("^%u") then return nil end  -- fields read as nil
-        return function(self, ...)
-            record(self, k)
-            local impl = Methods[k]
-            if impl then return impl(self, ...) end
-            return nil
-        end
-    end,
-}
-
-local function newWidget(wtype, parent, name)
-    local w = setmetatable({ _type = wtype, _parent = parent, _shown = true, _points = {},
-                             _attrs = {}, _scripts = {}, _events = {}, _unitEvents = {},
-                             _level = parent and parent._level and (parent._level + 1) or 1,
-                             _width = 0, _height = 0, _name = name }, widgetMT)
-    return w
-end
-
-function CreateFrame(ftype, name, parent, template)
-    local w = newWidget(ftype, parent, name)
-    w._template = template
-    if template and template:find("Secure") then
-        local p = w
-        while p do p._protected = true; p = p._parent end
-    end
-    if ftype == "StatusBar" then w._min, w._max, w._value = 0, 1, 0 end
-    table.insert(WoW.frames, w)
-    if name then rawset(_G, name, w) end
-    return w
-end
-
--- Visibility / layout (guarded on protected frames).
-function Methods.Show(w)
-    if not guard(w, "Show") then return end
-    local was = w._shown
-    w._shown = true
-    if not was and w._scripts.OnShow then w._scripts.OnShow(w) end   -- only on a hidden->shown change, as the client
-end
-function Methods.Hide(w)
-    if not guard(w, "Hide") then return end
-    local was = w._shown
-    w._shown = false
-    if was and w._scripts.OnHide then w._scripts.OnHide(w) end   -- the client fires it only on a visible->hidden change
-end
-function Methods.SetShown(w, v) if v then Methods.Show(w) else Methods.Hide(w) end end
-function Methods.IsShown(w) return w._shown end
-function Methods.IsVisible(w)
+-- A secure template protects the frame and every ancestor, as the client does
+-- (a frame that parents secure buttons is protected). UIParent is not
+-- (WoW.CreateBlizzardFrames clears it).
+WoW.templates.SecureUnitButtonTemplate = function(w)
     local p = w
-    while p do if not p._shown then return false end; p = p._parent end
+    while p do p._protected = true; p = p._parent end
+end
+
+-- WowTestKit #12: a protected frame in combat also refuses resizing,
+-- reparenting and SetAttribute (and, below, SetScale, RegisterForClicks,
+-- StartMoving and StopMovingOrSizing); each refusal is recorded in
+-- WoW.blocked, which the tests assert stays empty. The old stub's guards,
+-- kept so those assertions still cover every change the client refuses.
+for _, m in ipairs({ "SetSize", "SetWidth", "SetHeight", "SetParent", "SetAttribute" }) do
+    local impl = Methods[m]
+    Methods[m] = function(w, ...)
+        if WoW.refused(w, m) then return end
+        if impl then return impl(w, ...) end
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Unit events
+--------------------------------------------------------------------------------
+
+-- WowTestKit #17: RegisterUnitEvent. A unit event reaches the frame only for
+-- the unit it registered (w._unitEvents[event] = unit); WoW.fire's first
+-- payload argument is the unit.
+local function knownEvent(e)
+    if not WoW.KNOWN_EVENTS[e] then error("Attempt to register unknown event \"" .. tostring(e) .. "\"", 3) end
+end
+function Methods.RegisterUnitEvent(w, e, unit)
+    knownEvent(e)
+    w._unitEvents = w._unitEvents or {}
+    w._unitEvents[e] = unit
     return true
 end
-function Methods.SetPoint(w, ...) if guard(w, "SetPoint") then table.insert(w._points, { ... }) end end
-function Methods.ClearAllPoints(w) if guard(w, "ClearAllPoints") then w._points = {} end end
-function Methods.GetNumPoints(w) return #w._points end
-function Methods.GetPoint(w, i)
-    local p = w._points[i or 1]
-    if not p then return nil end
-    local point, rel, relPoint, x, y = p[1], p[2], p[3], p[4], p[5]
-    if type(rel) ~= "table" and type(rel) ~= "string" then
-        -- SetPoint(point, x, y) short form is not used by the addon.
-    end
-    return point, rel, relPoint, x, y
+local coreUnregisterEvent, coreUnregisterAllEvents = Methods.UnregisterEvent, Methods.UnregisterAllEvents
+function Methods.UnregisterEvent(w, e)
+    coreUnregisterEvent(w, e)
+    if w._unitEvents then w._unitEvents[e] = nil end
 end
-function Methods.SetAllPoints(w, rel) table.insert(w._points, { "ALL", rel }) end
-function Methods.SetSize(w, x, y) if guard(w, "SetSize") then w._width, w._height = x, y end end
-function Methods.SetWidth(w, x) if guard(w, "SetWidth") then w._width = x end end
-function Methods.SetHeight(w, y) if guard(w, "SetHeight") then w._height = y end end
-function Methods.GetWidth(w) return w._width end
-function Methods.GetHeight(w) return w._height end
-function Methods.EnableMouse(w, on) w._mouse = on and true or false end
-function Methods.SetEnabled(w, on) w._enabled = on and true or false end
-function Methods.IsEnabled(w) return w._enabled ~= false end
-function Methods.SetScale(w, sc) if guard(w, "SetScale") then w._scale = sc end end
+-- w._silenced: test_blizzard checks Blizzard's frames were silenced.
+function Methods.UnregisterAllEvents(w)
+    coreUnregisterAllEvents(w)
+    w._unitEvents = {}
+    w._silenced = true
+end
+
+--------------------------------------------------------------------------------
+-- Widget methods the core doesn't have, or GUF's on top of the core's
+--------------------------------------------------------------------------------
+
+function Methods.GetNumPoints(w) return #w._points end
+function Methods.SetScale(w, sc) if not WoW.refused(w, "SetScale") then w._scale = sc end end
 function Methods.GetScale(w) return w._scale or 1 end
-function Methods.GetFrameLevel(w) return w._level end
-function Methods.SetFrameLevel(w, l) w._level = l end
 -- The UI's base scale (WoW.uiScale, 0.64 by default) times every SetScale on
 -- the widget and its parents, as the client computes it.
 function Methods.GetEffectiveScale(w)
@@ -249,50 +98,11 @@ function Methods.GetEffectiveScale(w)
     end
     return s
 end
-
--- Scripts and events.
-function Methods.SetScript(w, name, fn) w._scripts[name] = fn end
-function Methods.HookScript(w, name, fn)
-    w._hooks = w._hooks or {}
-    w._hooks[name] = w._hooks[name] or {}
-    table.insert(w._hooks[name], fn)
-end
-function Methods.GetScript(w, name) return w._scripts[name] end
-function Methods.SetFrameStrata(w, st) w._strata = st end
-function Methods.GetFrameStrata(w) return w._strata or "MEDIUM" end
-function Methods.HookScript(w, name, fn)
-    local old = w._scripts[name]
-    w._scripts[name] = function(...) if old then old(...) end; fn(...) end
-end
-function Methods.RegisterEvent(w, e)
-    if not WoW.KNOWN_EVENTS[e] then error("Attempt to register unknown event \"" .. e .. "\"", 2) end
-    w._events[e] = true
-    return true
-end
-function Methods.RegisterUnitEvent(w, e, unit)
-    if not WoW.KNOWN_EVENTS[e] then error("Attempt to register unknown event \"" .. e .. "\"", 2) end
-    w._unitEvents[e] = unit
-    return true
-end
-function Methods.UnregisterEvent(w, e) w._events[e] = nil; w._unitEvents[e] = nil end
-function Methods.UnregisterAllEvents(w) w._events = {}; w._unitEvents = {}; w._silenced = true end
-function Methods.SetParent(w, p) if guard(w, "SetParent") then w._parent = p end end
-function Methods.GetParent(w) return w._parent end
-function Methods.GetName(w) return w._name end
 function Methods.IsProtected(w) return w._protected == true, w._explicit == true end
-function Methods.GetChildren(w)
-    local kids = {}
-    for _, f in ipairs(WoW.frames) do if f._parent == w then kids[#kids + 1] = f end end
-    return unpack(kids)
-end
-function Methods.GetObjectType(w) return w._type end
 function Methods.SetClipsChildren(w, v) w._clips = v end
+function Methods.RegisterForClicks(w, ...) if not WoW.refused(w, "RegisterForClicks") then w._clicks = { ... } end end
+function Methods.StartMoving(w) if not WoW.refused(w, "StartMoving") then w._moving = true end end
 
--- Secure attributes and clicks.
-function Methods.SetAttribute(w, k, v) if guard(w, "SetAttribute") then w._attrs[k] = v end end
-function Methods.GetAttribute(w, k) return w._attrs[k] end
-function Methods.RegisterForClicks(w, ...) if guard(w, "RegisterForClicks") then w._clicks = { ... } end end
-function Methods.StartMoving(w) if guard(w, "StartMoving") then w._moving = true end end
 -- No real geometry in the stub: a test sets w._center = { x, y } where it matters.
 -- With no _center: a frame placed CENTER on UIParent's CENTER resolves as the
 -- client would, in the frame's own (scaled) units; UIParent's centre is
@@ -359,44 +169,26 @@ function Methods.GetRight(w) return edge(w, "x", 1) end
 function Methods.GetBottom(w) return edge(w, "y", -1) end
 function Methods.GetTop(w) return edge(w, "y", 1) end
 function Methods.StopMovingOrSizing(w)
-    if guard(w, "StopMovingOrSizing") then
+    if not WoW.refused(w, "StopMovingOrSizing") then
         w._moving = false
         w._points = { { "TOPLEFT", "UIParent", "BOTTOMLEFT", 111, 222 } }   -- where the drag "left" it
     end
 end
 
--- Regions.
-function Methods.CreateTexture(w) local t = newWidget("Texture", w); return t end
-function Methods.CreateMaskTexture(w) local t = newWidget("MaskTexture", w); return t end
-function Methods.CreateFontString(w)
-    local t = newWidget("FontString", w)
-    table.insert(WoW.fontStrings, t)   -- a test can find a page's texts
+-- Regions. WoW.fontStrings lists every font string, so a test can find a page's texts.
+local coreCreateFontString = Methods.CreateFontString
+function Methods.CreateFontString(w, ...)
+    local t = coreCreateFontString(w, ...)
+    table.insert(WoW.fontStrings, t)
     return t
 end
-function Methods.CreateAnimationGroup(w)
-    local ag = newWidget("AnimationGroup", w)
-    ag._plays = 0
-    return ag
-end
-function Methods.CreateAnimation(ag, atype) return newWidget(atype or "Animation", ag) end
-function Methods.Play(ag) ag._plays = (ag._plays or 0) + 1 end
-function Methods.SetTexture(t, file) t._file = file; return true end
-function Methods.SetAlpha(w, a) w._alpha = a end
+-- An animation group counts its plays (ag._plays), on top of the core's state:
+-- the sheen tests count replays.
+local corePlay = Methods.Play
+function Methods.Play(ag) corePlay(ag); ag._plays = (ag._plays or 0) + 1 end
 function Methods.SetTexCoord(t, ...) t._texCoord = { ... } end
-function Methods.GetAlpha(w) return w._alpha or 1 end
-function Methods.SetVertexColor(t, r, g, b, a) t._vertex = { r, g, b, a } end
-function Methods.SetColorTexture(t, r, g, b, a) t._color = { r, g, b, a } end
-function Methods.AddMaskTexture(t, m) t._masks = t._masks or {}; table.insert(t._masks, m) end
-function Methods.SetGradient(t, orientation, c1, c2)
-    assert(type(c1) == "table" and type(c2) == "table", "SetGradient takes color objects on this API")
-    t._gradient = { orientation, c1, c2 }
-end
 function Methods.SetTextureSliceMargins(t, l, tp, r, b) t._slice = { l, tp, r, b } end
 
--- FontString: the client formats natively and accepts secrets. Model that:
--- with any secret argument, keep the arguments unformatted instead of calling
--- string.format (which would throw on the proxy).
-function Methods.SetText(fs, text) fs._text = text end
 -- A rough wrap: about 7 units a character, 14 a line, at the string's width.
 function Methods.GetStringHeight(fs)
     local w, text = fs._width, fs._text
@@ -404,14 +196,13 @@ function Methods.GetStringHeight(fs)
     if not w or w <= 0 then return 14 end
     return math.ceil(#text * 7 / w) * 14
 end
-function Methods.SetChecked(cb, v) cb._checked = v and true or false end
-function Methods.GetChecked(cb) return cb._checked == true end
 function Methods.LockHighlight(b) b._highlightLocked = true end
+function Methods.UnlockHighlight(b) b._highlightLocked = false end
 function Methods.SetScrollChild(sf, child) sf._scrollChild = child end
+function Methods.GetScrollChild(sf) return sf._scrollChild end
 function Methods.SetFocus(e) e._focus = true end
 function Methods.ClearFocus(e) e._focus = false end
 function Methods.HasFocus(e) return e._focus == true end
-function Methods.GetScrollChild(sf) return sf._scrollChild end
 -- Button state textures: Set<State>Texture creates the texture, Get<State>Texture returns it.
 for _, state in ipairs({ "Normal", "Pushed", "Highlight", "Checked", "Disabled" }) do
     Methods["Set" .. state .. "Texture"] = function(b, file)
@@ -421,44 +212,52 @@ for _, state in ipairs({ "Normal", "Pushed", "Highlight", "Checked", "Disabled" 
     end
     Methods["Get" .. state .. "Texture"] = function(b) return b["_" .. state] end
 end
-function Methods.UnlockHighlight(b) b._highlightLocked = false end
-function Methods.GetText(fs) return fs._text end
-function Methods.SetFormattedText(fs, fmt, ...)
-    local n = select("#", ...)
-    for i = 1, n do
-        if secrets[(select(i, ...))] then fs._text = { secretFormat = fmt, n = n }; return end
-    end
-    fs._text = string.format(fmt, ...)
-end
-function Methods.SetFont(fs, file, size, flags) fs._font = { file, size, flags }; return true end
-function Methods.GetFont(fs) if fs._font then return fs._font[1], fs._font[2], fs._font[3] end end
 
--- StatusBar: takes values (secret or not) without inspecting them.
+-- StatusBar: takes values (secret or not) without inspecting them, and keeps
+-- the interpolation each call was given (the tests check snaps and eases).
 function Methods.SetMinMaxValues(b, lo, hi, interp) b._min, b._max, b._minMaxInterp = lo, hi, interp end
 function Methods.GetMinMaxValues(b) return b._min, b._max end
+local coreSetValue = Methods.SetValue
 function Methods.SetValue(b, v, interp)
-    b._value = v; b._interp = interp
-    -- The client fires OnValueChanged for programmatic changes too (userInput false).
-    if b._scripts and b._scripts.OnValueChanged then b._scripts.OnValueChanged(b, v, false) end
+    coreSetValue(b, v)
+    b._interp = interp
 end
-function Methods.GetValue(b) return b._value end
 function Methods.SetReverseFill(b, on) b._reverse = on end
 function Methods.GetReverseFill(b) return b._reverse end
-function Methods.SetStatusBarTexture(b, file)
-    b._fill = b._fill or newWidget("Texture", b)
-    b._fill._file = file
-    return true
-end
-function Methods.GetStatusBarTexture(b) return b._fill end
--- The client sets the fill's vertex colour, which replaces the gradient that
--- held the fill's opacity (measured in game, LibGlass#64).
+-- WowTestKit #19: the client sets the fill's vertex colour, which replaces
+-- the gradient that held the fill's opacity (measured in game, LibGlass#64);
+-- test_frames' "recolouring keeps the fill opacity" relies on it.
 function Methods.SetStatusBarColor(b, r, g, bl, a)
     b._color = { r, g, bl }
     if b._fill then b._fill._gradient, b._fill._vertex = nil, { r, g, bl, a } end
 end
-function Methods.SetTextColor(fs, r, g, b, a) fs._textColor = { r, g, b, a } end
-function Methods.GetTextColor(fs) local c = fs._textColor or { 1, 1, 1, 1 }; return c[1], c[2], c[3], c[4] end
 function Methods.SetTimerDuration(b, d, interp, dir) b._timer = { duration = d, interp = interp, dir = dir } end
+
+--------------------------------------------------------------------------------
+-- Units
+--------------------------------------------------------------------------------
+
+-- Unit fields: exists, health, maxHealth, power, maxPower, powerToken, name,
+-- class, player, reaction, dead, connected, visible, tapDenied,
+-- casting = { name, channel, remaining }.
+function WoW.SetUnit(token, t)
+    if t == nil then WoW.units[token] = nil return end
+    local u = { exists = true, health = 1000, maxHealth = 1000, power = 500, maxPower = 500,
+                powerToken = "MANA", name = token, class = "WARRIOR", player = false, reaction = 5,
+                dead = false, connected = true, visible = true, tapDenied = false,
+                level = 10, classification = "normal", afk = false,
+                leader = false, assistant = false, pvp = false, ffa = false, faction = "Horde" }
+    for k, v in pairs(t) do u[k] = v end
+    WoW.units[token] = u
+end
+
+local function unitField(token, field)
+    local u = WoW.units[token]
+    if not u then return nil end
+    local v = u[field]
+    if WoW.secretFields[field] and v ~= nil then return WoW.Secret(token .. "." .. field) end
+    return v
+end
 
 -- PlayerModel (and the aura container: both take a unit).
 local function seq(w, what) w._seq = w._seq or {}; table.insert(w._seq, what) end
@@ -492,15 +291,6 @@ function SetPortraitTexture(tex, unit) tex._portraitUnit = unit end
 -- Globals
 --------------------------------------------------------------------------------
 
-UIParent = newWidget("Frame", nil, "UIParent")
-UIParent._level = 0
-
-function print(...)
-    local parts = {}
-    for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
-    table.insert(WoW.chat, table.concat(parts, " "))
-end
-
 SlashCmdList = {}
 Enum = {
     LuaCurveType = { Linear = 0 },
@@ -510,8 +300,6 @@ Enum = {
 }
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 function GetBuildInfo() return "1.60.1", "70450", "Oct 15 2026", 16001 end
-function InCombatLockdown() return WoW.combat end
-function GetTime() return WoW.now end
 -- For LibTaxiTime-1.0 (#153; dump 70532): server time follows the frame
 -- time; WoW.onTaxi says the player is on a taxi.
 function GetServerTime() return 1800000000 + math.floor(WoW.now) end
@@ -530,16 +318,6 @@ end
 function UnregisterUnitWatch(frame)
     if WoW.combat then table.insert(WoW.blocked, (frame._name or frame._type) .. ":UnregisterUnitWatch") return end
     WoW.unitWatch[frame] = nil; frame._unwatched = true
-end
-
--- Post-hook a method, as the client does: the original runs first.
-function hooksecurefunc(t, name, fn)
-    local orig = t[name]
-    rawset(t, name, function(self, ...)
-        local r = orig(self, ...)
-        fn(self, ...)
-        return r
-    end)
 end
 
 -- Blizzard's own unit frames: secure (protected) buttons under UIParent,
@@ -563,7 +341,7 @@ function WoW.CreateBlizzardFrames()
         f.healthbar = CreateFrame("StatusBar", nil, f)
         f.manabar = CreateFrame("StatusBar", nil, f)
         if spec[2] then
-            f._attrs.unit = spec[2]
+            f._attrs = { unit = spec[2] }
             WoW.unitWatch[f] = true
         end
         f:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -606,24 +384,31 @@ function WoW.SetEditMode(open)
     if em then em._shown = open end
 end
 
--- C_Timer.After records when each callback is due: flushTimers runs them all
--- (most tests), WoW.runDue only those due by WoW.now (timing tests).
-C_Timer = { After = function(s, fn)
-    table.insert(WoW.timers, fn)
-    WoW.timerDue[fn] = WoW.now + (s or 0)
-end }
--- C_Timer.NewTicker(seconds, callback, iterations) -> a ticker with Cancel
--- (dump 70532). Recorded in WoW.tickers; WoW.tickTickers() runs the live ones.
-function C_Timer.NewTicker(s, fn, n)
-    local t = { seconds = s, fn = fn, cancelled = false }
-    function t:Cancel() self.cancelled = true end
-    function t:IsCancelled() return self.cancelled end
-    table.insert(WoW.tickers, t)
-    return t
+
+--------------------------------------------------------------------------------
+-- Timers: the core's C_Timer.After records ({ s, fn, at }), run by its
+-- WoW.flushTimers / WoW.advance, plus GUF's two helpers on top
+--------------------------------------------------------------------------------
+
+-- WoW.runDue(): one pass over the timers due by WoW.now (at <= now), in the
+-- order they were scheduled, keeping the rest; one scheduled inside waits for
+-- the next pass. The timing tests move WoW.now by hand and call it.
+function WoW.runDue()
+    local run, keep = {}, {}
+    for _, t in ipairs(WoW.timers) do
+        if (t.at or 0) <= WoW.now then run[#run + 1] = t else keep[#keep + 1] = t end
+    end
+    WoW.timers = keep
+    for _, t in ipairs(run) do if not t.cancelled then t.fn() end end
 end
+
+-- WoW.tickTickers(): one tick of every live ticker (the core's C_Timer.NewTicker
+-- records, those with `every`), each left in place. The core records a ticker
+-- once, like a timer: WoW.flushTimers / WoW.advance run it and drop it
+-- (WowTestKit #18: on the client it repeats); no test relies on a repeat yet.
 function WoW.tickTickers()
-    for _, t in ipairs(WoW.tickers) do
-        if not t.cancelled then t.fn(t) end
+    for _, t in ipairs(WoW.timers) do
+        if t.every and not t.cancelled then t.fn() end
     end
 end
 
@@ -717,20 +502,6 @@ C_CVar = {
         return true
     end,
 }
-function WoW.flushTimers()
-    local run = WoW.timers
-    WoW.timers = {}
-    for _, fn in ipairs(run) do fn() end
-end
-function WoW.runDue()
-    local run, keep = {}, {}
-    for _, fn in ipairs(WoW.timers) do
-        if (WoW.timerDue[fn] or 0) <= WoW.now then run[#run + 1] = fn else keep[#keep + 1] = fn end
-    end
-    WoW.timers = keep
-    for _, fn in ipairs(run) do fn() end
-end
-
 C_ClassColor = { GetClassColor = function(cls)
     if type(cls) ~= "string" then error("bad class") end
     return { r = 0.53, g = 0.53, b = 0.93 }
@@ -900,8 +671,6 @@ EventRegistry = {
         for _, cb in ipairs(WoW.callbacks[event] or {}) do cb[1](cb[2], ...) end
     end,
 }
-function Methods.SetAtlas(t, name) t._atlas = name; return true end
-function Methods.Stop(ag) ag._stops = (ag._stops or 0) + 1 end
 C_AddOns = {
     IsAddOnLoaded = function(name) return WoW.loadedAddOns[name] == true, WoW.loadedAddOns[name] == true end,
     LoadAddOn = function(name) WoW.loadedAddOns[name] = true; return true end,
@@ -988,26 +757,29 @@ end
 -- Driving
 --------------------------------------------------------------------------------
 
--- Fire an event at every frame registered for it, the way the client does.
--- Unit events reach a RegisterUnitEvent frame only for its unit. Errors are
--- NOT caught: a handler that throws fails the test.
+-- WowTestKit #17: fire an event at every frame registered for it, the way
+-- the client does; a unit event reaches a RegisterUnitEvent frame only for
+-- its unit. Errors are NOT caught: a handler that throws fails the test.
 function WoW.fire(event, ...)
     local unit = ...
     for _, w in ipairs(WoW.frames) do
         local handler = w._scripts.OnEvent
         if handler then
             if w._events[event] then handler(w, event, ...)
-            elseif w._unitEvents[event] ~= nil and w._unitEvents[event] == unit then handler(w, event, ...) end
+            elseif w._unitEvents and w._unitEvents[event] ~= nil and w._unitEvents[event] == unit then
+                handler(w, event, ...)
+            end
         end
     end
 end
 
--- Every event any frame registered, fired for every modelled unit.
+-- WowTestKit #17: every event any frame registered, unit events included,
+-- fired for every modelled unit and the player.
 function WoW.fireAllRegistered()
     local seen = {}
     for _, w in ipairs(WoW.frames) do
         for e in pairs(w._events) do seen[e] = true end
-        for e in pairs(w._unitEvents) do seen[e] = true end
+        for e in pairs(w._unitEvents or {}) do seen[e] = true end
     end
     for e in pairs(seen) do
         for u in pairs(WoW.units) do WoW.fire(e, u) end
@@ -1016,21 +788,10 @@ function WoW.fireAllRegistered()
     return seen
 end
 
--- One rendered frame: OnUpdate on every visible frame.
-function WoW.tick(elapsed)
-    elapsed = elapsed or 0.02
-    local list = {}
-    for _, w in ipairs(WoW.frames) do list[#list + 1] = w end
-    for _, w in ipairs(list) do
-        local fn = w._scripts.OnUpdate
-        if fn and Methods.IsVisible(w) then fn(w, elapsed) end
-    end
-end
-
 -- The client's unit watch: show/hide watched frames by UnitExists.
 function WoW.applyUnitWatch()
     for frame in pairs(WoW.unitWatch) do
-        local exists = WoW.units[frame._attrs.unit] ~= nil
+        local exists = WoW.units[frame._attrs and frame._attrs.unit] ~= nil
         if exists and not frame._shown then
             frame._shown = true
             if frame._scripts.OnShow then frame._scripts.OnShow(frame) end
@@ -1040,16 +801,49 @@ function WoW.applyUnitWatch()
     end
 end
 
--- Client string alias (in the dump's _G walk); LibStub's version check uses it.
-strmatch = string.match
+--------------------------------------------------------------------------------
+-- State the tests set, cleared with the core's (WoW.reset)
+--------------------------------------------------------------------------------
 
-WoW.reset()
+local function resetState()
+    WoW.fontStrings = {}
+    WoW.addonVersion = "dev"
+    WoW.onTaxi = nil
+    WoW.now = 1000            -- GetTime(): the frame time, advanced by tests
+    WoW.netStats = { 3.4, 0.15, 29, 33 }   -- GetNetStats(): in, out, home ms, world ms (measured)
+    WoW.unitWatch = {}
+    WoW.shift = false
+    WoW.alt = false
+    WoW.secretFields = {}     -- field -> true: that unit field comes back secret for every unit
+    WoW.units = {}
+    WoW.raid = nil
+    WoW.masterLooter = false
+    WoW.resting = false
+    WoW.settings = {}
+    WoW.atlases = { ["UI-HUD-UnitFrame-Player-Rest-Flipbook"] = true }
+    WoW.loadedAddOns = {}
+    WoW.rangeChecks = {}      -- C_SwingTimer.EnableRangeCheck calls, in order: { type, enable }
+    WoW.swingInRange = {}     -- swing type -> IsTargetWithinSwingRange's answer (nil = unknown)
+    WoW.cvars = { showSwingTimer = "1" }
+    WoW.spellCosts = {}       -- spellID -> GetSpellPowerCost's table ("error": it throws)
+    WoW.cooldowns = {}        -- spellID -> { isActive, isOnGCD, start, duration, secret } ("error": it throws)
+    WoW.inRange = {}          -- unit -> IsSpellInRange's answer (nil, true, false, "secret", "error")
+    WoW.rangeAsked = {}       -- IsSpellInRange calls: { spellID, unit }
+    WoW.players = {}          -- guid -> { name, realm, level } for GetPlayerInfoByGUID
+    WoW.mirror = {}           -- mirror timers: name -> { index, value, max, scale, paused, label }
+    WoW.ccSpells = {}         -- spellID -> true: C_Spell.IsSpellCrowdControl
+    WoW.uiScale = 0.64        -- UIParent's effective scale
+    WoW.recasts = 0           -- C_TradeSkillUI.GetRemainingRecasts()
+    WoW.repeating = false
+    WoW.layout = false        -- true: frames' rects resolved from their anchors (GetCenter)
+    WoW.callbacks = {}        -- EventRegistry: event -> { { fn, owner } }
+    rawset(_G, "EditModeManagerFrame", nil)
+    WoW.CreateBlizzardFrames()
+end
+table.insert(WoW.onReset, resetState)
+resetState()
 
 -- Strict globals: any read of an undefined global is an error, except the
 -- addon's own globals that are legitimately nil before first assignment.
 -- LibStub: the embedded library's own loader reads _G.LibStub before creating it.
-local allowNil = { GlassUF = true, GlassUnitFramesDB = true, LibStub = true }
-setmetatable(_G, { __index = function(_, k)
-    if allowNil[k] then return nil end
-    error("read of undefined global '" .. tostring(k) .. "' (not stubbed: is it in the API dump?)", 2)
-end })
+Kit.strict({ GlassUF = true, GlassUnitFramesDB = true, LibStub = true })

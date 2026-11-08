@@ -237,14 +237,9 @@ ui2.Hide()
 
 -- Every native method exercised here must exist on the measured client.
 -- MinimalScrollBar methods above belong to FrameXML, not the native dump.
-local dump = io.open(os.getenv("GLASSUF_API_DUMP") or "C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70450.md", "r")
-if dump then
-    local methods = {}
-    for line in dump:lines() do
-        local method = line:match("^(%a+:%a+)%s*$")
-        if method then methods[method] = true end
-    end
-    dump:close()
+-- The pinned build's widget methods (WowTestKit's data for tests/kit.pin's build).
+do
+    local methods = Kit.data("widgetMethods")
     for method in pairs(WoW.methodsCalled) do
         -- EventFrame is a Frame with a Lua mixin (used by MinimalScrollBar).
         local native = method:gsub("^EventFrame:", "Frame:")

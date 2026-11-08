@@ -346,8 +346,11 @@ eq(p.nameText._font[1], "Fonts\\FRIZQT__.TTF", "font applied to existing text")
 -- Translucent bar fill: texture alpha on every glass bar, text untouched.
 eq(p.health:GetStatusBarTexture()._alpha, 0.6, "bar fill at the default opacity (owner-picked)")
 SlashCmdList.GLASSUNITFRAMES("fill 0.5")
-eq(p.health:GetStatusBarTexture()._alpha, 0.5, "fill retuned live")
-eq(p.power:GetStatusBarTexture()._alpha, 0.5, "power bar too")
+-- A coloured fill's opacity is drawn in its gradient: a gradient texture
+-- ignores SetAlpha (measured, LibGlass #53; WowTestKit models it).
+local function fillOpacity(bar) local g = bar:GetStatusBarTexture()._gradient; return g and g[2].a end
+eq(fillOpacity(p.health), 0.5 * p.health.trackColor[4], "fill retuned live")
+eq(fillOpacity(p.power), 0.5 * p.power.trackColor[4], "power bar too")
 eq(GlassUnitFramesDB.fill, 0.5, "fill saved")
 check(p.nameText._alpha == nil or p.nameText._alpha == 1, "text stays opaque")
 p.health:SetStatusBarColor(1, 0, 0)

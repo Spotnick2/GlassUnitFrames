@@ -1,26 +1,21 @@
--- The manifest and the pinned build.
+-- The manifest and the pinned build. WowTestKit's Kit.checkToc first
+-- (interface, version token, every listed .lua file exists, every line listed
+-- once), then GUF's own. The embedded libraries' .xml lines point into Libs/
+-- (gitignored, filled by the packager): the harness loads them from their
+-- checkouts and fails loudly when one is missing.
 dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
 
-local toc = io.open("GlassUnitFrames.toc"):read("*a")
-check(toc:find("## Interface: 16001", 1, true), "interface 16001 (1.60.1; 11601 is the transposed-digit bug)")
-check(toc:find("## Version: @project-version@", 1, true), "packager version token kept")
+Kit.checkToc(TOC)
+local toc = io.open(TOC):read("*a")
 check(toc:find("## SavedVariables: GlassUnitFramesDB", 1, true), "saved variables declared")
 check(toc:find("## X-Wago-ID: 4N2bV0NL", 1, true), "the Wago project ID (the Wago app matches an installed addon by it)")
 check(toc:find("## X-Curse-Project-ID: 1715351", 1, true), "the CurseForge project ID")
-for _, f in ipairs(tocFiles()) do
-    check(io.open(f, "r") ~= nil, "TOC file exists: " .. f)
-end
 -- The embedded material loads before any of our files: Glass.lua calls
 -- LibStub("LibGlass-1.0") at file scope.
 eq(tocLines()[1], LIBGLASS_XML, "LibGlass-1.0 loads first")
 eq(tocLines()[2], LIBTAXITIME_XML, "LibTaxiTime-1.0 right after it (flight times, #153)")
 eq(tocFiles()[1], "Compat.lua", "Compat is the first of our own files")
-local seen = {}
-for _, f in ipairs(tocFiles()) do
-    check(not seen[f], "TOC lists each file once: " .. f)
-    seen[f] = true
-end
 
 -- Two places that must agree, never derived from each other (porting guide §0).
 loadAddon()

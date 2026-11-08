@@ -815,11 +815,9 @@ eq(T.Geometry("expandedAnchor"), nil, "reset clears expanded placement")
 eq(T.Geometry("anchor"), nil, "reset clears shared migration fallback")
 command("preview off")
 
-local dump = io.open("C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70450.md", "r")
-if dump then
-    local methods = {}
-    for line in dump:lines() do local name = line:match("^(%a+:%a+)%s*$"); if name then methods[name] = true end end
-    dump:close()
+-- The pinned build's widget methods (WowTestKit's data for tests/kit.pin's build).
+do
+    local methods = Kit.data("widgetMethods")
     local missing = {}
     for name in pairs(WoW.methodsCalled) do
         local kind = name:match("^(%a+):")
@@ -828,8 +826,6 @@ if dump then
         end
     end
     eq(#missing, 0, "view's native widget methods exist: " .. table.concat(missing, ", "))
-else
-    io.write("threat widget method audit skipped: local API dump unavailable\n")
 end
 
 eq(next(GlassUF.paintFailures), nil, "no swallowed errors")

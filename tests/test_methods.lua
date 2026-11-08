@@ -1,27 +1,11 @@
--- Every widget method the addon calls must exist on this client.
---
--- The stub answers any method call (a no-op for ones it does not implement),
--- so a call to a method Forever lacks would otherwise pass silently. This
--- checks each recorded "Type:Method" against the API dump's widget-method
--- walk, falling back to the documented functions for animation subtypes the
--- walk does not cover (Alpha:SetToAlpha, Translation:SetOffset).
+-- Every widget method the addon calls must exist on this client, on that
+-- widget type: the stub answers any method (a no-op for one it doesn't
+-- implement), so a call Forever lacks would otherwise pass silently. The
+-- addon is exercised as widely as is cheap, then WowTestKit's
+-- Kit.checkMethods checks each recorded "Type:Method" against the pinned
+-- build's widget methods (an animation subtype may also call Animation's).
 dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
-
-local DUMP = os.getenv("GLASSUF_API_DUMP") or "C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70450.md"
-local f = io.open(DUMP, "r")
-if not f then
-    io.write("test_methods: SKIPPED (no API dump at " .. DUMP .. ")\n")
-    os.exit(0)
-end
-local widget, documented = {}, {}
-for line in f:lines() do
-    local wm = line:match("^(%a+:%a+)%s*$")
-    if wm then widget[wm] = true end
-    local fn = line:match("^([%a_]+)%(")
-    if fn then documented[fn] = true end
-end
-f:close()
 
 -- Exercise everything so every method is recorded.
 standardUnits()
@@ -99,29 +83,34 @@ CreateFrame("Button", nil, tf)
 SlashCmdList.GLASSUNITFRAMES("totem")
 
 -- Methods the dump cannot list: Blizzard_AuraContainer is a load-on-demand
--- Blizzard addon the dump did not capture. Evidence they exist on Forever:
--- DinoUnitFrames (ships on this client) calls every one of them
--- (modules/auras.lua ForeverEnsureAuraContainer / ForeverInitAuraButton).
--- Keep this list exact: anything else missing from the dump still fails.
-local AURA_CONTAINER_API = {
-    ["AuraContainer:AddAuraGroup"] = true, ["AuraContainer:UpdateAllAuras"] = true,
-    ["AuraContainer:SetUnit"] = true,
-    ["AuraContainer:SetFlowLayoutAnchorPoint"] = true, ["AuraContainer:SetFlowLayoutAxis"] = true,
-    ["AuraContainer:SetFlowLayoutMaximumLineSize"] = true, ["AuraContainer:SetFlowLayoutGrowthDirection"] = true,
-    ["AuraContainer:SetFlowLayoutPadding"] = true,
+-- Blizzard addon the dump did not capture, so neither its widget type nor
+-- the methods of the buttons it creates are in the widget walk. Evidence they
+-- exist on Forever: DinoUnitFrames (ships on this client) calls every one of
+-- them (modules/auras.lua ForeverEnsureAuraContainer / ForeverInitAuraButton),
+-- and an AuraContainer is a Frame underneath. Keep this list exact: anything
+-- else missing from the build still fails.
+local DINO = "DinoUnitFrames-Forever modules/auras.lua (Blizzard_AuraContainer, not in the dump)"
+local allow = {
+    ["AuraContainer:AddAuraGroup"] = DINO, ["AuraContainer:UpdateAllAuras"] = DINO,
+    ["AuraContainer:SetUnit"] = DINO,
+    ["AuraContainer:SetFlowLayoutAnchorPoint"] = DINO, ["AuraContainer:SetFlowLayoutAxis"] = DINO,
+    ["AuraContainer:SetFlowLayoutMaximumLineSize"] = DINO, ["AuraContainer:SetFlowLayoutGrowthDirection"] = DINO,
+    ["AuraContainer:SetFlowLayoutPadding"] = DINO,
     -- on the buttons the container creates (a Button in the tests)
-    ["Button:SetIcon"] = true, ["Button:SetDurationCooldown"] = true,
-    ["Button:SetDurationText"] = true, ["Button:SetApplicationCount"] = true,
+    ["Button:SetIcon"] = DINO, ["Button:SetDurationCooldown"] = DINO,
+    ["Button:SetDurationText"] = DINO, ["Button:SetApplicationCount"] = DINO,
 }
-
-local n = 0
+-- Any other method on an AuraContainer must be a Frame method in the pinned
+-- build (a Frame underneath); one that isn't stays unallowed, and fails.
+local known = Kit.data("widgetMethods")
 for name in pairs(WoW.methodsCalled) do
-    n = n + 1
-    local method = name:match(":(%a+)$")
-    local wtype = name:match("^(%a+):")
-    local ok = widget[name] or documented[method] or AURA_CONTAINER_API[name]
-        or (wtype == "AuraContainer" and widget["Frame:" .. method])   -- a Frame underneath
-    check(ok, "method exists on Forever: " .. name)
+    local method = name:match("^AuraContainer:(%a+)$")
+    if method and not allow[name] and known["Frame:" .. method] then
+        allow[name] = "an AuraContainer is a Frame underneath (Frame:" .. method .. ")"
+    end
 end
-check(n > 40, "recorded a realistic number of methods (" .. n .. ")")
+
+local recorded = Kit.checkMethods({ allow = allow })
+-- The floor: what the exercise records today (218), rounded down, so it can't quietly shrink.
+check(recorded >= 210, "the exercise reached the frames, movers and options pages (" .. recorded .. " recorded)")
 done("test_methods")
