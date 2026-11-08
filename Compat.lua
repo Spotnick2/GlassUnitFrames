@@ -339,6 +339,22 @@ function API.PlayerNameByGUID(guid)
     return name
 end
 
+-- Whether a plain name is the unit's, in every form a SENT target can take:
+-- the display name (its format unmeasured), the first name, and first +
+-- surname (UnitName gives the surname where the realm should be). Used by the
+-- cast bar (#72, #152) and the DoT tracker (#175).
+local function plainString(v)
+    if API.IsSecret(v) or type(v) ~= "string" or v == "" then return nil end
+    return v
+end
+function API.IsNameOf(unit, name)
+    if not (name and UnitExists(unit)) then return false end
+    local first, surname = UnitName(unit)
+    first, surname = plainString(first), plainString(surname)
+    return name == plainString(GetUnitName(unit, false)) or name == first
+        or (first ~= nil and surname ~= nil and name == first .. " " .. surname)
+end
+
 -- The global cooldown as a LuaDurationObject, or nil (#149). Retail's GCD
 -- spell (61304) never read active on Forever (porting guide, NodeRadar), so
 -- the spell just cast answers too: its cooldown IS the GCD while isOnGCD is
