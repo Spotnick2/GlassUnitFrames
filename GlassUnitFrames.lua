@@ -214,8 +214,9 @@ local HELP = {
     "breath on|off  - glass breath, fatigue and feign death bars (saved; Blizzard's follow after /reload)",
     "cc target|focus off|portrait|beside  - the crowd-control icon, over the portrait or beside the frame (saved)",
     "absorb on|off  - the absorb shields left (Power Word: Shield, ...) as a darker shade of the health colour past its fill (saved)",
-    "dots on|off  - will your DoTs kill it: a marker on the target's and focus's health and a skull when lethal (saved)",
-    "dots marker|ticks|icon|focus on|off  - one part of it (saved)",
+    -- (#178: the DoT lines double their "|", which the client reads as an escape.)
+    "dots on||off  - will your DoTs kill it: a marker on the target's and focus's health and a skull when lethal (saved)",
+    "dots marker||ticks||icon||focus on||off  - one part of it (saved)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
@@ -690,7 +691,7 @@ local function slash(msg)
             say("DoT kill estimate: " .. part .. " " .. val)
         else
             local function st(k) return k .. " " .. (o[k] and "on" or "off") end
-            say("dots on|off, or marker|ticks|icon|focus on|off (now " .. st("marker") .. ", " .. st("ticks")
+            say("dots on||off, or marker||ticks||icon||focus on||off (now " .. st("marker") .. ", " .. st("ticks")
                 .. ", " .. st("icon") .. ", " .. st("focus") .. ")")
         end
     elseif cmd == "regen" then
