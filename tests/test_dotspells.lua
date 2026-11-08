@@ -4,11 +4,10 @@
 -- a failing one after a regeneration means the data changed meaning. Read the
 -- rows, don't loosen the test.
 
+dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
-
-GlassUF = {}
-dofile("DotSpells.lua")
-dofile("Dots.lua")
+standardUnits()
+loadAddon()
 local D, Dots = GlassUF.DotSpells, GlassUF.Dots
 
 check(type(D.build) == "string" and D.build:match("^%d+%.%d+%.%d+%.%d+$"), "the header's build")

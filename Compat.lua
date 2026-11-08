@@ -355,6 +355,34 @@ function API.IsNameOf(unit, name)
         or (first ~= nil and surname ~= nil and name == first .. " " .. surname)
 end
 
+-- Spell power for one school (GetSpellBonusDamage's index, 2..7), plain or
+-- nil (#175). Measured: plain out of combat and inside PLAYER_REGEN_DISABLED,
+-- secret in combat (porting guide, "Damage over time").
+function API.SpellPower(index)
+    local fn = rawget(_G, "GetSpellBonusDamage")
+    if type(fn) ~= "function" then return nil end
+    local ok, v = pcall(fn, index)
+    if not ok or API.IsSecret(v) or type(v) ~= "number" then return nil end
+    return v
+end
+
+-- Whether the player can attack the unit: plain true only (#175). Unknown
+-- (absent, a throw, a secret) is false: nothing is tracked or drawn for it.
+function API.CanAttack(unit)
+    local fn = rawget(_G, "UnitCanAttack")
+    if type(fn) ~= "function" then return false end
+    local ok, v = pcall(fn, "player", unit)
+    return ok and not API.IsSecret(v) and v == true
+end
+
+-- The player's combo points (power type 4), plain or nil (#175). A priest's
+-- read plain in combat; a rogue's or druid's is unmeasured.
+function API.ComboPoints()
+    local ok, v = pcall(UnitPower, "player", 4)
+    if not ok or API.IsSecret(v) or type(v) ~= "number" then return nil end
+    return v
+end
+
 -- The global cooldown as a LuaDurationObject, or nil (#149). Retail's GCD
 -- spell (61304) never read active on Forever (porting guide, NodeRadar), so
 -- the spell just cast answers too: its cooldown IS the GCD while isOnGCD is

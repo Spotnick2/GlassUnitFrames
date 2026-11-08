@@ -856,6 +856,7 @@ function Frames.PaintSample(f, portrait)
         sampleText(f.powerText, t.powerRight, s.pow, s.maxPow)
         for _, region in ipairs(f.powerRegions) do region:SetAlpha(1) end
     end
+    if f.dotMarker then GlassUF.DotView.PaintSample(f, s) end
     if portrait then samplePortrait(f) end
     local ind = f.indicators
     if ind then
@@ -1451,6 +1452,7 @@ local function applyPortrait(b, mode)
     placeHappiness(b)
     placeMark(b)
     GlassUF.Auras.PlaceCC(b)   -- over the tile, or where it would be (#159)
+    GlassUF.DotView.Place(b)   -- the kill icon, the same (#175)
     if b.unit == "player" and GlassUF.Timer then GlassUF.Timer.Place() end   -- over the tile, or not (#120)
     Engine.MarkDirty(b, "portrait")
     Engine.MarkDirty(b, "name")
@@ -1609,6 +1611,7 @@ local function build(unit)
     if L.healPrediction then attempt("build absorbs", buildAbsorb, b) end
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     attempt("build cc", GlassUF.Auras.AttachCC, b)   -- target and focus, when on (#159)
+    attempt("build dots", GlassUF.DotView.Attach, b)   -- target and focus (#175)
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     placeLevel(b)
@@ -1632,6 +1635,8 @@ end
 -- target's cast flash.
 Engine.OnTokenChanged = function(base)
     local f = Frames.byUnit[base]
+    -- A per-token DoT key belongs to the old unit (#175; GUID keys stay).
+    GlassUF.Dots.TokenChanged(base)
     -- The old unit's cast state is not the new one's; a preview's sample is its own (#109).
     if f and f.cast and not GlassUF.Preview.active then GlassUF.Castbar.TokenChanged(f.cast) end
     -- The crowd-control icon follows a new focus (#159); the target's below.
@@ -1653,6 +1658,7 @@ function Frames.Build(db)
     if db.absorbBar == false then Frames.absorbs = false end
     GlassUF.Castbar.Configure(db)
     GlassUF.Auras.ConfigureCC(db)
+    GlassUF.DotView.Configure(db)
     GlassUF.Zoom.Configure(db)
     if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
     if Frames.HAPPINESS_POSITIONS[db.happiness] then Frames.happinessPos = db.happiness end

@@ -3,10 +3,12 @@
 The target and focus frames show how much health the player's own damage-over-time spells still
 have to take, and a kill icon once that is enough to kill the unit.
 
-Status: **milestone 1 built** (2026-11-08): the generated data (`DotSpells.lua`, build 70862),
-the estimate (`Dots.lua`), their fixtures, and the probe (`/fp steps cast dots`, P1-P5 and P6's
-texture check). The tracker and the view come after the probe has run in game. Every in-game
-assumption below is gated on it.
+Status: **built** (2026-11-08). Milestone 1: the generated data (`DotSpells.lua`, build 70862),
+the estimate, their fixtures, and the probe (`/fp steps cast dots`, run in game: section 8.1).
+Milestone 2: the tracker (`Dots.lua`), the view (`DotView.lua`), the options, and their tests
+(`test_dots.lua`, `test_dotview.lua`, both mutation-tested). Still to check in game: P6 on screen
+(`/fp steps cast dotview`: the marker, and the kill icon's boundary at two UI scales), then a
+real fight.
 
 ## 1. What the player sees
 

@@ -160,6 +160,15 @@ check(has("stripe 2 atlas RaidFrame%-Absorb%-Overlay .* info="), "the atlas samp
 check(has("stripe 4 file Interface.RaidFrame.Shield%-Overlay"), "the shield file")
 fp("cast dots stripe")
 check(FP.procedures["CastProbe/dots"] ~= nil, "procedure dots defined")
+-- P6's samples go through GUF's own bars during its preview.
+T.dotsView("focus", 9000, 7650, 3000, 7650 * 1.01, 0)
+check(has("dotview focus max=9000 health=7650 shown=3000 committed=7726.5 lines=0 ok=true .* alpha=1"),
+    "a sample past the focus's health shows its icon window")
+T.dotsView("target", 60, 40, 30, 0, 2)
+eq(GlassUF.Frames.byUnit.target.dotMarker._value, 30, "the target's sample marker")
+T.dotsEndPreview()
+check(not GlassUF.Preview.active, "the preview ends")
+check(FP.procedures["CastProbe/dotview"] ~= nil, "procedure dotview defined")
 
 -- Nothing in chat: the console and the saved log only.
 for _, line in ipairs(WoW.chat) do

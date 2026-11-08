@@ -249,9 +249,62 @@ Probe:Steps("dots", {
     { text = "Type /reload (or press Reload now) to save the results.", reload = true },
 })
 
+-- P6: GUF's marker and kill icon on screen, from exact sample values painted
+-- through GUF's own bars (DotView.PaintValues) during its preview, so the
+-- boundary cases don't need a lucky fight. Health here is plain: the client
+-- draws the same widgets from the secret values.
+local function viewSample(unit, maxHealth, health, shown, committed, lines)
+    local guf = rawget(_G, "GlassUF")
+    local view, frames = guf and guf.DotView, guf and guf.Frames
+    local b = frames and frames.byUnit and frames.byUnit[unit]
+    if not (view and view.PaintValues and b and b.dotMarker) then return say("dotview " .. unit .. ": GUF's view absent") end
+    if guf.Preview and not guf.Preview.active then guf.Preview.Start() end
+    local cum = {}
+    for i = 1, lines or 0 do cum[i] = shown * i / ((lines or 0) + 1) end
+    local ok, err = pcall(view.PaintValues, b, maxHealth, health, shown, committed, cum)
+    local icon = b.dotIcon
+    return say(string.format("dotview %s max=%d health=%d shown=%d committed=%s lines=%d ok=%s window=%s alpha=%s size=%s",
+        unit, maxHealth, health, shown, tostring(committed), lines or 0, tostring(ok and true or err),
+        call(icon.window.GetSize, icon.window), call(icon.window.GetAlpha, icon.window), tostring(icon.size)))
+end
+
+local function endPreview()
+    local guf = rawget(_G, "GlassUF")
+    if guf and guf.Preview and guf.Preview.active then guf.Preview.Stop() end
+    return "preview ended"
+end
+
+Probe:Steps("dotview", {
+    title = "DoT kill estimate on screen (#175, P6)",
+    rev = 1,
+    { text = "Out of combat, with a target and a focus selected (any units). GUF's preview starts; the target shows a marker at 35% with three tick lines. Look at the target's health bar: striped red segment ending at the fill's right edge, three thin lines inside? Note what you see, then Next.",
+      auto = true, run = function() return viewSample("target", 12000, 8400, 4200, 0, 3) end, screenshot = "marker 35%" },
+    { text = "The same on a nearly empty bar: 40 health of 60, DoTs worth 30. Does the marker cover most of the fill, not all of it? Next.",
+      auto = true, run = function() return viewSample("target", 60, 40, 30, 0, 2) end, screenshot = "marker low health" },
+    { text = "The focus: DoTs at 99% of its health. The skull must NOT show (beside the focus frame). Next.",
+      auto = true, run = function() return viewSample("focus", 9000, 7650, 3000, 7650 * 0.99, 0) end, screenshot = "icon 99%" },
+    { text = "Exactly its health: the skull may just start to enter, never fully. Next.",
+      auto = true, run = function() return viewSample("focus", 9000, 7650, 3000, 7650, 0) end, screenshot = "icon 100%" },
+    { text = "1% past its health: the skull shows in full. Next.",
+      auto = true, run = function() return viewSample("focus", 9000, 7650, 3000, 7650 * 1.01, 0) end, screenshot = "icon 101%" },
+    { text = "Low health: 40 of 60, DoTs worth 41. The skull shows on the target's portrait? Next.",
+      auto = true, run = function() return viewSample("target", 60, 40, 30, 41, 0) end, screenshot = "icon low health" },
+    { text = "Low health, just short: DoTs worth 39 of 40 health. The skull must NOT show. Next.",
+      auto = true, run = function() return viewSample("target", 60, 40, 30, 39, 0) end, screenshot = "icon low 39 of 40" },
+    { text = "Now change the UI scale (Options > Graphics, UI Scale, about 0.64; or /console uiscale 0.64 with useUiScale on), then Next to repeat the three focus cases. Skip to keep your scale." },
+    { text = "At the new scale: 99%, the skull must NOT show. Next.",
+      auto = true, run = function() return viewSample("focus", 9000, 7650, 3000, 7650 * 0.99, 0) end, screenshot = "scaled icon 99%" },
+    { text = "At the new scale: 101%, the skull shows. Next. (Put your UI scale back afterwards.)",
+      auto = true, run = function() return viewSample("focus", 9000, 7650, 3000, 7650 * 1.01, 0) end, screenshot = "scaled icon 101%" },
+    { text = "Ending the preview.", auto = true, run = endPreview },
+    { text = "Type /reload (or press Reload now) to save the results.", reload = true },
+})
+
 local NS = select(2, ...)
 if type(NS) == "table" and type(NS._test) == "table" then
     NS._test.dotsReadings = readings
     NS._test.dotsState = state
     NS._test.dotsMeter = meterLine
+    NS._test.dotsView = viewSample
+    NS._test.dotsEndPreview = endPreview
 end

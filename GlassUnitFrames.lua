@@ -214,6 +214,8 @@ local HELP = {
     "breath on|off  - glass breath, fatigue and feign death bars (saved; Blizzard's follow after /reload)",
     "cc target|focus off|portrait|beside  - the crowd-control icon, over the portrait or beside the frame (saved)",
     "absorb on|off  - the absorb shields left (Power Word: Shield, ...) as a darker shade of the health colour past its fill (saved)",
+    "dots on|off  - will your DoTs kill it: a marker on the target's and focus's health and a skull when lethal (saved)",
+    "dots marker|ticks|icon|focus on|off  - one part of it (saved)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
@@ -425,6 +427,23 @@ function Settings_.SetAggroRed(on)
     -- Saved only when turned off (the default is on). Not `(not on) and false
     -- or nil`: `false or nil` is nil, so "off" would never be saved.
     if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
+end
+
+-- Will my DoTs kill it? (#175): db.dots[key] = false when off, the table
+-- pruned when empty. key: marker, ticks, icon, focus.
+function Settings_.SetDots(key, on)
+    if not GlassUF.DotView.SetOption(key, on) then return false end
+    local db = GlassUnitFramesDB
+    if on then
+        if type(db.dots) == "table" then
+            db.dots[key] = nil
+            if next(db.dots) == nil then db.dots = nil end
+        end
+    else
+        if type(db.dots) ~= "table" then db.dots = {} end
+        db.dots[key] = false
+    end
+    return true
 end
 
 -- Absorb shields on the health bars (#171): db.absorbBar = false when off.
@@ -660,6 +679,19 @@ local function slash(msg)
             say("absorb shields on the health bars " .. arg)
         else
             say("absorb on|off (now " .. (Frames.absorbs and "on" or "off") .. ")")
+        end
+    elseif cmd == "dots" then
+        local o = GlassUF.DotView.options
+        local part, val = (arg or ""):match("^(%a+)%s+(%a+)$")
+        if arg == "on" or arg == "off" then
+            for _, k in ipairs({ "marker", "ticks", "icon", "focus" }) do Settings_.SetDots(k, arg == "on") end
+            say("DoT kill estimate " .. arg)
+        elseif part and (val == "on" or val == "off") and Settings_.SetDots(part, val == "on") then
+            say("DoT kill estimate: " .. part .. " " .. val)
+        else
+            local function st(k) return k .. " " .. (o[k] and "on" or "off") end
+            say("dots on|off, or marker|ticks|icon|focus on|off (now " .. st("marker") .. ", " .. st("ticks")
+                .. ", " .. st("icon") .. ", " .. st("focus") .. ")")
         end
     elseif cmd == "regen" then
         if not GlassUF.FiveSecond.Built() then
