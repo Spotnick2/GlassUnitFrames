@@ -916,7 +916,8 @@ not a newer Lua that may be first on `PATH`.
 
 ```powershell
 & 'C:\Program Files (x86)\Lua\5.1\luac.exe' -p File.lua             # syntax check; silent on success
-pwsh tests\run.ps1                                                   # luac -p on our TOC files + every tests\test_*.lua
+pwsh tests\run.ps1                                                   # luac -p on our TOC files + every tests\test_*.lua (WowTestKit at its pin)
+pwsh tests\run.ps1 -KitDev                                           # the same against the ..\WowTestKit working copy
 & 'C:\Program Files (x86)\Lua\5.1\lua.exe' tests\test_frames.lua    # one test, run from the repo root
 pwsh Tools\deploy.ps1                                                # the addon + LibGlass + LibTaxiTime into AddOns (-Probe adds the probes + ForeverProbe)
 bash tests/fetch_lib.sh LibGlass-1.0 <dir>                           # clone a library at its .pkgmeta pin (what CI does; also LibTaxiTime-1.0)
@@ -1058,15 +1059,35 @@ not port cleanly.
 
 ## Testing
 
-The `tests\` harness is modelled on Priestly's: plain Lua 5.1 scripts with no dependencies, a
-`tests\wow_stubs.lua` API mock driven through an exported `WoW` table, `tests\harness.lua`
-(`check` / `eq` / `loadAddon` / `standardUnits`), and `tests\run.ps1` to run them all. The stub
-does four more things:
-- It validates event names against the API dump when the dump is present.
-- It records any touch of a protected frame in combat in `WoW.blocked`.
-- It models `FontString:SetFormattedText` taking secrets without formatting them in Lua.
-- It records every widget method called. `test_methods.lua` checks each one exists in the dump,
-  closing the gap where a catch-all stub silently swallows a method Forever lacks.
+The test scaffolding is WowTestKit (`C:\Projects\WoW\WowTestKit`; its README is the reference)
+at the commit and client build `tests\kit.pin` names (build 70450, GUF's `MEASURED_ON_BUILD`).
+`tests\run.ps1` puts that commit in `%LOCALAPPDATA%\WowTestKit\<sha>` and hands off to the kit's
+runner; CI fetches it with `tests\fetch_kit.sh`. `tests\kit.lua`, `kit.ps1` and `fetch_kit.sh` are
+the kit's bootstrap copies: never edit them here. A kit need is an issue on the kit, worked around
+in `tests\wow_stubs.lua` with a `-- WowTestKit #N:` comment meanwhile. `tests\run.ps1 -KitDev`
+runs against the `..\WowTestKit` working copy instead of the pin.
+
+The kit holds the mechanics: `check` / `eq` / `done` (with its stray-`|` check on every printed
+line), strict globals, secrets, event names checked against the pinned build's data, widgets that
+record every method called (`Kit.checkMethods` in `test_methods.lua`: each `Type:Method` must
+exist on that widget type), protected frames refusing changes in combat (`WoW.blocked`),
+`SetFormattedText` taking secrets, timers (`WoW.flushTimers`, `WoW.advance`), `fire` / `tick`.
+`tests\wow_stubs.lua` adds GUF's own client APIs (units, casts, heal prediction, the aura
+container, Blizzard's unit frames, ...) and, on top of the kit:
+- `RegisterUnitEvent`, with `WoW.fire` / `WoW.fireAllRegistered` delivering a unit event only to
+  its unit (kit #17);
+- the old stub's extra combat refusals, recorded in `WoW.blocked`: `SetSize` / `SetWidth` /
+  `SetHeight` / `SetParent` / `SetScale` / `RegisterForClicks` / moving / `SetAttribute` (kit #12);
+- `SetStatusBarColor` replacing the fill's gradient (LibGlass#64, kit #19);
+- `WoW.runDue()` (one pass over the timers due by `WoW.now`, in scheduling order) and
+  `WoW.tickTickers()` (one tick of every live ticker, left in place; the kit's tickers don't
+  repeat, kit #18);
+- `WoW.fontStrings`, `ag._plays`, the StatusBar interpolation fields (`_interp`,
+  `_minMaxInterp`), geometry (`GetCenter`, `GetRect`, `WoW.layout`) and `GetEffectiveScale`.
+
+`tests\harness.lua` keeps GUF's loader (`loadAddon`, `EMBEDDED`, `libRoot`, `loadForeverProbe`,
+`standardUnits`); `tocLines` / `tocFiles` wrap the kit's. Its `done` accepts the bare `|` of the
+`/glass` choice lists until #178 doubles them (a `FINDING`); any other stray still fails.
 
 `GlassUF.paintFailures` collects the errors that `attempt()` swallows in painters, so
 `test_secrets.lua` asserts it stays empty. Before trusting a new test, **mutation-test it**:
