@@ -23,6 +23,8 @@ FiveSecond.lua
 Zoom.lua
 Threat.lua
 ThreatView.lua
+DotSpells.lua
+Dots.lua
 Flight.lua
 Link.lua
 Preview.lua

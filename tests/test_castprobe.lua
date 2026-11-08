@@ -122,6 +122,45 @@ eq(T.absorbSeen.other, 2, "other units (and a secret token) only counted")
 check(not has("UNIT_ABSORB_AMOUNT_CHANGED %-> absorb nameplate3"), "and not logged")
 check(FP.procedures["CastProbe/absorb"] ~= nil, "procedure absorb defined")
 
+-- #175: the DoT estimate's inputs, the same module. The stub has no spell
+-- power, instance or meter API: each read says absent rather than throwing.
+assert(loadfile("Tools/CastProbe/Dots.lua"))("CastProbe", ns)
+fp("cast dots")
+check(has("dots combat=false spellPower%(2%.%.7%)=absent/absent"), "/fp cast dots: spell power absent")
+check(has("instance=ERR"), "no GetInstanceInfo in the stub: ERR, not a throw")
+-- A tracked cast: GUF's own estimate from a plain spell power (the stub has no
+-- combo points: unknown).
+rawset(_G, "GetSpellBonusDamage", function(i) return i == 6 and 100 or 0 end)
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "Sample Target", "Cast-3-9", 172)
+check(has("SENT 172 %-> Sample Target combo="), "SENT of a tracked spell logs the combo read")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-3-9", 172)
+check(has("DOT Corruption cast=172 aura=172 every 3s travel=false spellPower=100 combo=unknown ticks=30,30,30,30"),
+    "the estimate with 100 spell power")
+-- A secret spell power at the cast is 0, never an older read.
+rawset(_G, "GetSpellBonusDamage", function() return WoW.Secret("spellPower") end)
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-3-10", 172)
+check(has("spellPower=none combo=unknown ticks=10,10,10,10"), "secret spell power: 0; no SENT: combo unknown")
+check(not has("DOT .* cast=133"), "untracked spells aren't logged")
+-- Hits on target and focus (a secret amount is shown, never read); others ignored.
+WoW.fire("UNIT_COMBAT", "target", "WOUND", "", WoW.Secret("amount"), 32)
+check(has("HIT target action=WOUND flag= amount=<secret> school=32 .* after Corruption"), "a hit with a secret amount, shown as <secret>")
+WoW.fire("UNIT_COMBAT", "nameplate2", "WOUND", "", 5, 32)
+check(not has("HIT nameplate2"), "other tokens ignored")
+WoW.fire("UNIT_COMBAT", WoW.Secret("unit"), "WOUND", "", 5, 32)
+check(not has("handler ERR"), "a secret token doesn't throw")
+-- After combat: the meter is read (absent here) and the wait step can end.
+WoW.fire("PLAYER_REGEN_ENABLED")
+check(has("dots fight end: 1 hits"), "the fight's hit count")
+WoW.flushTimers()
+check(has("meter %+0%.5s absent"), "the meter read after combat")
+check(T.dotsState.meterDone, "the meter wait completes")
+fp("cast dots stripe")
+check(has("stripe 1 file Interface.RaidFrame.Absorb%-Overlay texture="), "/fp cast dots stripe: the file sample")
+check(has("stripe 2 atlas RaidFrame%-Absorb%-Overlay .* info="), "the atlas samples, with their atlas info")
+check(has("stripe 4 file Interface.RaidFrame.Shield%-Overlay"), "the shield file")
+fp("cast dots stripe")
+check(FP.procedures["CastProbe/dots"] ~= nil, "procedure dots defined")
+
 -- Nothing in chat: the console and the saved log only.
 for _, line in ipairs(WoW.chat) do
     check(not line:find("CastProbe") and not line:find("====") and not line:find("START"), "no probe line in chat: " .. line)

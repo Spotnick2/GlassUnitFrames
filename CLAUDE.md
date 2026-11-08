@@ -38,7 +38,9 @@ managed frame, see `Blizzard.lua` below.)
   druid mana strip (bear/cat); the cast bar's GCD line, interrupter name and out-of-range colour
   (#149, #150, #152: `/fp steps cast gcd|kick|range`, after 2026-11-04); the mirror timers
   (#151: `/fp steps cast mirror`); the crowd-control icon (#159:
-  `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?).
+  `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?);
+  the DoT kill estimate's inputs (#175: `/fp steps cast dots`, P1-P5 of `docs/DOT-KILL-PLAN.md`,
+  before its tracker and view are built).
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -46,7 +48,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 `Libs\LibTaxiTime-1.0\LibTaxiTime-1.0.xml` (flight times) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `Mirror.lua` → `FiveSecond.lua` → `Zoom.lua` → `Threat.lua` → `ThreatView.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `Mirror.lua` → `FiveSecond.lua` → `Zoom.lua` → `Threat.lua` → `ThreatView.lua` → `DotSpells.lua` → `Dots.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -363,7 +365,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       did, porting guide), else the spell SENT in the last 0.5 s while its `isOnGCD` is true, and
       the duration goes to `SetTimerDuration`. Hidden after its plain remaining time, else 1.5 s
       (generation-checked). A spell with its own cooldown shows no line.
-  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above; `mirror`, `cc`, `absorb`).
+  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above; `mirror`, `cc`, `absorb`, `dots`).
 - **`Swing.lua`** (#87): the player's swing timer.
   - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
     type)`. It's plain in combat, and it still arrives with Blizzard's "Enable Swing Timer" off
@@ -554,6 +556,22 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     `Sounds/README.txt`), not MIT; it ships, and CI's allowlist names all three files.
   - **Still to check in game:** dungeon and raid restrictions, secret-value rendering, screen
     edges, role warnings. Measuring tool: `Tools/ThreatProbe` (`/fp threat`, `test_threatprobe.lua`).
+- **`DotSpells.lua`** / **`Dots.lua`** (#175, **in progress**: the plan is `docs/DOT-KILL-PLAN.md`,
+  Codex APPROVE after four rounds): will the player's DoTs kill the target or focus? A marker on
+  the health bar and a kill icon, both StatusBars fed the secret health. Built so far: the data and
+  the estimate. The tracker and the view wait on `/fp steps cast dots` (P1-P5).
+  - **`DotSpells.lua` is generated** by `Tools/dot_spells.py` from one build's client tables
+    (SpellEffect, SpellMisc, SpellDuration, SpellLevels, SpellName, Spell, SkillLineAbility in
+    `References\Forever\db`, via the wago-tools skill). Never edit it: re-run the script after a
+    new build and read the diff (70532 → 70862 changed Rip, Serpent Sting and Pounce Bleed).
+    `--report` lists the candidates left out.
+  - **Supported families only** (the script's `SUPPORTED`, by aura name). A row whose description
+    uses a formula variable (`$<…>`) other than its family's reviewed exceptions is refused, as are
+    channels and rows without exactly one periodic effect. Joining the list is a reviewed edit with
+    a fixture in `test_dotspells.lua`.
+  - **`Dots.TickEstimates(aura, points, spellPower, level)`**: per tick,
+    `floor((base + perLevel × L + perCombo × points + coef × spellPower) × shape[k])`, errs low
+    (unknown points = 1, unreadable spell power = 0). Bane of Agony's shape is `Dots.SHAPES`.
 - **`Flight.lua`** (#148, #153): a taxi flight on the player's cast bar. The
   timing is **LibTaxiTime-1.0**'s (see "Flight times" below), shared with GlassPanel's Flight plugin;
   this file draws it, with or without Glass Panel. **Checked in game** by the owner on
