@@ -72,6 +72,17 @@ with an optional warning gong. Hover it for the top five; click it for the whole
 players and pets. A tank isn't warned while holding aggro. It can also show in solo combat, or
 not at all, on the Threat options page.
 
+**Will my DoTs kill it?** On your target's and focus's health bars, a striped red marker shows how
+much health your own damage-over-time spells will still take, with a thin line for each tick to
+come. When it covers the whole bar, a skull appears on the portrait (beside the frame without
+one): your DoTs will finish the mob on their own. The skull waits until it has seen one of your
+DoTs tick. It knows Corruption, Bane of Agony, Immolate, Siphon Life, Shadow Word: Pain,
+Devouring Plague, Holy Fire, Moonfire, Insect Swarm, Rip, Rake, Pounce, Rend, Rupture, Garrote,
+Serpent Sting and Flame Shock. It errs low: talents, crits and debuffs on the mob aren't counted,
+a missed or resisted cast is dropped, and a cast it can't pin to one mob isn't counted, so the
+skull can come late but shouldn't come early. A heal, a shield or a dispel can still save the
+mob. Each part can be turned off on the DoTs options page.
+
 **For casters and fighters**:
 - a **swing timer** (main hand, off hand, ranged) inside your frame, or detached;
 - the **five-second rule**: a thin red line on your mana bar while spirit regen is paused;
@@ -117,6 +128,7 @@ place and colour things without a target, a pet or a fight.
 - `/glass absorb on|off` - absorb shields on the health bars
 - `/glass threat on|off|always` - target threat in group combat, always, or never (more options
   in `/glass help`)
+- `/glass dots on|off`, `/glass dots marker|ticks|icon|focus on|off` - will your DoTs kill it
 - `/glass flight on|off` - a taxi flight on your cast bar
 - `/glass link on|off` - the frames beside Glass Raid Frames' layout
 - `/glass mirror on|off`, `/glass snap grid|align on|off` - unlock mode's mirroring and snapping
@@ -139,8 +151,10 @@ place and colour things without a target, a pet or a fight.
 - **Not yet checked in game:** the combo points, the druid mana strip, the cast bar's GCD line,
   interrupter name and out-of-range colour, the breath and fatigue bars, the crowd-control icon
   and the absorb shield segment are built and tested offline only (the game was checked to report
-  shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids.
-  Reports welcome.
+  shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids. The
+  DoT kill estimate's marker and skull are new and not yet seen in game; its timings were measured
+  with a priest's Shadow Word: Pain outdoors, and the other classes' DoTs, combo-point finishers,
+  dungeons and raids are untested. Reports welcome.
 
 ## Bugs and ideas
 

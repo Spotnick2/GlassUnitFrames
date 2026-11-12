@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.1.0 - 2026-11-12
+
+- **Will my DoTs kill it?** On your target's and focus's health bars, a striped red marker shows
+  how much health your own damage-over-time spells will still take, with a thin line for each
+  tick to come. When the marker covers the whole bar, a skull appears on the portrait (beside the
+  frame without one): your DoTs will finish it on their own. The skull waits until it has seen
+  one of your DoTs tick.
+  - **The spells:** Corruption, Bane of Agony, Immolate, Siphon Life, Shadow Word: Pain,
+    Devouring Plague, Holy Fire, Moonfire, Insect Swarm, Rip, Rake, Pounce, Rend, Rupture, Garrote,
+    Serpent Sting and Flame Shock.
+  - **It errs low:** talents, crits and debuffs on the mob aren't counted, a missed or resisted
+    cast is dropped, and a cast whose mob it can't be sure of isn't counted. A heal, a shield or
+    a dispel can still save the mob.
+  - **Settings:** a new DoTs page under Options > AddOns > Glass Unit Frames turns each part on or
+    off (the marker, the tick lines, the skull, the focus frame), or use `/glass dots on|off`.
+
 ## v1.0.0 - 2026-11-07
 
 The first release out of beta.
