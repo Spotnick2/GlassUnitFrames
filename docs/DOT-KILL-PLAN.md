@@ -469,7 +469,8 @@ any school. So a white-swing miss inside the window (ours, a party member's, a h
 drops our Corruption or Serpent Sting (Nature), not just a bleed. That errs low. How often it
 happens in a group is unmeasured (the probes were solo).
 
-- **A school filter, for spell DoTs:** an avoid is not ours only when its school is plain,
+- **A school filter, for spell DoTs (dropped by the probe, 12.5: every avoid carries school 1):**
+  an avoid is not ours only when its school is plain,
   **positive**, and shares no bit with the application's mask (`bit.band`: the `bit` table is in
   the dump's `_G` walk, and Blizzard's UI calls it). A school of 0, malformed or unreadable, keeps
   today's rule.
@@ -528,7 +529,54 @@ possible), through a mouseover macro, and over nothing. The guard is worth build
 `UnitIsUnit("mouseover", "target")` is plain in combat: if it's secret, the guard would leave
 nearly every cast untracked.
 
-### 12.4 Not proposed
+### 12.5 Probe results (2026-11-12, 70888)
+
+Run #253 (`/fp steps cast avoids`): a priest, solo, Shadow Word: Pain, Holy Fire, wand and melee
+on orange Snapjaws, in water. Steps 5 to 7 (Serpent Sting, an immune mob, a party) were skipped.
+Runs #204 and #207: a paladin in melee (Seal of Righteousness), from the same module's trace,
+outside a procedure. The mouseover procedure wasn't run, but the module logs the mouseover at
+every DoT SENT, so its key reading is in.
+
+- **Every avoid came with school 1.** 24 avoids over the three runs (`MISS` 12, `PARRY` 7,
+  `DODGE` 5), all `schoolMask = 1`. No `RESIST` arrived, and no `IMMUNE`. The flagged `WOUND`s
+  carry their real school (Holy 2 and Fire 4 crits, physical glancing blows), so the field is
+  plain and specific on hits, just not on avoids.
+- **Ours, melee and wand:** our swing's avoid arrives 0.1 to 0.6 s after its `PLAYER_SWING`
+  (paladin `DODGE` +0.5 and +0.13 s; priest `PARRY` +0.6, `DODGE` +0.6), and a wand's `MISS`
+  0.6 s after its shot (four times). The probe's 0.3 s swing match (`NEAR_SWING`) was too
+  tight, so step 3's check failed on our own parry.
+- **Someone else's:** before we entered combat, the first mob took `GLANCING` wounds (school 1)
+  and a `PARRY` and two `MISS`es. Glancing blows come only from players and pets, and we weren't
+  fighting, so these were another attacker's. One of those `MISS`es landed 0.8 s after a SENT of
+  ours that never succeeded, and step 2's check passed on it: it wasn't our resist.
+- **Probably our own spells:** three `MISS`es (school 1) arrived **in the same frame as our
+  SUCCEEDED**: one Shadow Word: Pain and both Holy Fires. No wand shot or swing of ours fits
+  them, and the Shadow Word: Pain was cast again 8 s later, well inside its duration. So a spell
+  that fails its hit roll on Forever most likely reports `MISS` with school 1, not `RESIST` with
+  its own school. The probe doesn't log plain `WOUND`s, so whether those casts ticked afterwards
+  is unrecorded.
+- **The mouseover, in combat:** with the cursor on the target, `UnitIsUnit("mouseover",
+  "target")` read **plain true** (four casts), and the name, GUID and `UnitCanAttack` were plain.
+  With no mouseover, `UnitExists` was plainly false. `enableMouseoverCast` read 0, and
+  `IsMouseoverCastSupported()` true. Not yet seen: the cursor on another mob, and a macro.
+
+**What this decides:**
+
+- **12.2's school filter is dropped.** Its gate was "our own resist carries its own positive
+  school". Every avoid carried 1, our own spell misses most likely included, so a filter would
+  drop exactly the misses it must keep, and show a false skull. Today's rule stands: any `MISS`
+  or `RESIST` on the mob inside the window fails the pending cast, whoever's it was. That errs
+  low: with a group's melee on the mob, some real applications are dropped, so the icon shows
+  later or not at all. It's a missing icon, never a false one, so it isn't one of section 1's
+  named limits.
+- **12.2's late projectile and resist flags:** nothing seen (no hunter, no partial resist). They
+  stay gaps.
+- **12.3's guard passes its gate:** the reading it relies on is plain in combat, so a cast with
+  the cursor on the target stays tracked. Building it is the owner's call. One more check
+  before or with it: the cursor on another mob, and a `[@mouseover,harm]` macro, in combat
+  (steps 4 to 6 of `/fp steps cast mouseover`).
+
+### 12.6 Not proposed
 
 A stray physical hit before a bleed's first tick commits it early and shifts its rhythm (at most
 ±0.25 s). That's already a named limit (section 1, one unrelated hit).

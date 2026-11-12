@@ -41,8 +41,9 @@ managed frame, see `Blizzard.lua` below.)
   `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?);
   the DoT kill estimate on target and focus (#175: the marker's stripes and alphas, the kill
   icon's boundary at UI scale 1 and 0.64: `/fp steps cast dotview`, P6 of `docs/DOT-KILL-PLAN.md`; rogue/druid combo points,
-  projectiles and instances are unmeasured). Its open leads (the plan's section 12) wait on
-  `/fp steps cast avoids` (whose avoid it is, its school) and `/fp steps cast mouseover`.
+  projectiles and instances are unmeasured). Its open leads (the plan's section 12): `avoids` ran on
+  2026-11-12 (12.5: every avoid carries school 1, so the school filter is dropped); the mouseover
+  guard's gate passed, and its other-mob and macro steps (`/fp steps cast mouseover`) remain.
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
