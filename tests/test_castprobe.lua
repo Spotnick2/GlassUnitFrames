@@ -170,6 +170,62 @@ T.dotsEndPreview()
 check(not GlassUF.Preview.active, "the preview ends")
 check(FP.procedures["CastProbe/dotview"] ~= nil, "procedure dotview defined")
 
+-- #175's open leads (plan section 12): avoids related to our casts and swings,
+-- and the mouseover at each DoT's SENT, the same module.
+assert(loadfile("Tools/CastProbe/DotLeads.lua"))("CastProbe", ns)
+local L = T.leadsState
+fp("cast avoids reset")
+check(has("avoids counting from now"), "/fp cast avoids reset")
+fp("cast mouseover")
+check(has("mouseover combat=false exists=false .* cvar=absent supported=absent"), "/fp cast mouseover with nothing under the cursor")
+-- A DoT's SENT reads the mouseover: here the target itself.
+WoW.units.mouseover = WoW.units.target
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "Sample Target", "Cast-3-20", 172)
+check(has("SENT Corruption mouseover combat=false exists=true .* isTarget=true .* sent=Sample Target"), "the mouseover at a DoT's SENT")
+eq(L.mouse.isTarget, true, "isTarget kept as a plain true")
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "Sample Target", "Cast-3-21", 133)
+eq(L.seq, 1, "a spell GUF doesn't track isn't a DoT SENT")
+-- Our resist inside the window, with no swing of ours near: listed during the cast.
+WoW.now = WoW.now + 0.05
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-3-20", 172)
+check(has("CAST Corruption school=32 sent%->succeeded=0%.050s"), "SENT -> SUCCEEDED timed")
+WoW.now = WoW.now + 0.1
+WoW.fire("UNIT_COMBAT", "target", "RESIST", "", 0, 32)
+check(has("AVOID target action=RESIST .* school=32 .* %+0%.150s after SENT Corruption%(school 32%) %+0%.100s from SUCCEEDED %(inside GUF's window%)"),
+    "an avoid placed against our cast")
+eq(L.inWindow, 1, "counted inside the window")
+eq(#L.during, 1, "listed during the cast")
+-- Our own melee swing's miss right after it: melee, even inside the window.
+-- CastProbe's swing trace reads the attack speeds (in the dump:
+-- UnitAttackSpeed(unit) -> attackSpeed, offhandAttackSpeed, rangedAttackSpeed).
+rawset(_G, "UnitAttackSpeed", function() return 2.0, nil, nil end)
+WoW.fire("PLAYER_SWING", 2.0, Enum.PlayerSwingType.MainHand)
+WoW.now = WoW.now + 0.02
+WoW.fire("UNIT_COMBAT", "target", "MISS", "", 0, 1)
+check(has("AVOID target action=MISS .* school=1 .* our swing MainHand %+0%.020s"), "an avoid next to our swing")
+check(L.melee ~= nil, "kept as the melee avoid")
+-- A flagged wound (a partial resist) is counted, never an avoid.
+WoW.fire("UNIT_COMBAT", "target", "WOUND", "RESIST", WoW.Secret("amount"), 32)
+eq(L.flagged, 1, "a flagged wound counted")
+-- The focus's events only when it isn't the target.
+WoW.units.focus = WoW.units.target
+WoW.fire("UNIT_COMBAT", "focus", "DODGE", "", 0, 1)
+eq(L.counts["DODGE/1"], nil, "the target's mob through focus isn't counted twice")
+fp("cast avoids")
+check(has("avoids summary casts=1 inWindow=2 flaggedWounds=1 counts: MISS/1=1, RESIST/32=1"), "/fp cast avoids: the summary")
+-- A secret mouseover read is shown as <secret> and kept as unknown.
+WoW.secretFields.unitIsUnit = true
+local real = UnitIsUnit
+UnitIsUnit = function() return WoW.Secret("isUnit") end
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "Sample Target", "Cast-3-22", 172)
+UnitIsUnit = real
+check(has("SENT Corruption mouseover .* isTarget=<secret>"), "a secret UnitIsUnit shown as <secret>")
+eq(L.mouse.isTarget, nil, "and kept as unknown, never truth-tested")
+check(not has("handler ERR"), "no handler error in the leads file")
+for _, name in ipairs({ "avoids", "mouseover" }) do
+    check(FP.procedures["CastProbe/" .. name] ~= nil, "procedure " .. name .. " defined")
+end
+
 -- Nothing in chat: the console and the saved log only.
 for _, line in ipairs(WoW.chat) do
     check(not line:find("CastProbe") and not line:find("====") and not line:find("START"), "no probe line in chat: " .. line)

@@ -476,9 +476,12 @@ happens in a group is unmeasured (the probes were solo).
   - **It's limited to the actions measured.** Measure `MISS` and `RESIST` first. `IMMUNE`,
     `EVADE`, `REFLECT` and `DEFLECT` keep today's rule until each is measured: Blizzard's feedback
     never reads their school.
-  - **The probe (a P1 extension):** the school on our own resisted DoT, and on unrelated melee and
-    Auto Shot misses, in a party. Also check that Serpent Sting's own miss arrives as Nature, not
-    physical, and when it arrives.
+  - **The probe (a P1 extension), `/fp steps cast avoids`** (`Tools/CastProbe/DotLeads.lua`):
+    the school on our own resisted DoT, and on unrelated melee and Auto Shot misses, in a party.
+    Also check that Serpent Sting's own miss arrives as Nature, not physical, and when it arrives.
+    Each avoid on the mob is logged against our newest DoT's SENT and SUCCEEDED, and against our
+    own swing (`PLAYER_SWING`) or ranged attack. The summary counts the avoids that landed
+    inside a cast's outcome window, and the flagged `WOUND`s.
   - **Not for physical bleeds:** a white swing has their school.
 - **Combo points, for physical bleeds: deferred.** The idea was to re-read the points after a
   bleed fails: a finisher (Rip, Rupture) that landed spends them, and an opener or builder
@@ -516,6 +519,14 @@ carries the cast's name and is attackable, the cast is tracked only if `UnitIsUn
 unit)` says plainly that it's the bound unit. Anything else (another mob, a secret or failed read)
 leaves it untracked. Not gated on the CVar, which would miss macros. Its cost: a hard cast at the
 target while the cursor rests on another same-name mob isn't tracked (errs low).
+
+**The probe, `/fp steps cast mouseover`** (`Tools/CastProbe/DotLeads.lua`): at each DoT's SENT,
+the mouseover's name, GUID, hostility and death, `UnitIsUnit` against target and focus, the
+SENT's name, GUF's `API.IsNameOf` match, the CVar and `IsMouseoverCastSupported()`, each plain
+or secret, in and out of combat. The cursor goes on the target, on another mob (same name if
+possible), through a mouseover macro, and over nothing. The guard is worth building only if
+`UnitIsUnit("mouseover", "target")` is plain in combat: if it's secret, the guard would leave
+nearly every cast untracked.
 
 ### 12.4 Not proposed
 

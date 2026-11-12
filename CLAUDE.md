@@ -41,7 +41,8 @@ managed frame, see `Blizzard.lua` below.)
   `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?);
   the DoT kill estimate on target and focus (#175: the marker's stripes and alphas, the kill
   icon's boundary at UI scale 1 and 0.64: `/fp steps cast dotview`, P6 of `docs/DOT-KILL-PLAN.md`; rogue/druid combo points,
-  projectiles and instances are unmeasured).
+  projectiles and instances are unmeasured). Its open leads (the plan's section 12) wait on
+  `/fp steps cast avoids` (whose avoid it is, its school) and `/fp steps cast mouseover`.
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -366,7 +367,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       did, porting guide), else the spell SENT in the last 0.5 s while its `isOnGCD` is true, and
       the duration goes to `SetTimerDuration`. Hidden after its plain remaining time, else 1.5 s
       (generation-checked). A spell with its own cooldown shows no line.
-  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above; `mirror`, `cc`, `absorb`, `dots`, `dotview`).
+  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above; `mirror`, `cc`, `absorb`, `dots`, `dotview`, `avoids`, `mouseover`).
 - **`Swing.lua`** (#87): the player's swing timer.
   - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
     type)`. It's plain in combat, and it still arrives with Blizzard's "Enable Swing Timer" off
