@@ -558,7 +558,14 @@ every DoT SENT, so its key reading is in.
 - **The mouseover, in combat:** with the cursor on the target, `UnitIsUnit("mouseover",
   "target")` read **plain true** (four casts), and the name, GUID and `UnitCanAttack` were plain.
   With no mouseover, `UnitExists` was plainly false. `enableMouseoverCast` read 0, and
-  `IsMouseoverCastSupported()` true. Not yet seen: the cursor on another mob, and a macro.
+  `IsMouseoverCastSupported()` true.
+- **The mouseover procedure** (run #255, the same priest on Gray Bears): out of combat and in
+  combat with the cursor on the target, `isTarget` plain true; in combat with the cursor on
+  another mob (a Forest Moss Creeper) while casting at the target, `UnitIsUnit` read **plain
+  false**, with its own name, GUID and `UnitCanAttack` plain; the cursor over nothing,
+  `UnitExists` plainly false. Not seen: a **same-name** mob under the cursor, and the
+  `[@mouseover,harm]` macro (skipped). With the CVar at 0, a plain key press goes to the target
+  whatever the cursor is on.
 
 **What this decides:**
 
@@ -571,10 +578,11 @@ every DoT SENT, so its key reading is in.
   named limits.
 - **12.2's late projectile and resist flags:** nothing seen (no hunter, no partial resist). They
   stay gaps.
-- **12.3's guard passes its gate:** the reading it relies on is plain in combat, so a cast with
-  the cursor on the target stays tracked. Building it is the owner's call. One more check
-  before or with it: the cursor on another mob, and a `[@mouseover,harm]` macro, in combat
-  (steps 4 to 6 of `/fp steps cast mouseover`).
+- **12.3's guard passes its gate:** the reading it relies on is plain in combat, true on the
+  target and false on another mob, so a cast with the cursor on the target stays tracked and
+  one with it on another mob can be told apart. Building it is the owner's call. The macro and
+  a same-name mob weren't seen; the guard reads only what was measured (name, attackability,
+  `UnitIsUnit`), and the macro's own behaviour is the porting guide's.
 
 ### 12.6 Not proposed
 
