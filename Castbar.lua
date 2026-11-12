@@ -123,16 +123,8 @@ end
 local plainString = plainGUID   -- the same test: a plain, non-empty string
 local paintColors   -- one bar's colours (defined with the colour setters)
 
--- Whether a plain name is the unit's, in every form a SENT target can take:
--- the display name (its format unmeasured), the first name, and first +
--- surname (UnitName gives the surname where the realm should be).
-local function isNameOf(unit, name)
-    if not (name and UnitExists(unit)) then return false end
-    local first, surname = UnitName(unit)
-    first, surname = plainString(first), plainString(surname)
-    return name == plainString(GetUnitName(unit, false)) or name == first
-        or (first ~= nil and surname ~= nil and name == first .. " " .. surname)
-end
+-- Whether a plain name is the unit's (API.IsNameOf: shared with the DoT tracker).
+local function isNameOf(unit, name) return API.IsNameOf(unit, name) end
 
 -- Who interrupted a cast (#150), from the interruptedBy GUID: a unit we can
 -- see by a token, else a player's name from the GUID. An NPC nobody targets

@@ -38,7 +38,13 @@ managed frame, see `Blizzard.lua` below.)
   druid mana strip (bear/cat); the cast bar's GCD line, interrupter name and out-of-range colour
   (#149, #150, #152: `/fp steps cast gcd|kick|range`, after 2026-11-04); the mirror timers
   (#151: `/fp steps cast mirror`); the crowd-control icon (#159:
-  `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?).
+  `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?);
+  the DoT kill estimate on target and focus (#175: the marker's stripes and alphas, the kill
+  icon's boundary at UI scale 1 and 0.64: `/fp steps cast dotview`, P6 of `docs/DOT-KILL-PLAN.md`; rogue/druid combo points,
+  projectiles and instances are unmeasured). Its open leads (the plan's section 12): `avoids` ran on
+  2026-11-12 (12.5: every avoid carries school 1, so the school filter is dropped); `mouseover` ran
+  too (`UnitIsUnit("mouseover", "target")` plain in combat, true and false), and the guard (12.3)
+  is built; a same-name mob under the cursor and a `[@mouseover,harm]` macro are unseen.
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -46,7 +52,7 @@ Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames
 
 TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 `Libs\LibTaxiTime-1.0\LibTaxiTime-1.0.xml` (flight times) → `Compat.lua` →
-`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `Mirror.lua` → `FiveSecond.lua` → `Zoom.lua` → `Threat.lua` → `ThreatView.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
+`Glass.lua` → `Engine.lua` → `Frames.lua` → `Castbar.lua` → `Swing.lua` → `Timer.lua` → `Mirror.lua` → `FiveSecond.lua` → `Zoom.lua` → `Threat.lua` → `ThreatView.lua` → `DotSpells.lua` → `Dots.lua` → `DotView.lua` → `Flight.lua` → `Link.lua` → `Preview.lua` → `Auras.lua` → `Blizzard.lua` →
 `Movers.lua` → `GlassUnitFrames.lua` → `Options.lua`.
 
 - **`Compat.lua`**: `GlassUF.API`, the only route to client APIs that moved or may be absent:
@@ -363,7 +369,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       did, porting guide), else the spell SENT in the last 0.5 s while its `isOnGCD` is true, and
       the duration goes to `SetTimerDuration`. Hidden after its plain remaining time, else 1.5 s
       (generation-checked). A spell with its own cooldown shows no line.
-  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above; `mirror`, `cc`, `absorb`).
+  - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above; `mirror`, `cc`, `absorb`, `dots`, `dotview`, `avoids`, `mouseover`).
 - **`Swing.lua`** (#87): the player's swing timer.
   - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
     type)`. It's plain in combat, and it still arrives with Blizzard's "Enable Swing Timer" off
@@ -554,6 +560,51 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     `Sounds/README.txt`), not MIT; it ships, and CI's allowlist names all three files.
   - **Still to check in game:** dungeon and raid restrictions, secret-value rendering, screen
     edges, role warnings. Measuring tool: `Tools/ThreatProbe` (`/fp threat`, `test_threatprobe.lua`).
+- **`DotSpells.lua`** / **`Dots.lua`** / **`DotView.lua`** (#175; the plan, its probe results and
+  every Codex round are in `docs/DOT-KILL-PLAN.md`; the measured facts in the porting guide's
+  "Damage over time"): will the player's own DoTs kill the target or focus? **Errs low**: a false
+  skull is worse than a missing one; the plan's section 1 lists the named limits (heals, shields,
+  mitigation, a dispel until two observed misses, one stray same-school hit, same-name off-token
+  casts, spell power dropping below the fight's snapshot).
+  - **The tracker** (`Dots.lua`, its own event frame: it needs every payload in order). SENT binds a
+    cast to exactly one of target and focus by name (`API.IsNameOf`) and attackability, else it
+    isn't tracked, nor is it when a same-name attackable mouseover isn't plainly that unit
+    (`mouseoverElsewhere`, plan 12.3: only plain reads clear it); it reads combo points (plain or 1) and spell power (plain at SENT, else the
+    snapshot read inside `PLAYER_REGEN_DISABLED`, else 0). SUCCEEDED makes a pending application
+    with fixed tick slots; a resist/immune/miss on that mob within 0.4 s (0.25 s before) fails it
+    (dodge/parry only a bleed), else it's confirmed after 0.4 s, replacing its rank family (a failed
+    refresh keeps the old one). Keys: the mob's GUID, else `"target#<gen>"` (a token change
+    retires it). `UNIT_COMBAT` (amount never read: secret in combat) on one canonical token per mob
+    fills at most one slot: same school, inside its ±0.45 s window (+1.5 s late for a projectile's
+    first), nearest slot, ties to the oldest; the rhythm may shift ±0.25 s in total. A slot's
+    damage stops counting at its window's start or a match (never back); two observed misses
+    drop an application. `Dots.Estimate(unit)` → shown, committed (applications seen ticking) and
+    the next 12 ticks' running totals, applying the cutoffs first. A 0.25 s pass runs only while
+    anything is tracked.
+  - **The view** (`DotView.lua`, the `dots` channel on target and focus: health, max health,
+    faction, connection, plus `Dots.OnChange`): the marker is `Frames.OverlayBar` reverse-filled
+    from the health fill's moving edge, a red fill under the client's `RaidFrame-Shield-Overlay`
+    stripes; 12 transparent-fill bars carry the tick lines; the kill icon is a clipped window over
+    the tile (beside the body without one) with a 10,000 px normal-fill bar,
+    `SetMinMaxValues(0, UnitHealth)` and `SetValue(committed × (1 − S/L))`, the raid skull riding
+    its fill. Health only ever reaches `SetMinMaxValues`. A failed paint clears everything.
+    Shown and hidden by alpha and values (never `Show`/`Hide` on a child of the secure button);
+    placed out of combat (`WhenOutOfCombat("dots:<unit>")`, from `applyPortrait` too).
+  - **Options:** `db.dots = { marker, ticks, icon, focus }`, each false when off, pruned when
+    empty; `Settings.SetDots(key, on)`, `/glass dots on|off|marker|ticks|icon|focus on|off`, the
+    **DoTs** sub-page (after Threat). Marker and icon both off stop the tracker.
+  - **`DotSpells.lua` is generated** by `Tools/dot_spells.py` from one build's client tables
+    (SpellEffect, SpellMisc, SpellDuration, SpellLevels, SpellName, Spell, SkillLineAbility in
+    `References\Forever\db`, via the wago-tools skill). Never edit it: re-run the script after a
+    new build and read the diff (70532 → 70862 changed Rip, Serpent Sting and Pounce Bleed).
+    `--report` lists the candidates left out.
+  - **Supported families only** (the script's `SUPPORTED`, by aura name). A row whose description
+    uses a formula variable (`$<…>`) other than its family's reviewed exceptions is refused, as are
+    channels and rows without exactly one periodic effect. Joining the list is a reviewed edit with
+    a fixture in `test_dotspells.lua`.
+  - **`Dots.TickEstimates(aura, points, spellPower, level)`**: per tick,
+    `floor((base + perLevel × L + perCombo × points + coef × spellPower) × shape[k])`, errs low
+    (unknown points = 1, unreadable spell power = 0). Bane of Agony's shape is `Dots.SHAPES`.
 - **`Flight.lua`** (#148, #153): a taxi flight on the player's cast bar. The
   timing is **LibTaxiTime-1.0**'s (see "Flight times" below), shared with GlassPanel's Flight plugin;
   this file draws it, with or without Glass Panel. **Checked in game** by the owner on
@@ -758,11 +809,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `absorbBar` (#171, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `absorbBar` (#171, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `dots` (#175), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|absorb on|off|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|absorb on|off|dots ...|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames

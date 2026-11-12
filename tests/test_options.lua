@@ -163,4 +163,20 @@ check(lowest < -500, "the scan found the page's lower controls (" .. tostring(lo
 check(lowest >= -601 + 26, "the lowest, " .. tostring(lowestName) .. ", sits inside the canvas (" .. lowest .. ")")
 castPage:Hide()
 
+-- The DoTs page (#175): its checkboxes go through Settings.SetDots, and the
+-- page re-syncs from the state on every show.
+local dotsPage = O._test.dotsPage
+dotsPage:Show()
+local cb = controls.dotsIcon
+check(cb and cb:GetChecked(), "the kill icon checkbox, on by default")
+cb:SetChecked(false)
+cb:GetScript("OnClick")(cb)
+eq(GlassUF.DotView.options.icon, false, "unticking turns the icon off")
+eq(GlassUnitFramesDB.dots and GlassUnitFramesDB.dots.icon, false, "and saves it")
+dotsPage:Hide()
+GlassUF.Settings.SetDots("icon", true)
+dotsPage:Show()
+check(controls.dotsIcon:GetChecked(), "a show re-syncs it from the state")
+dotsPage:Hide()
+
 done("test_options")
