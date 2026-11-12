@@ -151,6 +151,34 @@ WoW.now = WoW.now + 0.1
 cast(CORRUPTION)
 wait(0.5)
 eq((est()), 0, "a resist just before the cast event counts too")
+-- The lookback keeps the newest avoid of each rule (plan 12.1): a dodge after
+-- our resist doesn't hide it.
+reset()
+hit("target", 32, "RESIST")
+WoW.now = WoW.now + 0.1
+hit("target", 1, "DODGE")
+WoW.now = WoW.now + 0.1
+cast(CORRUPTION)
+wait(0.5)
+eq((est()), 0, "a dodge after a resist doesn't hide it from the lookback")
+reset()
+hit("target", 1, "DODGE")
+WoW.now = WoW.now + 0.1
+cast(REND)
+wait(0.5)
+eq((est()), 0, "a dodge just before a bleed's cast event drops it")
+reset()
+hit("target", 1, "DODGE")
+WoW.now = WoW.now + 0.1
+cast(CORRUPTION)
+wait(0.5)
+eq((est()), 40, "a dodge just before a spell's cast event doesn't")
+reset()
+hit("target", 32, "RESIST")
+WoW.now = WoW.now + 0.3
+cast(CORRUPTION)
+wait(0.5)
+eq((est()), 40, "an avoid older than the lookback isn't the cast's")
 
 reset()
 t0 = WoW.now

@@ -111,7 +111,7 @@ local pending = {}      -- applications waiting out their outcome window
 local sent = {}         -- castGUID -> { key, unit, gen, points, sp, at }
 local gen = { target = 0, focus = 0 }
 local observed = {}     -- key -> since when target or focus has shown it
-local lastAvoid = {}    -- key -> { at, action }
+local lastAvoid = {}    -- key -> { all, melee }: the newest avoid of each rule
 local snapshot          -- this fight's spell power by school index (plan section 2)
 
 local function plainString(v)
@@ -202,6 +202,15 @@ local function avoids(app, action)
     return AVOIDED[action] or (MELEE_ONLY[action] and app.schoolMask == PHYSICAL) or false
 end
 
+-- The lookback: an avoid of either rule within LOOKBACK before the cast event.
+-- Each rule keeps its own newest time, so a newer avoid that doesn't apply (a
+-- dodge, for a spell) never hides an older one that does (plan 12.1).
+local function avoidedBefore(app, a, t)
+    if not a then return false end
+    local function recent(at) return at ~= nil and t - at <= Dots.LOOKBACK end
+    return recent(a.all) or (recent(a.melee) and avoids(app, "DODGE"))
+end
+
 -- UNIT_SPELLCAST_SUCCEEDED: a pending application, fixed now (plan 6.2).
 local function onSucceeded(castGUID, spellID)
     castGUID = plainString(castGUID)
@@ -218,8 +227,7 @@ local function onSucceeded(castGUID, spellID)
                   name = aura.name, schoolMask = aura.schoolMask, castAt = t, travel = travel,
                   slots = {}, shift = 0, misses = 0, committed = false }
     for k, est in ipairs(ticks) do app.slots[k] = { t = t + k * aura.period, est = est } end
-    local a = lastAvoid[s.key]
-    if a and t - a.at <= Dots.LOOKBACK and avoids(app, a.action) then return end
+    if avoidedBefore(app, lastAvoid[s.key], t) then return end
     pending[#pending + 1] = app
     activate()
 end
@@ -229,7 +237,9 @@ end
 -- false kill). A failed refresh leaves the old application ticking.
 local function onAvoided(key, action)
     local t = GetTime()
-    lastAvoid[key] = { at = t, action = action }
+    local a = lastAvoid[key] or {}
+    if AVOIDED[action] then a.all = t elseif MELEE_ONLY[action] then a.melee = t end
+    lastAvoid[key] = a
     for i = #pending, 1, -1 do
         local app = pending[i]
         if app.key == key and t - app.castAt <= Dots.OUTCOME and avoids(app, action) then
