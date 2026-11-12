@@ -10,9 +10,12 @@
   - **The spells:** Corruption, Bane of Agony, Immolate, Siphon Life, Shadow Word: Pain,
     Devouring Plague, Holy Fire, Moonfire, Insect Swarm, Rip, Rake, Pounce, Rend, Rupture, Garrote,
     Serpent Sting and Flame Shock.
-  - **It errs low:** talents, crits and debuffs on the mob aren't counted, a missed or resisted
-    cast is dropped, and a cast whose mob it can't be sure of isn't counted. A heal, a shield or
-    a dispel can still save the mob.
+  - **It's an estimate, and it leans low:** talents, crits and debuffs on the mob aren't counted,
+    a missed or resisted cast is dropped, and a cast whose mob it can't be sure of isn't counted.
+  - **The skull can still come too early:** a heal, a shield or a dispel can save the mob; a
+    partial resist or a damage reduction makes the ticks smaller than the spell's formula; spell
+    power that drops mid-fight (a trinket or proc ending) makes later casts count high; and another
+    player's hit can pass for your DoT's tick, since the game doesn't say whose damage it was.
   - **Settings:** a new DoTs page under Options > AddOns > Glass Unit Frames turns each part on or
     off (the marker, the tick lines, the skull, the focus frame), or use `/glass dots on|off`.
 

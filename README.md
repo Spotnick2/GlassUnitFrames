@@ -78,10 +78,13 @@ come. When it covers the whole bar, a skull appears on the portrait (beside the 
 one): your DoTs will finish the mob on their own. The skull waits until it has seen one of your
 DoTs tick. It knows Corruption, Bane of Agony, Immolate, Siphon Life, Shadow Word: Pain,
 Devouring Plague, Holy Fire, Moonfire, Insect Swarm, Rip, Rake, Pounce, Rend, Rupture, Garrote,
-Serpent Sting and Flame Shock. It errs low: talents, crits and debuffs on the mob aren't counted,
-a missed or resisted cast is dropped, and a cast it can't pin to one mob isn't counted, so the
-skull can come late but shouldn't come early. A heal, a shield or a dispel can still save the
-mob. Each part can be turned off on the DoTs options page.
+Serpent Sting and Flame Shock. It's an estimate, not a promise, and it leans low: talents, crits
+and debuffs on the mob aren't counted, a missed or resisted cast is dropped, and a cast it can't
+pin to one mob isn't counted. The skull can still come too early: a heal, a shield or a dispel can
+save the mob; a partial resist or a damage reduction makes the ticks smaller than the spell's
+formula; spell power that drops mid-fight (a trinket or proc ending) makes later casts count high;
+and another player's hit can pass for your DoT's tick (the game doesn't say whose damage it was).
+Each part can be turned off on the DoTs options page.
 
 **For casters and fighters**:
 - a **swing timer** (main hand, off hand, ranged) inside your frame, or detached;
