@@ -43,8 +43,8 @@ managed frame, see `Blizzard.lua` below.)
   icon's boundary at UI scale 1 and 0.64: `/fp steps cast dotview`, P6 of `docs/DOT-KILL-PLAN.md`; rogue/druid combo points,
   projectiles and instances are unmeasured). Its open leads (the plan's section 12): `avoids` ran on
   2026-11-12 (12.5: every avoid carries school 1, so the school filter is dropped); `mouseover` ran
-  too (`UnitIsUnit("mouseover", "target")` plain in combat, true and false), so the guard (12.3)
-  waits only on the owner's go-ahead.
+  too (`UnitIsUnit("mouseover", "target")` plain in combat, true and false), and the guard (12.3)
+  is built; a same-name mob under the cursor and a `[@mouseover,harm]` macro are unseen.
 
 Work goes through GitHub issues and PRs at `github.com/Spotnick2/GlassUnitFrames` (private).
 
@@ -568,7 +568,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   casts, spell power dropping below the fight's snapshot).
   - **The tracker** (`Dots.lua`, its own event frame: it needs every payload in order). SENT binds a
     cast to exactly one of target and focus by name (`API.IsNameOf`) and attackability, else it
-    isn't tracked; it reads combo points (plain or 1) and spell power (plain at SENT, else the
+    isn't tracked, nor is it when a same-name attackable mouseover isn't plainly that unit
+    (`mouseoverElsewhere`, plan 12.3: only plain reads clear it); it reads combo points (plain or 1) and spell power (plain at SENT, else the
     snapshot read inside `PLAYER_REGEN_DISABLED`, else 0). SUCCEEDED makes a pending application
     with fixed tick slots; a resist/immune/miss on that mob within 0.4 s (0.25 s before) fails it
     (dodge/parry only a bleed), else it's confirmed after 0.4 s, replacing its rank family (a failed

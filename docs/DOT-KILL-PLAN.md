@@ -43,7 +43,9 @@ icon that the client gives us no means to see:
   see, or fill another application's slot. Either lasts until the loss rule catches it (two
   observed misses);
 - a cast sent at a mob that is neither target nor focus but has the same name as one of them is
-  put on that one (SENT gives only a name);
+  put on that one (SENT gives only a name). The mouseover guard (12.3) refuses the case it can
+  see, a same-name mob under the cursor at SENT; another token aimed at by a macro, or a cursor
+  moved between the key press and SENT (a queued spell), is still this limit;
 - **spell power falling below the fight snapshot** (section 2) during the fight, mainly a buff
   up at the pull that ends mid-fight (a trinket, a proc, a temporary buff): a cast after the drop
   is priced with the snapshot, so its ticks are high by up to
@@ -510,7 +512,26 @@ happens in a group is unmeasured (the probes were solo).
   resist), and Dots ignores flags. The probe should check whether a full application failure ever
   arrives that way. A partial resist is a hit, so the flag alone fails nothing.
 
-### 12.3 Mouseover casts
+### 12.3 Mouseover casts (built in #176, 2026-11-12)
+
+**As built** (`Dots.lua`'s `mouseoverElsewhere`). Codex, three rounds: REVISE (the name check
+below), REVISE (a raw surname compared to nil, which throws when secret), APPROVE. At SENT, once exactly one of target and focus is bound:
+1. `UnitExists("mouseover")` plain false: tracked. Not plain: untracked.
+2. `UnitIsUnit("mouseover", unit)` plain true: tracked (the cursor on the bound mob or its frame).
+3. The name, in `API.IsNameOf`'s three forms, read under pcall: a plain match counts; a mismatch
+   counts only when the display name and the first name are plain and the surname is plain or
+   absent. A plain mismatch: tracked.
+4. Otherwise (same name, or a name we couldn't rule out), tracked only if `UnitCanAttack` is
+   plainly false. Not `API.CanAttack`, which reads unknown as false.
+
+The guard runs after the SENT sweep and the spell lookup, and before the combo and spell-power
+reads; a refused cast leaves no SENT record, so its SUCCEEDED does nothing and an existing
+application is kept. `test_dots.lua` covers each branch, the focus, the ambiguity rule, the
+unreadable reads and the timing; five mutations went red (no guard, the looser name rule,
+`API.CanAttack`, an unknown `UnitExists` passing, no identity pass). Still to see in game: a
+same-name mob under the cursor and a `[@mouseover,harm]` macro.
+
+The design, as proposed:
 
 Section 1's same-name limit, with a way to show a **false** icon: a `[@mouseover,harm]` macro (the
 porting guide measured one working in combat) or the client's mouseover casting (CVar

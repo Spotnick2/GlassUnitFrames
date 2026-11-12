@@ -169,9 +169,41 @@ local function changed()
     if Dots.OnChange then Dots.OnChange() end
 end
 
+local function plainBool(fn, ...)   -- true / false when plain, else nil
+    local ok, v = pcall(fn, ...)
+    if not ok or API.IsSecret(v) or type(v) ~= "boolean" then return nil end
+    return v
+end
+
+-- Does a unit answer to the name? true / false, or nil when a name form we
+-- couldn't read might have matched (API.IsNameOf's forms, read under pcall).
+local function sameName(unit, name)
+    local okF, full = pcall(GetUnitName, unit, false)
+    local okU, first, surname = pcall(UnitName, unit)
+    full = okF and plainString(full) or nil
+    local f = okU and plainString(first) or nil
+    local s = okU and plainString(surname) or nil
+    if name == full or name == f or (f and s and name == f .. " " .. s) then return true end
+    if full and f and not API.IsSecret(surname) and (surname == nil or s) then return false end
+    return nil
+end
+
+-- Plan 12.3: a same-name, attackable mob under the cursor that isn't the bound
+-- unit may be where the cast went (a [@mouseover] macro, mouseover casting).
+-- Only plain reads clear it; anything unreadable leaves the cast untracked.
+-- Measured plain in combat (70888, run #255).
+local function mouseoverElsewhere(unit, name)
+    local exists = plainBool(UnitExists, "mouseover")
+    if exists ~= true then return exists == nil end
+    if plainBool(UnitIsUnit, "mouseover", unit) == true then return false end
+    if sameName("mouseover", name) == false then return false end
+    return plainBool(UnitCanAttack, "player", "mouseover") ~= false
+end
+
 -- UNIT_SPELLCAST_SENT: which watched mob the cast is for. Exactly one of
 -- target and focus must carry its name and be attackable; two different mobs,
--- or none, means it isn't tracked (plan 6.2).
+-- or none, means it isn't tracked (plan 6.2). Neither is a cast the mouseover
+-- may have taken (12.3).
 local function onSent(targetName, castGUID, spellID)
     local t = GetTime()
     for g, s in pairs(sent) do
@@ -191,7 +223,7 @@ local function onSent(targetName, castGUID, spellID)
             end
         end
     end
-    if not key then return end
+    if not key or mouseoverElsewhere(unit, targetName) then return end
     local points = API.ComboPoints()
     sent[castGUID] = { key = key, unit = unit, gen = gen[unit], at = t, sp = spellPower(aura),
                        points = (points and points >= 1) and points or nil }

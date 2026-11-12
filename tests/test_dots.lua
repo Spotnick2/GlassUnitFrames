@@ -42,6 +42,7 @@ local function reset()
     WoW.secretFields = {}
     standardUnits()
     WoW.units.player.level = 60
+    WoW.units.mouseover = nil
     WoW.fire("PLAYER_REGEN_ENABLED")
     wait(1)
 end
@@ -373,6 +374,127 @@ cast(CORRUPTION)
 wait(0.5)
 eq((est()), 0, "off: nothing tracked")
 Dots.SetEnabled(true)
+
+-- The mouseover guard (plan 12.3): a same-name, attackable mob under the cursor
+-- that isn't the bound unit may be where the cast went, so it isn't tracked.
+local function twin(t)       -- another mob with the target's name
+    local u = { name = "Defias Pillager", reaction = 2, guid = "GUID-Defias Twin" }
+    for k, v in pairs(t or {}) do u[k] = v end
+    WoW.SetUnit("mouseover", u)
+end
+local function landed(name)  -- cast now, past its outcome window: the estimate
+    cast(CORRUPTION, name)
+    wait(0.5)
+    return (est(name == "Hogger" and "focus" or "target"))
+end
+local function with(name, fn, body)  -- a client function replaced for one case
+    local real = _G[name]
+    _G[name] = function(...) return fn(real, ...) end
+    local ok, err = pcall(body)
+    _G[name] = real
+    if not ok then error(err, 0) end
+end
+reset()
+WoW.units.mouseover = WoW.units.target
+eq(landed(), 40, "the cursor on the target (or its frame): tracked")
+reset()
+WoW.SetUnit("mouseover", { name = "Kobold", reaction = 2, guid = "GUID-Kobold" })
+eq(landed(), 40, "the cursor on a mob with another name: tracked")
+reset()
+twin({ reaction = 5 })
+eq(landed(), 40, "the cursor on a same-name mob we can't attack: tracked")
+reset()
+twin()
+eq(landed(), 0, "the cursor on a same-name hostile mob: not tracked")
+check(next(T.state().sent) == nil and next(T.state().pending) == nil, "no SENT record, nothing pending")
+wait(3.05 - 0.5)
+hit()
+eq(select(2, est()), 0, "and a Shadow hit at its first tick commits nothing")
+reset()
+WoW.SetUnit("mouseover", { name = "Hogger", reaction = 2, guid = "GUID-Hogger Twin" })
+eq(landed("Hogger"), 0, "a cast bound to the focus, same-name twin under the cursor: not tracked")
+reset()
+WoW.units.mouseover = WoW.units.focus
+eq(landed("Hogger"), 40, "the cursor on the focus: tracked")
+reset()
+WoW.SetUnit("focus", { name = "Defias Pillager", reaction = 2, guid = "GUID-Defias Twin" })
+WoW.units.mouseover = WoW.units.target
+eq(landed(), 0, "two watched mobs with the name stay ambiguous, mouseover or not")
+
+-- Reads that can't clear the mouseover leave the cast untracked.
+local function secretFor(token, real, u, ...)
+    if u == "mouseover" or select(1, ...) == "mouseover" then return WoW.Secret(token) end
+    return real(u, ...)
+end
+reset()
+twin()
+with("UnitExists", function(real, u) if u == "mouseover" then error("refused") end return real(u) end,
+    function() eq(landed(), 0, "UnitExists(mouseover) throwing: not tracked") end)
+reset()
+with("UnitExists", function(real, u) return secretFor("exists", real, u) end,
+    function() eq(landed(), 0, "a secret UnitExists(mouseover): not tracked") end)
+reset()
+twin()
+with("UnitIsUnit", function(real, a, b) return secretFor("isUnit", real, a, b) end,
+    function() eq(landed(), 0, "a secret UnitIsUnit on a same-name mouseover: not tracked") end)
+reset()
+WoW.units.mouseover = WoW.units.target
+with("UnitIsUnit", function(real, a, b) return secretFor("isUnit", real, a, b) end,
+    function() eq(landed(), 0, "the target under the cursor, identity unreadable: not tracked (errs low)") end)
+reset()
+twin()
+with("UnitCanAttack", function(real, p, u) if u == "mouseover" then return WoW.Secret("canAttack") end
+        return real(p, u) end,
+    function() eq(landed(), 0, "a secret UnitCanAttack on a same-name mouseover: not tracked") end)
+reset()
+twin({ name = "Kobold" })
+with("GetUnitName", function(real, u, ...) return secretFor("fullName", real, u, ...) end,
+    function() eq(landed(), 0, "the full name unreadable: another first name can't rule it out") end)
+reset()
+twin({ name = "Kobold" })
+with("UnitName", function(real, u) if u == "mouseover" then return "Kobold", WoW.Secret("surname") end
+        return real(u) end,
+    function() eq(landed(), 0, "a secret surname: the first-and-surname form might match") end)
+reset()
+twin({ name = "Kobold" })
+with("UnitName", function(real, u) if u == "mouseover" then error("refused") end return real(u) end,
+    function() eq(landed(), 0, "UnitName(mouseover) throwing: not tracked") end)
+reset()
+twin({ name = "Defias" })
+with("GetUnitName", function(real, u, ...) if u == "mouseover" then return "Defias Pillager" end
+        return real(u, ...) end,
+    function() eq(landed(), 0, "a display-name match alone is the same name") end)
+
+-- What the guard leaves alone.
+reset()
+local first = cast(CORRUPTION)
+wait(0.5)
+local castAt = app().castAt
+twin()
+cast(CORRUPTION)
+wait(0.5)
+eq(app().castAt, castAt, "a refresh the guard refuses keeps the old application")
+reset()
+twin()
+local g = send(CORRUPTION)
+WoW.units.mouseover = nil
+land(g, CORRUPTION)
+wait(0.5)
+eq((est()), 0, "refused at SENT stays refused when the cursor leaves before SUCCEEDED")
+reset()
+WoW.units.mouseover = WoW.units.target
+g = send(CORRUPTION)
+twin()
+land(g, CORRUPTION)
+wait(0.5)
+eq((est()), 40, "the SENT reading decides: a cursor moved after it changes nothing")
+reset()
+g = send(CORRUPTION)
+check(T.state().sent[g] ~= nil, "a SENT never followed by its SUCCEEDED is kept a while")
+WoW.now = WoW.now + Dots.SENT_TTL + 1
+twin()
+send(CORRUPTION)
+check(T.state().sent[g] == nil, "an expired SENT is still swept when the new cast is refused")
 
 -- It idles when nothing is tracked.
 reset()
