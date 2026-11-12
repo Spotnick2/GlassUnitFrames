@@ -440,3 +440,84 @@ stated as a drop below the snapshot, with the floor and shape in its bound, and 
 priced with the snapshot keeps its estimates past the fight; four transition tests. Not taken
 (Codex agreed): a minimum with an earlier out-of-combat read (the same buff can be in both), and
 the snapshot for the marker only (it brings back the base-only icon).
+
+## 12. Open leads (2026-11-11, not built)
+
+These came from comparing how another DoT tracker handles finishers and mouseover casts, then one
+Codex round (gpt-6-astra: REVISE, folded in below, each claim checked against the code). Each lead
+needs the owner's go-ahead, and all but 12.1 need a measurement first. Until then the err-low
+behaviour above stands.
+
+### 12.1 A defect: the lookback kept only the newest avoid (fixed in #176)
+
+`onAvoided` overwrote `lastAvoid[key]` with each avoid. Our Corruption's `RESIST` at −0.20 s,
+then anyone's `DODGE` at −0.10 s, then SUCCEEDED: the lookback saw only the dodge, which doesn't
+fail a spell, so a resisted Corruption was confirmed. A later stray Shadow hit could then commit
+it (the one-hit named limit). The lookback test had one avoid. Fixed: `lastAvoid[key]` keeps the
+newest time per rule, `all` for the avoids that fail anything (`AVOIDED`) and `melee` for the
+physical-only ones (`MELEE_ONLY`), and `avoidedBefore` checks both. `test_dots.lua` covers the
+sequence (red on the old code), a dodge just before a bleed and before a spell, and an avoid
+older than the lookback. A school filter (12.2) must keep the same property: a newer, unrelated
+avoid never erases an older one that applies.
+
+### 12.2 Someone else's avoid fails our pending cast
+
+`UNIT_COMBAT` on a unit reports what happens to that unit, from any attacker. Its payload has no
+attacker or spell, and Blizzard's combat feedback shows it unfiltered. `onCombat` hands every
+avoid on the mob to `onAvoided` without its school, and `MISS` / `RESIST` fail an application of
+any school. So a white-swing miss inside the window (ours, a party member's, a hunter's Auto Shot)
+drops our Corruption or Serpent Sting (Nature), not just a bleed. That errs low. How often it
+happens in a group is unmeasured (the probes were solo).
+
+- **A school filter, for spell DoTs:** an avoid is not ours only when its school is plain,
+  **positive**, and shares no bit with the application's mask (`bit.band`: the `bit` table is in
+  the dump's `_G` walk, and Blizzard's UI calls it). A school of 0, malformed or unreadable, keeps
+  today's rule.
+  - **It's limited to the actions measured.** Measure `MISS` and `RESIST` first. `IMMUNE`,
+    `EVADE`, `REFLECT` and `DEFLECT` keep today's rule until each is measured: Blizzard's feedback
+    never reads their school.
+  - **The probe (a P1 extension):** the school on our own resisted DoT, and on unrelated melee and
+    Auto Shot misses, in a party. Also check that Serpent Sting's own miss arrives as Nature, not
+    physical, and when it arrives.
+  - **Not for physical bleeds:** a white swing has their school.
+- **Combo points, for physical bleeds: deferred.** The idea was to re-read the points after a
+  bleed fails: a finisher (Rip, Rupture) that landed spends them, and an opener or builder
+  (Garrote, Rake, Pounce) that landed adds one. Rend has no such signal. Codex's case against
+  building it now holds:
+  - **What the points are tied to is unknown.** Forever's own combo frame reads
+    `GetComboPoints("player", "target")` (Camelot `ComboFrame.lua:101`), so the points may follow
+    the target; ours reads `UnitPower("player", 4)`.
+  - **Order and identity:** the order of SENT, SUCCEEDED and the point update is unmeasured.
+    Ruthlessness, Seal Fate and Premeditation also move points.
+  - **Changes that leave no trace:** a GUID key never goes stale, so A → B → A passes an endpoint
+    check.
+  - **Hard vetoes:** a recovery would have to keep a later `IMMUNE` as a hard veto.
+
+  That's a resource-attribution subsystem to rescue applications that are dropped on purpose
+  today. Revisit only if a rogue or druid probe shows a narrow case worth it: points at SENT,
+  SUCCEEDED and each power event, plus which token they follow. If it's built: a reviewed
+  finisher/builder list (not `perCombo`, which only scales damage); the original `castAt`, slots
+  and estimate kept; the old application kept until recovery succeeds; the recovered one
+  uncommitted; cleared on every reset.
+- **A projectile that fails late:** `TRAVEL` stretches the first tick's evidence window, but not
+  the 0.4 s outcome window, so a Serpent Sting that misses later is already confirmed. Its timing
+  is in the probe above. Until then it's a gap, not a measured defect.
+- **Resists inside a `WOUND`:** Blizzard's feedback handles a `WOUND` with a resist flag (a partial
+  resist), and Dots ignores flags. The probe should check whether a full application failure ever
+  arrives that way. A partial resist is a hit, so the flag alone fails nothing.
+
+### 12.3 Mouseover casts
+
+Section 1's same-name limit, with a way to show a **false** icon: a `[@mouseover,harm]` macro (the
+porting guide measured one working in combat) or the client's mouseover casting (CVar
+`enableMouseoverCast`, read by Blizzard's `SecureTemplates.lua`) aimed at a same-name mob that's
+neither target nor focus is credited to the watched one. A guard: at SENT, when `mouseover`
+carries the cast's name and is attackable, the cast is tracked only if `UnitIsUnit("mouseover",
+unit)` says plainly that it's the bound unit. Anything else (another mob, a secret or failed read)
+leaves it untracked. Not gated on the CVar, which would miss macros. Its cost: a hard cast at the
+target while the cursor rests on another same-name mob isn't tracked (errs low).
+
+### 12.4 Not proposed
+
+A stray physical hit before a bleed's first tick commits it early and shifts its rhythm (at most
+±0.25 s). That's already a named limit (section 1, one unrelated hit).
