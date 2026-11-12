@@ -237,7 +237,7 @@ ui2.Hide()
 
 -- Every native method exercised here must exist on the measured client.
 -- MinimalScrollBar methods above belong to FrameXML, not the native dump.
-local dump = io.open(os.getenv("GLASSUF_API_DUMP") or "C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70450.md", "r")
+local dump = io.open(os.getenv("GLASSUF_API_DUMP") or "C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70888.md", "r")
 if dump then
     local methods = {}
     for line in dump:lines() do

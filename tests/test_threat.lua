@@ -815,7 +815,7 @@ eq(T.Geometry("expandedAnchor"), nil, "reset clears expanded placement")
 eq(T.Geometry("anchor"), nil, "reset clears shared migration fallback")
 command("preview off")
 
-local dump = io.open("C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70450.md", "r")
+local dump = io.open("C:/Projects/WoW/References/Forever/api/forever-api-1.60.1.70888.md", "r")
 if dump then
     local methods = {}
     for line in dump:lines() do local name = line:match("^(%a+:%a+)%s*$"); if name then methods[name] = true end end
