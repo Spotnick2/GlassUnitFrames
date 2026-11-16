@@ -938,7 +938,7 @@ table: written to all, read newest), its tests, and the **new-build steps** (its
 `LibTaxiTime.lua` header is the contract.
 
 - **Timing changes are LibTaxiTime PRs**, never edits here.
-- **Embedded like LibGlass:** `.pkgmeta` pins it (`tag: r1`; never `latest`) at `Libs/LibTaxiTime-1.0`,
+- **Embedded like LibGlass:** `.pkgmeta` pins it (`tag: r2`, routes for 70938; never `latest`) at `Libs/LibTaxiTime-1.0`,
   the TOC loads its XML right after LibGlass's, the deploy hands the copy to its `Tools\deploy.ps1`
   (`$env:LIBTAXITIME`, default `..\LibTaxiTime`), the tests load it through the harness's `EMBEDDED`
   table, and CI fetches the pin (`tests/fetch_lib.sh LibTaxiTime-1.0`) and asserts the zip holds

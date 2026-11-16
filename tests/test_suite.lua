@@ -31,7 +31,7 @@ end
 local function pearl() return { name = "pearl", preset = "pearl" } end
 local function notFollowing() return nil, "not-following" end
 
--- The pinned LibGlass (r11) builds the real Pearl. For the failures, a copy
+-- The pinned LibGlass (r12) builds the real Pearl. For the failures, a copy
 -- of any MINOR: a New that builds Pearl as the clean preset, throws, or (below
 -- r11) refuses it the way r6-r10 do. `asked` counts the pearl requests. Undone by
 -- restoreLib, so each case starts from the checkout's own copy.
@@ -186,7 +186,7 @@ restoreLib()
 -- Following: Pearl is built, the local look is suspended and kept.
 --------------------------------------------------------------------------------
 local _, checkoutMinor = LibStub:GetLibrary(MAJOR, true)
-check(checkoutMinor >= 11, "the LibGlass checkout has Pearl (r11, the pin): MINOR " .. tostring(checkoutMinor))
+check(checkoutMinor >= 11, "the LibGlass checkout has Pearl (r11 or newer; the pin is r12): MINOR " .. tostring(checkoutMinor))
 glassUI(pearl)
 db = savedLook()
 load(db)
