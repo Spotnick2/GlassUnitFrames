@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.2.0 - 2026-11-16
+
+- **See a fight start.** The combat timer over your portrait now glows gold for a few seconds when
+  a fight starts, so you notice it. It's on by default; turn it off under Combat timer on the
+  options page, or with `/guf timer glow off`.
+- **A sound when a fight starts,** if you want one: off by default. Turn it on under Combat timer,
+  or with `/guf timer sound on`; `/guf timer sound test` plays it once.
+- **`/guf` is the command now,** like the other Glass addons' short names. `/glass` still works.
+- **The help reads right.** `/guf help` and the reply to a mistyped command lost their choices
+  (`on|off` showed as `onff`); they show in full now.
+- **Russian, Korean and Chinese text** in the Friz Quadrata font showed as boxes; it now uses the
+  font the game ships for your language (LibGlass r12). English clients see no change.
+- **Flight times** follow the current client's flight paths (LibTaxiTime r2): a few routes changed
+  length.
+
 ## v1.1.0 - 2026-11-12
 
 - **Will my DoTs kill it?** On your target's and focus's health bars, a striped red marker shows
