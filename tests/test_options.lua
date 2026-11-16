@@ -1,5 +1,5 @@
 -- Options panel (#39): registered under Options > AddOns, built on first
--- show, every control wired to the same setters as /glass, and re-synced
+-- show, every control wired to the same setters as /guf, and re-synced
 -- from the current state each time it opens.
 dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
@@ -15,9 +15,9 @@ eq(WoW.settings.canvas and WoW.settings.canvas.frame, panel, "canvas category re
 eq(WoW.settings.addon, WoW.settings.canvas, "and added to Options > AddOns")
 eq(WoW.settings.canvas.name, "Glass Unit Frames", "under the addon's display name")
 
--- /glass options opens it.
+-- /guf options opens it.
 SlashCmdList.GLASSUNITFRAMES("options")
-eq(WoW.settings.opened, 4242, "/glass options opens the category")
+eq(WoW.settings.opened, 4242, "/guf options opens the category")
 
 -- Built lazily on first show.
 check(controls.slider_fill == nil, "nothing built before the panel is shown")
@@ -51,7 +51,7 @@ eq(GlassUnitFramesDB.rim, nil, "untouched knobs are not saved")
 -- Opening re-syncs the controls from the current state (a slash change).
 SlashCmdList.GLASSUNITFRAMES("rim 0.4")
 panel._scripts.OnShow(panel)
-eq(controls.slider_rim._value, 0.4, "a /glass change shows up the next time the panel opens")
+eq(controls.slider_rim._value, 0.4, "a /guf change shows up the next time the panel opens")
 eq(GlassUnitFramesDB.fill, 0.45, "re-syncing does not save anything by itself")
 eq(GlassUnitFramesDB.track, nil, "re-syncing (SetValue fires OnValueChanged) saves no untouched knob")
 eq(GlassUnitFramesDB.fade, nil, "nor this one")
@@ -134,8 +134,8 @@ WoW.reset(); standardUnits(); GlassUF = nil
 loadAddon({ db = { hideBlizzardCast = false } })
 check(PlayerCastingBarFrame._shown ~= false, "saved false: Blizzard's cast bar is left alone")
 
--- The cast bar alone doesn't make /glass blizzard claim the frames are hidden,
--- and "/glass blizzard show" brings the cast bar back too.
+-- The cast bar alone doesn't make /guf blizzard claim the frames are hidden,
+-- and "/guf blizzard show" brings the cast bar back too.
 WoW.reset(); standardUnits(); GlassUF = nil
 loadAddon({ db = { font = "arial", hideBlizzard = false, hideBlizzardCast = true, pos = {} } })
 check(not PlayerCastingBarFrame._shown, "cast bar hidden on its own")
@@ -162,5 +162,21 @@ end
 check(lowest < -500, "the scan found the page's lower controls (" .. tostring(lowestName) .. " at " .. lowest .. ")")
 check(lowest >= -601 + 26, "the lowest, " .. tostring(lowestName) .. ", sits inside the canvas (" .. lowest .. ")")
 castPage:Hide()
+
+-- The DoTs page (#175): its checkboxes go through Settings.SetDots, and the
+-- page re-syncs from the state on every show.
+local dotsPage = O._test.dotsPage
+dotsPage:Show()
+local cb = controls.dotsIcon
+check(cb and cb:GetChecked(), "the kill icon checkbox, on by default")
+cb:SetChecked(false)
+cb:GetScript("OnClick")(cb)
+eq(GlassUF.DotView.options.icon, false, "unticking turns the icon off")
+eq(GlassUnitFramesDB.dots and GlassUnitFramesDB.dots.icon, false, "and saves it")
+dotsPage:Hide()
+GlassUF.Settings.SetDots("icon", true)
+dotsPage:Show()
+check(controls.dotsIcon:GetChecked(), "a show re-syncs it from the state")
+dotsPage:Hide()
 
 done("test_options")

@@ -84,7 +84,7 @@ check(not pc.host._shown, "landing: the bar hides")
 -- The setting: off hides it and is saved; on brings it back.
 cur = copy(ORG); cur.start = WoW.now; changed()
 SlashCmdList.GLASSUNITFRAMES("flight off"); WoW.tick()   -- repaints flush once a frame
-check(not pc.host._shown, "/glass flight off: hidden")
+check(not pc.host._shown, "/guf flight off: hidden")
 eq(GlassUnitFramesDB.flightBar, false, "saved")
 check(S.SetFlightBar(true), "on again"); WoW.tick()
 check(pc.host._shown, "the flight back")

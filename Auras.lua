@@ -39,7 +39,7 @@ Auras.ROWS = {
 }
 
 -- Call obj:method(...); a missing method or a throw is recorded (so
--- /glass secrets can say why auras are missing), never raised.
+-- /guf secrets can say why auras are missing), never raised.
 local function try(key, obj, method, ...)
     local fn = obj[method]
     if type(fn) ~= "function" then

@@ -8,7 +8,7 @@ GlassUF.API = API
 
 -- The build the notes in docs/FOREVER-PROBE.md were measured on. Bump only
 -- after re-measuring in game; tests/test_toc.lua pins the same literal.
-GlassUF.MEASURED_ON_BUILD = "1.60.1.70450"
+GlassUF.MEASURED_ON_BUILD = "1.60.1.70888"
 
 function API.Print(msg)
     print("|cff7fd4ffGlassUF|r " .. msg)
@@ -44,6 +44,16 @@ function API.ThreatSound()
     local fn = rawget(_G, "PlaySoundFile")
     if type(fn) ~= "function" then return false end
     local ok, played = pcall(fn, "Interface\\AddOns\\GlassUnitFrames\\Sounds\\BoxingArenaSound.ogg", "Master")
+    return ok and not API.IsSecret(played) and played == true
+end
+
+-- A Blizzard sound kit on the Master channel (the combat timer's, #186). Not
+-- every Retail kit exists here: a refused one returns willPlay false (porting
+-- guide), and so does this.
+function API.PlaySoundKit(kit)
+    local fn = rawget(_G, "PlaySound")
+    if type(fn) ~= "function" then return false end
+    local ok, played = pcall(fn, kit, "Master")
     return ok and not API.IsSecret(played) and played == true
 end
 
@@ -208,7 +218,7 @@ function API.ComboAlpha(i)
 end
 
 -- The one place failures are recorded (first error per key), read by
--- /glass secrets and the tests. Engine, Frames and Auras all report here.
+-- /guf secrets and the tests. Engine, Frames and Auras all report here.
 GlassUF.paintFailures = GlassUF.paintFailures or {}
 function API.Fail(key, err)
     if GlassUF.paintFailures[key] == nil then GlassUF.paintFailures[key] = tostring(err) end
@@ -337,6 +347,50 @@ function API.PlayerNameByGUID(guid)
     local ok, name = pcall(function() return select(6, fn(guid)) end)
     if not ok or API.IsSecret(name) or type(name) ~= "string" or name == "" then return nil end
     return name
+end
+
+-- Whether a plain name is the unit's, in every form a SENT target can take:
+-- the display name (its format unmeasured), the first name, and first +
+-- surname (UnitName gives the surname where the realm should be). Used by the
+-- cast bar (#72, #152) and the DoT tracker (#175).
+local function plainString(v)
+    if API.IsSecret(v) or type(v) ~= "string" or v == "" then return nil end
+    return v
+end
+function API.IsNameOf(unit, name)
+    if not (name and UnitExists(unit)) then return false end
+    local first, surname = UnitName(unit)
+    first, surname = plainString(first), plainString(surname)
+    return name == plainString(GetUnitName(unit, false)) or name == first
+        or (first ~= nil and surname ~= nil and name == first .. " " .. surname)
+end
+
+-- Spell power for one school (GetSpellBonusDamage's index, 2..7), plain or
+-- nil (#175). Measured: plain out of combat and inside PLAYER_REGEN_DISABLED,
+-- secret in combat (porting guide, "Damage over time").
+function API.SpellPower(index)
+    local fn = rawget(_G, "GetSpellBonusDamage")
+    if type(fn) ~= "function" then return nil end
+    local ok, v = pcall(fn, index)
+    if not ok or API.IsSecret(v) or type(v) ~= "number" then return nil end
+    return v
+end
+
+-- Whether the player can attack the unit: plain true only (#175). Unknown
+-- (absent, a throw, a secret) is false: nothing is tracked or drawn for it.
+function API.CanAttack(unit)
+    local fn = rawget(_G, "UnitCanAttack")
+    if type(fn) ~= "function" then return false end
+    local ok, v = pcall(fn, "player", unit)
+    return ok and not API.IsSecret(v) and v == true
+end
+
+-- The player's combo points (power type 4), plain or nil (#175). A priest's
+-- read plain in combat; a rogue's or druid's is unmeasured.
+function API.ComboPoints()
+    local ok, v = pcall(UnitPower, "player", 4)
+    if not ok or API.IsSecret(v) or type(v) ~= "number" then return nil end
+    return v
 end
 
 -- The global cooldown as a LuaDurationObject, or nil (#149). Retail's GCD

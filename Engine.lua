@@ -41,6 +41,9 @@ Engine.CHANNEL_EVENTS = {
     combo = { "UNIT_HEALTH" },
     -- The hunter pet's mood, only on the pet frame (like heal on predicting frames).
     happiness = { "UNIT_HAPPINESS" },
+    -- Will my DoTs kill it? (#175), only on target and focus: the marker and
+    -- kill icon follow health; the tracker's own changes come from Dots.OnChange.
+    dots     = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_FACTION", "UNIT_CONNECTION" },
     cast     = { "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
                  "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
                  "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE",
@@ -50,7 +53,7 @@ Engine.CHANNEL_EVENTS = {
 -- registered on the player's tracker alone, routed to the cast painter.
 Engine.PLAYER_CAST_EVENTS = { "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED" }
 Engine.ORDER = { "name", "color", "health", "heal", "absorb", "power", "portrait", "indicators", "happiness",
-                 "combo", "druidmana", "cast" }
+                 "combo", "druidmana", "dots", "cast" }
 
 local painters = {}
 local framesByUnit = {}      -- unit -> { frame, ... }

@@ -84,7 +84,7 @@ local GREY, DEFAULT = { 0.50, 0.50, 0.52 }, { 0.56, 0.34, 0.92 }
 -- bar's colour, fading to clear across the bar) at this fraction of its
 -- strength. At full strength a 9% mana bar read as half full.
 -- The alpha goes on the track's clip frame (it holds only the track), so it
--- multiplies the material's own and /glass track still scales it. Not on the
+-- multiplies the material's own and /guf track still scales it. Not on the
 -- track texture: a texture's SetAlpha drew nothing different in game (#117).
 local QUIET_TRACK = 0.25
 local function quietTrack(bar)
@@ -112,7 +112,7 @@ local function playerPowerToken()
     return token
 end
 
--- Run a paint step; remember the first failure per step for /glass secrets.
+-- Run a paint step; remember the first failure per step for /guf secrets.
 local function attempt(key, fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok then API.Fail(key, err) end
@@ -856,6 +856,7 @@ function Frames.PaintSample(f, portrait)
         sampleText(f.powerText, t.powerRight, s.pow, s.maxPow)
         for _, region in ipairs(f.powerRegions) do region:SetAlpha(1) end
     end
+    if f.dotMarker then GlassUF.DotView.PaintSample(f, s) end
     if portrait then samplePortrait(f) end
     local ind = f.indicators
     if ind then
@@ -1451,6 +1452,7 @@ local function applyPortrait(b, mode)
     placeHappiness(b)
     placeMark(b)
     GlassUF.Auras.PlaceCC(b)   -- over the tile, or where it would be (#159)
+    GlassUF.DotView.Place(b)   -- the kill icon, the same (#175)
     if b.unit == "player" and GlassUF.Timer then GlassUF.Timer.Place() end   -- over the tile, or not (#120)
     Engine.MarkDirty(b, "portrait")
     Engine.MarkDirty(b, "name")
@@ -1609,6 +1611,7 @@ local function build(unit)
     if L.healPrediction then attempt("build absorbs", buildAbsorb, b) end
     if L.auras then attempt("build auras", GlassUF.Auras.Attach, b, body) end
     attempt("build cc", GlassUF.Auras.AttachCC, b)   -- target and focus, when on (#159)
+    attempt("build dots", GlassUF.DotView.Attach, b)   -- target and focus (#175)
     if L.sheen then b.sheen = Glass.Sheen(g, body, L.w, L.h) end
 
     placeLevel(b)
@@ -1632,6 +1635,8 @@ end
 -- target's cast flash.
 Engine.OnTokenChanged = function(base)
     local f = Frames.byUnit[base]
+    -- A per-token DoT key belongs to the old unit (#175; GUID keys stay).
+    GlassUF.Dots.TokenChanged(base)
     -- The old unit's cast state is not the new one's; a preview's sample is its own (#109).
     if f and f.cast and not GlassUF.Preview.active then GlassUF.Castbar.TokenChanged(f.cast) end
     -- The crowd-control icon follows a new focus (#159); the target's below.
@@ -1653,6 +1658,7 @@ function Frames.Build(db)
     if db.absorbBar == false then Frames.absorbs = false end
     GlassUF.Castbar.Configure(db)
     GlassUF.Auras.ConfigureCC(db)
+    GlassUF.DotView.Configure(db)
     GlassUF.Zoom.Configure(db)
     if Frames.LEVEL_POSITIONS[db.level] then Frames.levelPos = db.level end
     if Frames.HAPPINESS_POSITIONS[db.happiness] then Frames.happinessPos = db.happiness end

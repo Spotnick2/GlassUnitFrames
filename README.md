@@ -13,7 +13,8 @@ Install **Glass Unit Frames** from CurseForge or Wago (with their apps), or down
 zip from [GitHub Releases](https://github.com/Spotnick2/GlassUnitFrames/releases) and unzip it into
 the `Interface\AddOns` folder inside your Forever game folder. Then `/reload`, or start the game.
 Your Blizzard player, pet, target and focus frames are replaced at once; there is nothing to set
-up. `/glass options` (or Esc > Options > AddOns > Glass Unit Frames) has every setting.
+up. `/guf options` (or Esc > Options > AddOns > Glass Unit Frames) has every setting. (`/guf` was
+`/glass` before; the old name still works.)
 
 ## What it does
 
@@ -63,7 +64,7 @@ and scale, on the Combat zoom options page; a Healer, Tank or DPS role can have 
 Orgrimmar", the flight master's icon and the time left (`~` when it's an estimate, `+0:07` past
 it), emptying as you fly, and zoomed like in combat when your cast bar's zoom is on. A cast you
 make on the way takes the bar; the flight comes back after it. The game gives no flight times, so
-they come from each route's length, then from your own landings (`/glass flight off` to turn it
+they come from each route's length, then from your own landings (`/guf flight off` to turn it
 off).
 
 **Target threat.** In group combat, a small glass plate beside your target shows your threat
@@ -71,6 +72,20 @@ rank and how close you are to pulling aggro, shading from mint to amber at 90% a
 with an optional warning gong. Hover it for the top five; click it for the whole ranking of
 players and pets. A tank isn't warned while holding aggro. It can also show in solo combat, or
 not at all, on the Threat options page.
+
+**Will my DoTs kill it?** On your target's and focus's health bars, a striped red marker shows how
+much health your own damage-over-time spells will still take, with a thin line for each tick to
+come. When it covers the whole bar, a skull appears on the portrait (beside the frame without
+one): your DoTs will finish the mob on their own. The skull waits until it has seen one of your
+DoTs tick. It knows Corruption, Bane of Agony, Immolate, Siphon Life, Shadow Word: Pain,
+Devouring Plague, Holy Fire, Moonfire, Insect Swarm, Rip, Rake, Pounce, Rend, Rupture, Garrote,
+Serpent Sting and Flame Shock. It's an estimate, not a promise, and it leans low: talents, crits
+and debuffs on the mob aren't counted, a missed or resisted cast is dropped, and a cast it can't
+pin to one mob isn't counted. The skull can still come too early: a heal, a shield or a dispel can
+save the mob; a partial resist or a damage reduction makes the ticks smaller than the spell's
+formula; spell power that drops mid-fight (a trinket or proc ending) makes later casts count high;
+and another player's hit can pass for your DoT's tick (the game doesn't say whose damage it was).
+Each part can be turned off on the DoTs options page.
 
 **For casters and fighters**:
 - a **swing timer** (main hand, off hand, ranged) inside your frame, or detached;
@@ -80,17 +95,17 @@ not at all, on the Threat options page.
 - **breath, fatigue and feign death** bars in glass, in place of Blizzard's (movable in unlock
   mode).
 
-**Place everything.** `/glass unlock` (or Unlock frames in the options) shows a handle on every
+**Place everything.** `/guf unlock` (or Unlock frames in the options) shows a handle on every
 frame and detached bar. Drag them, or click one to type its position or nudge it with the arrows.
 Frames snap to a grid and align to each other's edges (hold Alt to place freely), the target
 carries its group and the player its pet, and moving the player or target mirrors the other while
-the pair is symmetric. `/glass preview` shows every frame and bar with sample data, so you can
+the pair is symmetric. `/guf preview` shows every frame and bar with sample data, so you can
 place and colour things without a target, a pet or a fight.
 
 **With the other Glass addons**:
 - When **Glass Raid Frames** shows its centred raid layout, your frame and your target's slide
   to sit just left and right of the raid grid, at their own height, and come back when it goes
-  away (`/glass link off` to keep them where you put them). Your cast bars stay where you put
+  away (`/guf link off` to keep them where you put them). Your cast bars stay where you put
   them; if the grid would cover them, they're lifted just clear of it.
 - **Glass Action Bars'** stance and pet bars follow your player and pet frames.
 - **Glass Panel's** flight timer and your cast bar share the same flight times (below).
@@ -98,29 +113,30 @@ place and colour things without a target, a pet or a fight.
 
 ## Commands
 
-`/glass help` lists them all; the same settings are on the options page.
+`/guf help` lists them all; the same settings are on the options page.
 
-- `/glass options` - the options page
-- `/glass unlock`, `/glass lock` - move the frames and bars
-- `/glass preview` - every frame and bar with sample data (out of combat)
-- `/glass reset` - every frame and bar back to the default layout
-- `/glass look pearl|clean|classic`, `/glass body clear|smoked` - the glass (after a `/reload`)
-- `/glass ramp whole|edge` - how the empty part of a bar shows
-- `/glass font arial|friz`
-- `/glass portrait player|target|pet 3d|2d|none`
-- `/glass text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp` - a frame's health text
-- `/glass level power|name|portrait`, `/glass mark name|top|right`,
-  `/glass happiness left|right|under` - where the target's level, raid marks and pet happiness go
-- `/glass timer on|off`, `/glass regen on|off` - the combat timer and the mana regen segment
-- `/glass breath on|off` - the glass breath and fatigue bars
-- `/glass cc target|focus off|portrait|beside` - the crowd-control icon
-- `/glass absorb on|off` - absorb shields on the health bars
-- `/glass threat on|off|always` - target threat in group combat, always, or never (more options
-  in `/glass help`)
-- `/glass flight on|off` - a taxi flight on your cast bar
-- `/glass link on|off` - the frames beside Glass Raid Frames' layout
-- `/glass mirror on|off`, `/glass snap grid|align on|off` - unlock mode's mirroring and snapping
-- `/glass blizzard show|hide` - Blizzard's own frames back, or hidden again (after a `/reload`)
+- `/guf options` - the options page
+- `/guf unlock`, `/guf lock` - move the frames and bars
+- `/guf preview` - every frame and bar with sample data (out of combat)
+- `/guf reset` - every frame and bar back to the default layout
+- `/guf look pearl|clean|classic`, `/guf body clear|smoked` - the glass (after a `/reload`)
+- `/guf ramp whole|edge` - how the empty part of a bar shows
+- `/guf font arial|friz`
+- `/guf portrait player|target|pet 3d|2d|none`
+- `/guf text <unit> curhp|curmaxhp|perhp|curmaxhp_perhp` - a frame's health text
+- `/guf level power|name|portrait`, `/guf mark name|top|right`,
+  `/guf happiness left|right|under` - where the target's level, raid marks and pet happiness go
+- `/guf timer on|off`, `/guf regen on|off` - the combat timer and the mana regen segment
+- `/guf breath on|off` - the glass breath and fatigue bars
+- `/guf cc target|focus off|portrait|beside` - the crowd-control icon
+- `/guf absorb on|off` - absorb shields on the health bars
+- `/guf threat on|off|always` - target threat in group combat, always, or never (more options
+  in `/guf help`)
+- `/guf dots on|off`, `/guf dots marker|ticks|icon|focus on|off` - will your DoTs kill it
+- `/guf flight on|off` - a taxi flight on your cast bar
+- `/guf link on|off` - the frames beside Glass Raid Frames' layout
+- `/guf mirror on|off`, `/guf snap grid|align on|off` - unlock mode's mirroring and snapping
+- `/guf blizzard show|hide` - Blizzard's own frames back, or hidden again (after a `/reload`)
 
 ## Good to know
 
@@ -132,20 +148,22 @@ place and colour things without a target, a pet or a fight.
   times...): the frames hand them straight to the game to draw. That's why the text comes in a few
   fixed formats rather than a custom tag language, and why there are no aura filters: the game
   chooses and sorts the target's buffs and debuffs.
-- **Some changes wait for combat to end:** moving frames, a portrait set to none, `/glass reset`.
+- **Some changes wait for combat to end:** moving frames, a portrait set to none, `/guf reset`.
   The game doesn't let addons move these frames in combat. You're told when one is waiting.
 - **Shaman totems** don't show while Blizzard's frames are hidden. The game hides totem details
   from addons, so Glass Unit Frames can't draw them.
 - **Not yet checked in game:** the combo points, the druid mana strip, the cast bar's GCD line,
   interrupter name and out-of-range colour, the breath and fatigue bars, the crowd-control icon
   and the absorb shield segment are built and tested offline only (the game was checked to report
-  shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids.
-  Reports welcome.
+  shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids. The
+  DoT kill estimate's marker and skull are new and not yet seen in game; its timings were measured
+  with a priest's Shadow Word: Pain outdoors, and the other classes' DoTs, combo-point finishers,
+  dungeons and raids are untested. Reports welcome.
 
 ## Bugs and ideas
 
 Open an issue on [GitHub](https://github.com/Spotnick2/GlassUnitFrames/issues). With
-`/console scriptErrors 1` on, the error text helps a lot; `/glass secrets` lists anything the
+`/console scriptErrors 1` on, the error text helps a lot; `/guf secrets` lists anything the
 frames failed to draw.
 
 ## Credits

@@ -88,7 +88,7 @@ eq(next(GlassUF.paintFailures), nil, "no failures on the secret path")
 -- A name we can't read can't key a row: skipped and recorded.
 WoW.fire("MIRROR_TIMER_START", WoW.Secret("name"), 1, 1, -1, 0, "Breath")
 check(not c.host._shown, "a secret name: no row")
-check(GlassUF.paintFailures["mirror timer"] ~= nil, "recorded for /glass secrets")
+check(GlassUF.paintFailures["mirror timer"] ~= nil, "recorded for /guf secrets")
 GlassUF.paintFailures["mirror timer"] = nil
 
 -- A loading screen or /reload: the live timers rebuilt from GetMirrorTimerInfo.

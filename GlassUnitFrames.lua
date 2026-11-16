@@ -1,12 +1,17 @@
 -- GlassUnitFrames.lua: bootstrap, saved settings, combat-deferred actions and
--- the /glass command.
+-- the /guf command.
 
 local ADDON = ...
 GlassUF = GlassUF or {}
 local API, Glass, Frames, Blizzard = GlassUF.API, GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 local say = API.Print
 
--- Live material tweaks (Glass.TUNABLES): /glass <key> <value>, saved only
+-- A help or usage line, whose "|" separate choices (#178): the client reads
+-- a bare "|x" as an escape and drops it (on|off printed "onff"), so each is
+-- doubled, which prints one. Only for lines without escape codes of their own.
+local function usage(msg) say((msg:gsub("|", "||"))) end
+
+-- Live material tweaks (Glass.TUNABLES): /guf <key> <value>, saved only
 -- once set, so a new default in Glass.STYLE still reaches everyone who never
 -- touched it.
 -- The material knobs of the instance in use (Glass forwards to it, #102): read
@@ -61,7 +66,7 @@ local function runPending()
 end
 
 --------------------------------------------------------------------------------
--- /glass secrets: which unit values come back secret, in or out of combat.
+-- /guf secrets: which unit values come back secret, in or out of combat.
 --------------------------------------------------------------------------------
 
 local SECRET_PROBES = {
@@ -148,7 +153,7 @@ local function secretsReport()
 end
 
 --------------------------------------------------------------------------------
--- /glass totem: where Blizzard's TotemFrame lives on this client (#18). A
+-- /guf totem: where Blizzard's TotemFrame lives on this client (#18). A
 -- diagnostic only: hosting TotemFrame was removed in #58 (it's a managed
 -- frame; moving it out of its container breaks Blizzard's layout code).
 --------------------------------------------------------------------------------
@@ -166,7 +171,7 @@ local function frameName(f)
 end
 
 -- Where a Blizzard frame lives: parent chain, first anchor, protection,
--- visibility. /glass totem is this for TotemFrame; /glass frame <Name> for
+-- visibility. /guf totem is this for TotemFrame; /guf frame <Name> for
 -- any global frame (names are case sensitive), e.g. PetActionBar.
 local function frameReport(name, label)
     local tf = rawget(_G, name)
@@ -210,10 +215,14 @@ local HELP = {
     "font arial|friz  - text font (saved)",
     "look pearl|clean|classic  - the glass: LibGlass's Pearl (the default), Clean or Classic (after /reload, saved)",
     "timer on|off  - the combat timer over your portrait (saved)",
+    "timer glow on|off  - a glow on it when a fight starts (saved)",
+    "timer sound on|off|test  - a sound when a fight starts (saved; test plays it)",
     "flight on|off  - a taxi flight on your cast bar, from Glass Panel's flight timer (saved)",
     "breath on|off  - glass breath, fatigue and feign death bars (saved; Blizzard's follow after /reload)",
     "cc target|focus off|portrait|beside  - the crowd-control icon, over the portrait or beside the frame (saved)",
     "absorb on|off  - the absorb shields left (Power Word: Shield, ...) as a darker shade of the health colour past its fill (saved)",
+    "dots on|off  - will your DoTs kill it: a marker on the target's and focus's health and a skull when lethal (saved)",
+    "dots marker|ticks|icon|focus on|off  - one part of it (saved)",
     "regen on|off  - mana users: the next 2 s of regen past your mana bar's fill (saved)",
     "ramp whole|edge  - a bar's empty part: its colour fading across the whole bar, or just past the fill (saved)",
     "body clear|smoked  - the glass body: clear, or smoked (darker, after /reload, saved)",
@@ -232,7 +241,7 @@ local HELP = {
     "secrets  - which unit values are secret right now, plus any paint failures",
     "threat on|off|always  - target threat; sound, expand, preview, reset, test",
     "totem  - where Blizzard's totem bar lives (diagnostic)",
-    "frame <Name>  - where any Blizzard frame lives, e.g. /glass frame PetActionBar",
+    "frame <Name>  - where any Blizzard frame lives, e.g. /guf frame PetActionBar",
 }
 
 -- Apply-and-save, one helper per setting: the slash commands and the options
@@ -314,7 +323,7 @@ end
 function Settings_.Unlock()
     local ok, why = GlassUF.Movers.Unlock()
     if ok then
-        say("frames unlocked: drag to move (the target carries its group), click to nudge. /glass lock when done")
+        say("frames unlocked: drag to move (the target carries its group), click to nudge. /guf lock when done")
     elseif why == "combat" then
         say("can't unlock frames in combat")
     end
@@ -328,7 +337,7 @@ function Settings_.SetPreview(on)
     if on and not P.active then
         local ok, why = P.Start()
         if ok then
-            say("preview on: every frame and bar shows sample data. /glass preview again to stop; combat stops it")
+            say("preview on: every frame and bar shows sample data. /guf preview again to stop; combat stops it")
         elseif why == "combat" then
             say("can't preview in combat")
         end
@@ -427,6 +436,23 @@ function Settings_.SetAggroRed(on)
     if on then GlassUnitFramesDB.aggroRed = nil else GlassUnitFramesDB.aggroRed = false end
 end
 
+-- Will my DoTs kill it? (#175): db.dots[key] = false when off, the table
+-- pruned when empty. key: marker, ticks, icon, focus.
+function Settings_.SetDots(key, on)
+    if not GlassUF.DotView.SetOption(key, on) then return false end
+    local db = GlassUnitFramesDB
+    if on then
+        if type(db.dots) == "table" then
+            db.dots[key] = nil
+            if next(db.dots) == nil then db.dots = nil end
+        end
+    else
+        if type(db.dots) ~= "table" then db.dots = {} end
+        db.dots[key] = false
+    end
+    return true
+end
+
 -- Absorb shields on the health bars (#171): db.absorbBar = false when off.
 function Settings_.SetAbsorbs(on)
     Frames.SetAbsorbs(on)
@@ -494,6 +520,20 @@ end
 function Settings_.SetCombatTimer(on)
     if not GlassUF.Timer.SetEnabled(on) then return false end
     if on then GlassUnitFramesDB.combatTimer = nil else GlassUnitFramesDB.combatTimer = false end
+    return true
+end
+
+-- Its alert at a fight's start (#186): the glow (db.timerGlow = false when
+-- off) and the sound (db.timerSound = true when on).
+function Settings_.SetTimerGlow(on)
+    GlassUF.Timer.SetGlow(on)
+    if on then GlassUnitFramesDB.timerGlow = nil else GlassUnitFramesDB.timerGlow = false end
+    return true
+end
+
+function Settings_.SetTimerSound(on)
+    GlassUF.Timer.SetSound(on)
+    GlassUnitFramesDB.timerSound = on and true or nil
     return true
 end
 
@@ -584,7 +624,7 @@ local function slash(msg)
         if Settings_.SetFont(arg) then
             say("font " .. arg)
         else
-            say("font arial|friz")
+            usage("font arial|friz")
         end
     elseif cmd == "options" or cmd == "config" then
         if not (GlassUF.Options and GlassUF.Options.Open()) then
@@ -594,40 +634,40 @@ local function slash(msg)
         if Settings_.SetHappinessPosition(arg) then
             say("pet happiness " .. arg)
         else
-            say("happiness left|right|under (now " .. Frames.happinessPos .. ")")
+            usage("happiness left|right|under (now " .. Frames.happinessPos .. ")")
         end
     elseif cmd == "level" then
         if Settings_.SetLevelPosition(arg) then
             say("level " .. arg)
         else
-            say("level power|name|portrait (now " .. Frames.levelPos .. ")")
+            usage("level power|name|portrait (now " .. Frames.levelPos .. ")")
         end
     elseif cmd == "text" then
         local unit, kind = arg:match("^(%S+)%s+(%S+)$")
         if unit and Settings_.SetHealthFormat(unit, kind) then
             say(unit .. " health text " .. kind)
         else
-            say("text <unit> " .. table.concat(Frames.HEALTH_FORMATS, "|") .. "  (e.g. /glass text target curmaxhp)")
+            usage("text <unit> " .. table.concat(Frames.HEALTH_FORMATS, "|") .. "  (e.g. /guf text target curmaxhp)")
         end
     elseif cmd == "portrait" then
         local unit, mode = arg:match("^(%S+)%s+(%S+)$")
         if unit and Settings_.SetPortraitMode(unit, mode) then
             say(unit .. " portrait " .. mode)
         else
-            say("portrait player|target|pet 3d|2d|none")
+            usage("portrait player|target|pet 3d|2d|none")
         end
     elseif cmd == "cc" then
         local unit, mode = arg:match("^(%S+)%s+(%S+)$")
         if unit and Settings_.SetCCIcon(unit, mode) then
             say(unit .. " crowd-control icon " .. mode)
         else
-            say("cc target|focus off|portrait|beside")
+            usage("cc target|focus off|portrait|beside")
         end
     elseif cmd == "mark" then
         if Settings_.SetMark(arg) then
             say("raid mark " .. arg)
         else
-            say("mark name|top|right (now " .. Frames.markPos .. ")")
+            usage("mark name|top|right (now " .. Frames.markPos .. ")")
         end
     elseif GlassUF.following and (cmd == "body" or cmd == "ramp" or cmd == "look" or tweakByKey(cmd)) then
         say(GlassUF.SuiteStatus())   -- set in Glass UI (#129)
@@ -635,31 +675,56 @@ local function slash(msg)
         if Settings_.SetGlassBody(arg) then
             say("glass body " .. arg .. ": takes effect after /reload")
         else
-            say("body clear|smoked (now " .. GlassUF.body .. ")")
+            usage("body clear|smoked (now " .. GlassUF.body .. ")")
         end
     elseif cmd == "timer" then
+        local Timer = GlassUF.Timer
+        local what, value = arg:match("^(%S+)%s*(%S*)$")
         if (arg == "on" or arg == "off") and Settings_.SetCombatTimer(arg == "on") then
             say("combat timer " .. arg)
+        elseif what == "glow" and (value == "on" or value == "off") then
+            Settings_.SetTimerGlow(value == "on")
+            say("combat timer glow " .. value)
+        elseif what == "sound" and (value == "on" or value == "off") then
+            Settings_.SetTimerSound(value == "on")
+            say("combat timer sound " .. value)
+        elseif what == "sound" and value == "test" then
+            say(Timer.TestSound() and "combat timer sound: playing"
+                or "combat timer sound: the client refused sound kit " .. Timer.SOUND_KIT)
         else
-            say("timer on|off (now " .. (GlassUF.Timer.enabled and "on" or "off") .. ")")
+            usage("timer on|off | glow on|off | sound on|off|test (now " .. (Timer.enabled and "on" or "off")
+                .. ", glow " .. (Timer.glow and "on" or "off") .. ", sound " .. (Timer.sound and "on" or "off") .. ")")
         end
     elseif cmd == "flight" then
         if (arg == "on" or arg == "off") and Settings_.SetFlightBar(arg == "on") then
             say("flight on your cast bar " .. arg)
         else
-            say("flight on|off (now " .. (GlassUF.Flight.enabled and "on" or "off") .. ")")
+            usage("flight on|off (now " .. (GlassUF.Flight.enabled and "on" or "off") .. ")")
         end
     elseif cmd == "breath" then
         if (arg == "on" or arg == "off") and Settings_.SetMirrorTimers(arg == "on") then
             say("breath, fatigue and feign death bars " .. arg .. " (Blizzard's follow after /reload)")
         else
-            say("breath on|off (now " .. (GlassUF.Mirror.enabled and "on" or "off") .. ")")
+            usage("breath on|off (now " .. (GlassUF.Mirror.enabled and "on" or "off") .. ")")
         end
     elseif cmd == "absorb" then
         if (arg == "on" or arg == "off") and Settings_.SetAbsorbs(arg == "on") then
             say("absorb shields on the health bars " .. arg)
         else
-            say("absorb on|off (now " .. (Frames.absorbs and "on" or "off") .. ")")
+            usage("absorb on|off (now " .. (Frames.absorbs and "on" or "off") .. ")")
+        end
+    elseif cmd == "dots" then
+        local o = GlassUF.DotView.options
+        local part, val = (arg or ""):match("^(%a+)%s+(%a+)$")
+        if arg == "on" or arg == "off" then
+            for _, k in ipairs({ "marker", "ticks", "icon", "focus" }) do Settings_.SetDots(k, arg == "on") end
+            say("DoT kill estimate " .. arg)
+        elseif part and (val == "on" or val == "off") and Settings_.SetDots(part, val == "on") then
+            say("DoT kill estimate: " .. part .. " " .. val)
+        else
+            local function st(k) return k .. " " .. (o[k] and "on" or "off") end
+            usage("dots on|off, or marker|ticks|icon|focus on|off (now " .. st("marker") .. ", " .. st("ticks")
+                .. ", " .. st("icon") .. ", " .. st("focus") .. ")")
         end
     elseif cmd == "regen" then
         if not GlassUF.FiveSecond.Built() then
@@ -667,7 +732,7 @@ local function slash(msg)
         elseif (arg == "on" or arg == "off") and Settings_.SetManaRegen(arg == "on") then
             say("mana regen segment " .. arg)
         else
-            say("regen on|off (now " .. (GlassUF.FiveSecond.regen and "on" or "off") .. ")")
+            usage("regen on|off (now " .. (GlassUF.FiveSecond.regen and "on" or "off") .. ")")
         end
     elseif cmd == "ramp" then
         if Settings_.SetTrackRamp(arg) then
@@ -675,14 +740,14 @@ local function slash(msg)
         elseif not Glass.SetTrackLength then
             say("ramp: needs LibGlass r10 (a newer copy of the library)")
         else
-            say("ramp whole|edge (now " .. (GlassUnitFramesDB.trackRamp or "whole") .. ")")
+            usage("ramp whole|edge (now " .. (GlassUnitFramesDB.trackRamp or "whole") .. ")")
         end
     elseif cmd == "look" then
         if Settings_.SetLook(arg) then
             say("look " .. arg .. ": takes effect after /reload")
         else
             local failed = GlassUF.SuiteStatus()
-            say("look pearl|clean|classic (now " .. GlassUF.look .. (failed and "; " .. failed or "") .. ")")
+            usage("look pearl|clean|classic (now " .. GlassUF.look .. (failed and "; " .. failed or "") .. ")")
         end
     elseif tweakByKey(cmd) then
         local t = tweakByKey(cmd)
@@ -699,7 +764,7 @@ local function slash(msg)
             Settings_.SetMirror(arg == "on")
             say("mirror " .. arg)
         else
-            say("mirror on|off  (unlock mode: the player and target frames move as mirror images)")
+            usage("mirror on|off  (unlock mode: the player and target frames move as mirror images)")
         end
     elseif cmd == "snap" then
         local which, state = arg:match("^(%S+)%s+(%S+)$")
@@ -707,7 +772,7 @@ local function slash(msg)
         if key and (state == "on" or state == "off") and Settings_.SetSnap(key, state == "on") then
             say("snap " .. which .. " " .. state)
         else
-            say("snap grid|align on|off  (Alt while dragging places freely)")
+            usage("snap grid|align on|off  (Alt while dragging places freely)")
         end
     elseif cmd == "preview" then
         Settings_.SetPreview(not GlassUF.Preview.active)
@@ -724,7 +789,7 @@ local function slash(msg)
             local L = GlassUF.Link
             local now = (L.Status() == "placing" and "on, placing player and target")
                 or (L.Status() == "waiting" and "on, waiting for Glass Raid Frames' centred layout") or "off"
-            say("link on|off (now " .. now .. ")")
+            usage("link on|off (now " .. now .. ")")
         end
     elseif cmd == "blizzard" then
         -- Named for what happens to BLIZZARD's frames: "show" brings them back.
@@ -735,9 +800,9 @@ local function slash(msg)
             -- What is on screen now vs what the next /reload will do.
             local now = Blizzard.active and "hidden" or "shown"
             local next = GlassUnitFramesDB.hideBlizzard and "hidden" or "shown"
-            say("Blizzard's frames are " .. now
+            usage("Blizzard's frames are " .. now
                 .. (now == next and "" or (", " .. next .. " after /reload"))
-                .. ". /glass blizzard show|hide, then /reload")
+                .. ". /guf blizzard show|hide, then /reload")
         end
     elseif cmd == "threat" then
         local action, value = arg:match("^(%S+)%s*(.-)$")
@@ -751,7 +816,7 @@ local function slash(msg)
         elseif action == "preview" then T.Preview(value)
         elseif action == "reset" then T.ResetPositions()
         elseif action == "test" then API.ThreatSound()
-        else say("threat on|off|always (solo combat) | view compact|expanded|auto | delay 0-60 | sound on|off | expand on|off | preview compact|expanded|off | reset | test") end
+        else usage("threat on|off|always (solo combat) | view compact|expanded|auto | delay 0-60 | sound on|off | expand on|off | preview compact|expanded|off | reset | test") end
     elseif cmd == "secrets" then
         secretsReport()
     elseif cmd == "totem" then
@@ -759,12 +824,13 @@ local function slash(msg)
     elseif cmd == "frame" and rawArg ~= "" then
         frameReport(rawArg, "frame")
     else
-        for _, line in ipairs(HELP) do say("/glass " .. line) end
-        for _, t in ipairs(tweaks()) do say(string.format("/glass %s %s  - %s (saved)", t.key, rangeText(t), t.help)) end
+        for _, line in ipairs(HELP) do usage("/guf " .. line) end
+        for _, t in ipairs(tweaks()) do usage(string.format("/guf %s %s  - %s (saved)", t.key, rangeText(t), t.help)) end
     end
 end
 
-SLASH_GLASSUNITFRAMES1 = "/glass"
+SLASH_GLASSUNITFRAMES1 = "/guf"
+SLASH_GLASSUNITFRAMES2 = "/glass"   -- the old name (#188), kept for macros and habits
 SlashCmdList.GLASSUNITFRAMES = slash
 
 local boot = CreateFrame("Frame")

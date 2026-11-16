@@ -124,28 +124,3 @@ function button(unit) return GlassUF.Frames.byUnit[unit] end
 -- Text a FontString holds: a plain string, or a table for secret-formatted text.
 function textOf(fs) return fs._text end
 
--- FINDING (#178): /glass's help and usage lines print a bare "|" between
--- choices ("on|off"), which the client reads as an escape. Until #178 doubles
--- them, a printed line whose strays are all one of these choice lists passes
--- the kit's stray-"|" check; any other stray still fails done(). Longest
--- first, so "on|off|always" is taken before "on|off".
-local CHOICE_LISTS = {
-    "curhp|curmaxhp|perhp|curmaxhp_perhp", "off|portrait|beside", "pearl|clean|classic", "power|name|portrait",
-    "player|target|pet", "left|right|under", "name|top|right", "on|off|always", "clear|smoked", "target|focus",
-    "arial|friz", "grid|align", "show|hide", "whole|edge", "3d|2d|none", "unlock | lock", "on|off",
-}
-local function onlyChoiceLists(line)
-    for _, list in ipairs(CHOICE_LISTS) do
-        line = line:gsub(list:gsub("%p", "%%%0"), (list:gsub("|", "")))
-    end
-    return not WoW.StrayPipe(line)
-end
-local kitDone = done
-function done(name)
-    local left = {}
-    for _, line in ipairs(WoW.strays) do
-        if not onlyChoiceLists(line) then left[#left + 1] = line end
-    end
-    WoW.strays = left
-    kitDone(name)
-end

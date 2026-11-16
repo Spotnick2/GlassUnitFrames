@@ -51,13 +51,13 @@ The optional Boxing Arena Gong defaults on, requires group combat, and has a fiv
 cooldown. Preview never sounds.
 
 Useful commands after /reload:
-- /glass threat view compact|expanded|auto
-- /glass threat delay 10
-- /glass threat preview compact|expanded|off
-- /glass threat reset
-- /glass threat on|off|always (always now includes solo combat)
-- /glass threat sound on|off
-- /glass threat test
+- /guf threat view compact|expanded|auto
+- /guf threat delay 10
+- /guf threat preview compact|expanded|off
+- /guf threat reset
+- /guf threat on|off|always (always now includes solo combat)
+- /guf threat sound on|off
+- /guf threat test
 
 Stop the separate diagnostic preview with /fp threat preview off before testing.
 

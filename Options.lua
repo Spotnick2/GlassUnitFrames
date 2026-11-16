@@ -8,7 +8,7 @@
 -- No UIDropDownMenu (a Retail-migration trap): choices are radio groups.
 --
 -- Everything the panel changes goes through GlassUF.Settings, the same
--- apply-and-save helpers as /glass, and
+-- apply-and-save helpers as /guf, and
 -- the panel re-reads the current state every time it opens, so a change made
 -- with a slash command never leaves it showing stale values.
 --
@@ -311,7 +311,7 @@ end
 local function build()
     local title = label(content, "Glass Unit Frames", "GameFontNormalHuge")
     title:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -16)
-    local sub = label(content, "Liquid-glass unit frames. Unlock them below to move them. /glass lists the commands.",
+    local sub = label(content, "Liquid-glass unit frames. Unlock them below to move them. /guf lists the commands.",
         "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
 
@@ -449,6 +449,13 @@ local function build()
     controls.combatTimer = checkbox(right, "Show it over your portrait in a fight",
         function() return GlassUF.Timer.enabled end,
         GlassUF.Settings.SetCombatTimer)
+    -- Its alert when a fight starts (#186).
+    controls.timerGlow = checkbox(right, "Glow on it when a fight starts",
+        function() return GlassUF.Timer.glow end,
+        GlassUF.Settings.SetTimerGlow)
+    controls.timerSound = checkbox(right, "Play a sound when a fight starts",
+        function() return GlassUF.Timer.sound end,
+        GlassUF.Settings.SetTimerSound)
     -- A taxi flight on the player's cast bar (#148), from Glass Panel's timer.
     controls.flightBar = checkbox(right, "Show a flight on your cast bar",
         function() return GlassUF.Flight.enabled end,
@@ -872,11 +879,34 @@ threatPage:SetScript("OnShow", function(self)
     controls.refreshAll()
 end)
 
+-- Will my DoTs kill it? (#175): its own small page, after Threat.
+local dotsPage = CreateFrame("Frame", "GlassUnitFramesDotsOptions")
+dotsPage.name = "DoTs"
+dotsPage:Hide()
+dotsPage:SetScript("OnShow", function(self)
+    if not self.built then
+        self.built = true
+        local o, S = GlassUF.DotView.options, GlassUF.Settings
+        local title = label(self, "Will my DoTs kill it?", "GameFontNormalHuge")
+        title:SetPoint("TOPLEFT", self, "TOPLEFT", 16, -16)
+        local left = column(16, -56, self)
+        local function opt(key) return function() return o[key] end, function(v) S.SetDots(key, v) end end
+        controls.dotsMarker = checkbox(left, "Marker on the health bar", opt("marker"))
+        note(left, "Striped: the health your DoTs still have to take. When it covers the whole bar, they finish the unit.", 520)
+        controls.dotsTicks = checkbox(left, "A line per upcoming tick", opt("ticks"))
+        controls.dotsIcon = checkbox(left, "Skull when they'll kill it", opt("icon"))
+        note(left, "On the portrait (beside the frame without one), once a DoT has been seen ticking.", 520)
+        controls.dotsFocus = checkbox(left, "On the focus frame too", opt("focus"))
+        note(left, "Your own DoTs only. The estimate errs low: talents, crits and debuffs on the mob aren't counted, and a heal, a shield or a dispel can still save it.", 520)
+    end
+    controls.refreshAll()
+end)
+
 function controls.refreshAll()
     refreshing = true
     for i, fn in ipairs(controls) do
         local ok, err = pcall(fn)
-        if not ok then GlassUF.API.Fail("options control " .. i, err) end   -- shows in /glass secrets
+        if not ok then GlassUF.API.Fail("options control " .. i, err) end   -- shows in /guf secrets
     end
     refreshing = false
 end
@@ -905,6 +935,8 @@ local function register()
         if not ok then GlassUF.API.Fail("combat zoom page", err) end
         ok, err = pcall(Settings.RegisterCanvasLayoutSubcategory, category, threatPage, threatPage.name)
         if not ok then GlassUF.API.Fail("threat page", err) end
+        ok, err = pcall(Settings.RegisterCanvasLayoutSubcategory, category, dotsPage, dotsPage.name)
+        if not ok then GlassUF.API.Fail("dots page", err) end
     else
         GlassUF.API.Fail("cast bars page", "no Settings subcategory API")
     end
@@ -912,10 +944,10 @@ end
 
 -- The state changed from outside the page (the group layout's link): an open page follows.
 function Options.Refresh()
-    if panel:IsShown() or castPage:IsShown() or threatPage:IsShown() then controls.refreshAll() end
+    if panel:IsShown() or castPage:IsShown() or threatPage:IsShown() or dotsPage:IsShown() then controls.refreshAll() end
 end
 
--- Open the panel; false when the Settings framework can't (then /glass says where it is).
+-- Open the panel; false when the Settings framework can't (then /guf says where it is).
 function Options.Open()
     if not (category and Settings and Settings.OpenToCategory) then return false end
     return pcall(Settings.OpenToCategory, category:GetID()) and true or false
@@ -925,5 +957,6 @@ local reg = CreateFrame("Frame")
 GlassUF.API.RegisterEvents(reg, { "PLAYER_LOGIN" })
 reg:SetScript("OnEvent", register)
 
-Options._test = { panel = panel, castPage = castPage, zoomPage = zoomPage, threatPage = threatPage, controls = controls, scroll = scroll,
+Options._test = { panel = panel, castPage = castPage, zoomPage = zoomPage, threatPage = threatPage, dotsPage = dotsPage,
+                  controls = controls, scroll = scroll,
                   content = content }

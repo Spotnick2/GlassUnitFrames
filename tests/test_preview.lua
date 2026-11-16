@@ -320,10 +320,10 @@ check(not P.active, "a loading screen ends it")
 
 -- The slash command and the options buttons.
 SlashCmdList.GLASSUNITFRAMES("preview")
-check(P.active, "/glass preview: on")
-check(dialog.preview:GetChecked(), "the dialog follows /glass preview")
+check(P.active, "/guf preview: on")
+check(dialog.preview:GetChecked(), "the dialog follows /guf preview")
 SlashCmdList.GLASSUNITFRAMES("preview")
-check(not P.active, "/glass preview again: off")
+check(not P.active, "/guf preview again: off")
 check(not dialog.preview:GetChecked(), "and back")
 dialog.preview:SetChecked(true); dialog.preview._scripts.OnClick(dialog.preview)
 check(P.active, "the dialog's switch turns it on")

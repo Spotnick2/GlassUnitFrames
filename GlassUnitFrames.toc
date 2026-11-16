@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: |cff7fd4ffGlass|r Unit Frames
-## Notes: Liquid-glass unit frames for WoW: Forever. /glass help
+## Notes: Liquid-glass unit frames for WoW: Forever. /guf help
 ## Author: Spotnick
 ## X-License: MIT
 ## X-Curse-Project-ID: 1715351
@@ -23,6 +23,9 @@ FiveSecond.lua
 Zoom.lua
 Threat.lua
 ThreatView.lua
+DotSpells.lua
+Dots.lua
+DotView.lua
 Flight.lua
 Link.lua
 Preview.lua
