@@ -218,7 +218,7 @@ function API.ComboAlpha(i)
 end
 
 -- The one place failures are recorded (first error per key), read by
--- /glass secrets and the tests. Engine, Frames and Auras all report here.
+-- /guf secrets and the tests. Engine, Frames and Auras all report here.
 GlassUF.paintFailures = GlassUF.paintFailures or {}
 function API.Fail(key, err)
     if GlassUF.paintFailures[key] == nil then GlassUF.paintFailures[key] = tostring(err) end

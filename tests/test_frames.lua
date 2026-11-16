@@ -309,6 +309,9 @@ eq(next(GlassUF.eventFailures), nil, "no event registration failures")
 eq(next(GlassUF.paintFailures), nil, "no paint failures with plain values")
 
 -- Slash commands run.
+-- The command (#188): /guf, and /glass, its old name, as an alias.
+eq(SLASH_GLASSUNITFRAMES1, "/guf", "the command is /guf")
+eq(SLASH_GLASSUNITFRAMES2, "/glass", "the old name still works")
 SlashCmdList.GLASSUNITFRAMES("")
 SlashCmdList.GLASSUNITFRAMES("secrets")
 SlashCmdList.GLASSUNITFRAMES("totem")                    -- no TotemFrame in the stub
@@ -325,7 +328,7 @@ check(infoLine:find("children=2", 1, true), "child count reported")
 check(infoLine:find("explicitly=false", 1, true), "both IsProtected returns reported")
 check(infoLine:find("under GlassUF's hidden parent=true", 1, true), "hidden flag from TotemFrame's own ancestry")
 rawset(_G, "TotemFrame", nil)
--- /glass frame <Name>: the same report for any global, name kept case-sensitive.
+-- /guf frame <Name>: the same report for any global, name kept case-sensitive.
 local pab = CreateFrame("Frame", "PetActionBar", UIParent)
 pab:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 5, 6)
 SlashCmdList.GLASSUNITFRAMES("frame PetActionBar")

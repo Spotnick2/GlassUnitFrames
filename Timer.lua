@@ -313,7 +313,7 @@ function Timer.SetSound(on)
     return true
 end
 
--- Plays the sound once (`/glass timer sound test`); false when refused.
+-- Plays the sound once (`/guf timer sound test`); false when refused.
 function Timer.TestSound()
     return API.PlaySoundKit(Timer.SOUND_KIT)
 end

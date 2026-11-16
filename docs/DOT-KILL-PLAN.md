@@ -328,7 +328,7 @@ The facts are in the porting guide ("Damage over time", the cast section).
 ## 9. Settings
 
 `db.dots = { marker, ticks, icon, focus }`, each saved only when off, all on by default:
-`Settings.SetDots(key, on)`, `/glass dots on|off|marker|ticks|icon|focus on|off`, and checkboxes
+`Settings.SetDots(key, on)`, `/guf dots on|off|marker|ticks|icon|focus on|off`, and checkboxes
 on a small **DoTs** sub-page registered after Threat.
 
 ## 10. Files and tests
@@ -338,7 +338,7 @@ on a small **DoTs** sub-page registered after Threat.
 - **Changed:** the TOC (`DotSpells.lua` → `Dots.lua` → `DotView.lua`, after `ThreatView.lua`),
   `Engine.lua` (the channel), `Frames.lua` (build hook, `applyPortrait` → `DotView.Place`,
   `PaintSample`), `Compat.lua` (`API.SpellPower(indices)`, `API.ComboPoints()`: presence-checked,
-  pcall, plain or nil), `GlassUnitFrames.lua` (db, `/glass dots`, `Settings.SetDots`),
+  pcall, plain or nil), `GlassUnitFrames.lua` (db, `/guf dots`, `Settings.SetDots`),
   `Options.lua` (the sub-page), `Preview.lua`, `tests/wow_stubs.lua` (`UNIT_COMBAT` driving,
   `GetSpellBonusDamage`), `Tools/CastProbe` (the procedure), `CLAUDE.md`.
 - **Tracker tests:** apply → ticks by time → remaining; refresh only on confirmation; a failed

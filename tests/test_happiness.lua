@@ -42,12 +42,12 @@ check(not icon._shown, "secret happiness: hidden")
 eq(next(GlassUF.paintFailures), nil, "no failures")
 WoW.secretFields.happiness = nil
 
--- /glass secrets reports it.
+-- /guf secrets reports it.
 WoW.petHappiness = 2
 SlashCmdList.GLASSUNITFRAMES("secrets")
 local found
 for _, l in ipairs(WoW.chat) do if l:find("petHappiness=2", 1, true) then found = true end end
-check(found, "/glass secrets prints the pet's happiness")
+check(found, "/guf secrets prints the pet's happiness")
 
 -- Placement options: right of the frame (Blizzard's spot), under the portrait.
 check(GlassUF.Settings.SetHappinessPosition("right"), "right accepted")

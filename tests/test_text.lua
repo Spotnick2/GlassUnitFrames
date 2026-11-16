@@ -27,7 +27,7 @@ check(not GlassUF.Settings.SetHealthFormat("player", "bogus"), "unknown format r
 check(not GlassUF.Settings.SetHealthFormat("targettargettarget", "curhp"), "a name-only frame has no health text")
 SlashCmdList.GLASSUNITFRAMES("text target curhp")
 WoW.tick()
-eq(textOf(t.valueText), "830", "/glass text target curhp")
+eq(textOf(t.valueText), "830", "/guf text target curhp")
 
 -- Level placement: the power line by default.
 eq(F.levelPos, "power", "level on the power line by default")

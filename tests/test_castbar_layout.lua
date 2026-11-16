@@ -184,7 +184,7 @@ mc2._scripts.OnDragStart(mc2); mc2._scripts.OnUpdate(mc2)
 SlashCmdList.GLASSUNITFRAMES("reset")
 mc2._scripts.OnDragStop(mc2)
 p = pc.host._points[1]
-check(p[4] == 0 and p[5] == -182 / 1.5, "/glass reset mid-drag: the bar at its default spot")
+check(p[4] == 0 and p[5] == -182 / 1.5, "/guf reset mid-drag: the bar at its default spot")
 eq(pc.host._width, 340, "and its default size")
 check(Castbar.IsDetached("player"), "still detached")
 -- Attach with an X typed but not committed: its Enter does nothing (no error).

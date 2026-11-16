@@ -19,7 +19,7 @@ SlashCmdList.GLASSUNITFRAMES("secrets")
 local line
 for _, l in ipairs(WoW.chat) do if l:find("  target: ", 1, true) then line = l end end
 check(line and line:find("pwAlpha=S", 1, true) and line:find("pwBar=S", 1, true),
-      "/glass secrets reports the curve's opacity and the bar's: " .. tostring(line))
+      "/guf secrets reports the curve's opacity and the bar's: " .. tostring(line))
 
 -- Plain values (a client that doesn't hide them): the curve's own answer.
 WoW.secretFields.power, WoW.secretFields.maxPower = nil, nil
@@ -50,7 +50,7 @@ for _, region in ipairs({ t.power, t.powerText, t.powerLeftText }) do
 end
 WoW.fire("UNIT_POWER_UPDATE", "target"); WoW.tick()
 eq(t.power._alpha, 1, "refused secret alpha: bar shown")
-check(GlassUF.paintFailures["power alpha"] ~= nil, "the refusal is recorded for /glass secrets")
+check(GlassUF.paintFailures["power alpha"] ~= nil, "the refusal is recorded for /guf secrets")
 
 -- Other players always keep their power bar (SUF's behaviour): a warrior at
 -- 0 rage shows an empty rage bar. Only NPCs hide.
@@ -68,7 +68,7 @@ WoW.fire("PLAYER_TARGET_CHANGED"); WoW.tick()
 check(WoW.IsSecret(t.power._alpha), "an NPC target still takes the curve's alpha")
 
 -- The empty part of a power bar: the material's ramp, quieted, so a low bar
--- reads low. Health too; /glass track still scales both.
+-- reads low. Health too; /guf track still scales both.
 local p = button("player")
 eq(p.power.trackClip._alpha, 0.25, "power track at a quarter of the ramp (on its clip frame)")
 eq(p.health.trackClip._alpha, 0.25, "health track too")

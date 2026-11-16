@@ -8,7 +8,7 @@
 -- No UIDropDownMenu (a Retail-migration trap): choices are radio groups.
 --
 -- Everything the panel changes goes through GlassUF.Settings, the same
--- apply-and-save helpers as /glass, and
+-- apply-and-save helpers as /guf, and
 -- the panel re-reads the current state every time it opens, so a change made
 -- with a slash command never leaves it showing stale values.
 --
@@ -311,7 +311,7 @@ end
 local function build()
     local title = label(content, "Glass Unit Frames", "GameFontNormalHuge")
     title:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -16)
-    local sub = label(content, "Liquid-glass unit frames. Unlock them below to move them. /glass lists the commands.",
+    local sub = label(content, "Liquid-glass unit frames. Unlock them below to move them. /guf lists the commands.",
         "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 2, -6)
 
@@ -906,7 +906,7 @@ function controls.refreshAll()
     refreshing = true
     for i, fn in ipairs(controls) do
         local ok, err = pcall(fn)
-        if not ok then GlassUF.API.Fail("options control " .. i, err) end   -- shows in /glass secrets
+        if not ok then GlassUF.API.Fail("options control " .. i, err) end   -- shows in /guf secrets
     end
     refreshing = false
 end
@@ -947,7 +947,7 @@ function Options.Refresh()
     if panel:IsShown() or castPage:IsShown() or threatPage:IsShown() or dotsPage:IsShown() then controls.refreshAll() end
 end
 
--- Open the panel; false when the Settings framework can't (then /glass says where it is).
+-- Open the panel; false when the Settings framework can't (then /guf says where it is).
 function Options.Open()
     if not (category and Settings and Settings.OpenToCategory) then return false end
     return pcall(Settings.OpenToCategory, category:GetID()) and true or false

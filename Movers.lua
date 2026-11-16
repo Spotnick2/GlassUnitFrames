@@ -1,7 +1,7 @@
 -- Unlock mode (#34): move the frames, alone or with their group, and place
 -- them exactly.
 --
--- /glass unlock shows a mover over every frame (units that aren't there too:
+-- /guf unlock shows a mover over every frame (units that aren't there too:
 -- a hidden frame keeps its rect, so its mover still shows). The movers are
 -- plain, insecure frames on UIParent, anchored TO the buttons, never the
 -- reverse (a frame a protected frame anchors to becomes protected itself).
@@ -737,7 +737,7 @@ function Movers.SetSnap(key, on)
     if key ~= "snapGrid" and key ~= "snapAlign" then return false end
     Movers[key] = on and true or false
     -- The dialog is reused across unlocks: keep its switch in step with a
-    -- /glass snap change (Codex, #55).
+    -- /guf snap change (Codex, #55).
     if dialog and dialog[key] then dialog[key]:SetChecked(Movers[key]) end
     showGrid()
     return true

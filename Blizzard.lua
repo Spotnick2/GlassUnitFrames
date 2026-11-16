@@ -13,7 +13,7 @@
 -- Only frames GlassUF replaces are hidden. ComboFrame goes only once GlassUF
 -- has drawn combo pips (rogues and druids; GlassUnitFrames.lua).
 --
--- Hiding is one-way for a session: /glass blizzard show takes effect after
+-- Hiding is one-way for a session: /guf blizzard show takes effect after
 -- /reload. Party frames are never touched (the owner uses Cell).
 
 GlassUF = GlassUF or {}

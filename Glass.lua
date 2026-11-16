@@ -6,7 +6,7 @@
 -- there: material changes are LibGlass PRs, not edits here.
 --
 -- An instance, not the library itself: STYLE, the live setters and the font
--- registry are this addon's own, so /glass rim never touches another glass
+-- registry are this addon's own, so /guf rim never touches another glass
 -- addon's surfaces. Every call site keeps the dot-call shape (Glass.Apply,
 -- Glass.Bar, Glass.MEDIA, ...).
 
