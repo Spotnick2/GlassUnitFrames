@@ -419,6 +419,20 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     on|off`, a checkbox on the main page (the Cast bars page doesn't scroll and is full: a test keeps
     its controls inside the canvas). Idempotent; off -> on in a fight starts counting
     from now.
+  - **The alert at a fight's start** (#186, built offline; awaiting an in-game look):
+    - **Glow** (on by default): Blizzard's gold proc glow (`SpellActivationOverlay\IconAlert` /
+      `IconAlertAnts`, the look of Apotheca's ready-check glow) on a frame over the rim (host + 11).
+      Its box is 1.4 times the pill on each axis, sized as the pill opens. A 0.3 s burst (the ring
+      closing in from twice its size, a white flash, an inner glow), a 3 s hold with marching ants,
+      a 0.4 s fade. The clock's OnUpdate draws it, ants included: `AnimateTexCoords` is absent on
+      Forever, so the flipbook (22 cells of 48 px, 5 a row) is stepped by hand. A preview plays it;
+      combat ending mid-glow lets it fade with the pill. `db.timerGlow` (false when off).
+    - **Sound** (off by default): `Timer.SOUND_KIT` (8959, `SOUNDKIT.RAID_WARNING`) on Master
+      through `API.PlaySoundKit` (`PlaySound` under pcall; a refused kit, `willPlay` false, goes to
+      `API.Fail("timer sound")`). Real fights only, never a preview. `db.timerSound` (true when on).
+    - Both need the timer on (its events). `Settings.SetTimerGlow|SetTimerSound`, `/glass timer
+      glow on|off`, `/glass timer sound on|off|test`, two checkboxes under the main page's Combat
+      timer.
   - `Timer.enabled` is public: ForeverCombatAssistant hides its own timer while it's true.
 - **`Mirror.lua`** (#151): the client's mirror timers (breath, fatigue, feign death) as glass rows,
   plus a custom-timer hook. **Built offline; awaiting `/fp steps cast mirror`.**
@@ -809,11 +823,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `absorbBar` (#171, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `dots` (#175), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `timerGlow` / `timerSound` (#186: false when off / true when on), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `absorbBar` (#171, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `dots` (#175), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|flight on|off|absorb on|off|dots ...|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
+  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|timer glow on|off|timer sound on|off|test|flight on|off|absorb on|off|dots ...|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames

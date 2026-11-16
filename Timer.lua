@@ -14,6 +14,13 @@
 --
 -- Timer.enabled is public: ForeverCombatAssistant hides its own timer while
 -- it's true.
+--
+-- The alert (#186), so a fight's start is noticed: Blizzard's gold proc glow
+-- (SpellActivationOverlay's IconAlert, as Apotheca's ready check shows it)
+-- bursts around the pill, holds, then fades (on by default; a preview plays
+-- it too), and a sound kit plays (off by default; never in a preview). The
+-- glow is drawn by the clock's own OnUpdate, ants included: AnimateTexCoords
+-- is absent on Forever (measured in Apotheca).
 
 GlassUF = GlassUF or {}
 local API, Glass = GlassUF.API, GlassUF.Glass
@@ -29,13 +36,24 @@ local TICK = 0.2          -- the clock's writes (only when the whole second chan
 local ANIM = 0.25         -- opening and closing, seconds
 local EVENTS = { "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD" }
 
+local ALERT = "Interface\\SpellActivationOverlay\\IconAlert"
+local ANTS = "Interface\\SpellActivationOverlay\\IconAlertAnts"
+local GLOW_IN, GLOW_HOLD, GLOW_OUT = 0.3, 3, 0.4   -- the burst, the hold, the fade (seconds)
+local OVERLAY = 1.4       -- the glow's box, times the pill on each axis (an action button's proportions)
+local ANT_FRAMES, ANT_STEP, ANT_SIZE = 22, 0.01, 48 / 256   -- the ants' flipbook: 5 a row on a 256 px sheet
+Timer.SOUND_KIT = 8959    -- SOUNDKIT.RAID_WARNING
+
 Timer.enabled = true      -- db.combatTimer == false turns it off
+Timer.glow = true         -- db.timerGlow == false turns it off
+Timer.sound = false       -- db.timerSound == true turns it on
 local c                   -- host, glass, text, ticker
 local live                -- GetTime() at combat start, or nil out of combat
 local previewAt           -- GetTime() at the preview's start, or nil
 local shownSecond         -- the whole second on screen
 local open = 0            -- 0 closed .. 1 open: the pill's width and alpha
 local anim                -- { from, to, t0 } while opening or closing
+local glowAt              -- GetTime() at the glow's start, or nil
+local antFrame            -- the ants' flipbook frame on screen
 
 function Timer.Format(seconds)
     seconds = math.max(0, math.floor(seconds))
@@ -73,7 +91,10 @@ local function stepAnim()
     draw(anim.from + (anim.to - anim.from) * easeOut(t))
     if t < 1 then return true end
     anim = nil
-    if open == 0 then c.host:Hide() end
+    if open == 0 then
+        c.host:Hide()
+        Timer.StopGlow()   -- it faded with the pill
+    end
     return false
 end
 
@@ -82,6 +103,61 @@ local function animateTo(to)
     if anim and anim.to == to then return end
     anim = { from = open, to = to, t0 = GetTime() }
     c.host:Show()
+end
+
+--------------------------------------------------------------------------------
+-- The glow (#186)
+--------------------------------------------------------------------------------
+
+-- A glow texture `k` times the glow's box, the box OVERLAY times the pill as
+-- it is now (it follows the opening).
+local function size(tex, k)
+    tex:SetSize((H + (W - H) * open) * OVERLAY * k, H * OVERLAY * k)
+end
+
+local function stepGlow()
+    if not glowAt then return end
+    local t = GetTime() - glowAt
+    if t >= GLOW_IN + GLOW_HOLD + GLOW_OUT then
+        Timer.StopGlow()
+        return
+    end
+    local g = c.glow
+    local e = easeOut(math.min(1, t / GLOW_IN))
+    local fade = 1
+    if t > GLOW_IN + GLOW_HOLD then fade = 1 - (t - GLOW_IN - GLOW_HOLD) / GLOW_OUT end
+    -- The burst: the ring closes in from twice its size, white turning gold,
+    -- while an inner glow grows out of the pill and goes.
+    size(g.outer, 2 - e)
+    g.outer:SetAlpha(fade)
+    size(g.flash, 2 - e)
+    g.flash:SetAlpha(1 - e)
+    size(g.inner, 0.5 + 0.5 * e)
+    g.inner:SetAlpha(math.max(0, math.min(1, 1 - (t - GLOW_IN) / 0.2)))
+    -- The ants march once the burst is over.
+    size(g.ants, 0.85)
+    g.ants:SetAlpha(math.max(0, math.min(1, (t - GLOW_IN) / 0.2)) * fade)
+    local f = math.floor(t / ANT_STEP) % ANT_FRAMES
+    if f ~= antFrame then
+        antFrame = f
+        local col, row = f % 5, math.floor(f / 5)
+        g.ants:SetTexCoord(col * ANT_SIZE, (col + 1) * ANT_SIZE, row * ANT_SIZE, (row + 1) * ANT_SIZE)
+    end
+end
+
+-- From the burst, while the option is on. The clock's OnUpdate draws it.
+local function startGlow()
+    if not c or not Timer.glow or not since() then return end
+    glowAt = GetTime()
+    antFrame = nil
+    c.glow.frame:Show()
+    stepGlow()
+    c.ticker:Show()
+end
+
+function Timer.StopGlow()
+    glowAt = nil
+    if c then c.glow.frame:Hide() end
 end
 
 local function resolve()
@@ -100,6 +176,12 @@ end
 local function onEvent(_, event)
     if event == "PLAYER_REGEN_DISABLED" then
         live = GetTime()
+        resolve()
+        startGlow()
+        if Timer.sound and not API.PlaySoundKit(Timer.SOUND_KIT) then
+            API.Fail("timer sound", "sound kit " .. Timer.SOUND_KIT .. " could not be played")
+        end
+        return
     elseif event == "PLAYER_REGEN_ENABLED" then
         live = nil
     elseif event == "PLAYER_ENTERING_WORLD" then
@@ -133,6 +215,8 @@ end
 function Timer.Build(b, db)
     if not b then return end
     Timer.enabled = db.combatTimer ~= false
+    Timer.glow = db.timerGlow ~= false
+    Timer.sound = db.timerSound == true
     local level = b:GetFrameLevel() + 1
     local host = CreateFrame("Frame", nil, b)   -- a plain child: hidden with the button, never protected
     host:SetFrameLevel(level)
@@ -148,6 +232,7 @@ function Timer.Build(b, db)
     ticker.acc = 0
     ticker:SetScript("OnUpdate", function(self, elapsed)
         local animating = stepAnim()
+        stepGlow()
         self.acc = self.acc + elapsed
         if self.acc >= TICK then
             self.acc = 0
@@ -156,7 +241,28 @@ function Timer.Build(b, db)
         end
         if not animating and not since() then self:Hide() end
     end)
-    c = { b = b, host = host, glass = glass, text = text, ticker = ticker }
+    -- The glow: over the rim (the glass's top layer is the host's + 10), its
+    -- textures centred on the pill and sized as it opens.
+    local gf = CreateFrame("Frame", nil, host)
+    gf:SetFrameLevel(level + 11)
+    gf:SetAllPoints(host)
+    gf:Hide()
+    local function tex(file, layer, l, r, t, bt)
+        local x = gf:CreateTexture(nil, layer)
+        x:SetTexture(file)
+        x:SetTexCoord(l, r, t, bt)
+        x:SetPoint("CENTER", host, "CENTER", 0, 0)
+        x:SetAlpha(0)
+        return x
+    end
+    local glow = {
+        frame = gf,
+        outer = tex(ALERT, "ARTWORK", 0.00781, 0.50781, 0.27734, 0.52734),
+        inner = tex(ALERT, "ARTWORK", 0.00781, 0.50781, 0.27734, 0.52734),
+        flash = tex(ALERT, "ARTWORK", 0.00781, 0.50781, 0.53516, 0.78516),   -- the white ring
+        ants = tex(ANTS, "OVERLAY", 0, ANT_SIZE, 0, ANT_SIZE),
+    }
+    c = { b = b, host = host, glass = glass, text = text, ticker = ticker, glow = glow }
     host:SetAlpha(0)
     host:Hide()
     Timer.Place()
@@ -195,11 +301,29 @@ function Timer.SetEnabled(on)
     return true
 end
 
--- Preview mode (#109): counts up from 00:00 like a fight.
+-- The glow and the sound at a fight's start (#186).
+function Timer.SetGlow(on)
+    Timer.glow = on and true or false
+    if not Timer.glow then Timer.StopGlow() end
+    return true
+end
+
+function Timer.SetSound(on)
+    Timer.sound = on and true or false
+    return true
+end
+
+-- Plays the sound once (`/glass timer sound test`); false when refused.
+function Timer.TestSound()
+    return API.PlaySoundKit(Timer.SOUND_KIT)
+end
+
+-- Preview mode (#109): counts up from 00:00 like a fight, with the glow.
 function Timer.SetPreview(on)
     previewAt = on and GetTime() or nil
     resolve()
+    if on then startGlow() end
 end
 
 Timer._test = { bar = function() return c end, live = function() return live end, onEvent = onEvent,
-                open = function() return open end }
+                open = function() return open end, glowing = function() return glowAt ~= nil end }
