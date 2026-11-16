@@ -35,8 +35,8 @@ GlassActionBars and Glass UI). (Hosted shaman totems were removed in #58: `Totem
 managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
-  druid mana strip (bear/cat); the cast bar's GCD line, interrupter name and out-of-range colour
-  (#149, #150, #152: `/fp steps cast gcd|kick|range`, after 2026-11-04); the mirror timers
+  druid mana strip (bear/cat); the cast bar's GCD line and out-of-range colour
+  (#149, #152: `/fp steps cast gcd|range`, after 2026-11-04); the mirror timers
   (#151: `/fp steps cast mirror`); the crowd-control icon (#159:
   `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?);
   the DoT kill estimate on target and focus (#175: the marker's stripes and alphas, the kill
@@ -349,13 +349,18 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **Options:** `latency`, `latencyText`, `pushback`, `targetName`, `totalTime`, `complete`,
     `craftCount`, `craftMerge`, `gcd`, `range` (`Castbar.SetOption`, saved only when off). `gcd` and
     `range` are checkboxes under the **main** page's Cast bars header: the Cast bars page is full.
+  - **Interrupter** (#150, every bar; **seen working in game** by the owner on 70938, 2026-11-16):
+    INTERRUPTED and CHANNEL_STOP carry `interruptedBy`. A plain GUID is named by
+    `Castbar.InterrupterName` (a token showing it, else `API.PlayerNameByGUID`), kept per cast
+    (`c.interrupter`, cleared at START and on a token change), and the flash says
+    `Interrupted by <name>`. A channel's STOP after the flash renames that flash. No name (NPC
+    nobody targets, nil, secret) is plain "Interrupted".
+    - **The player's bar names the interrupter** (the owner saw it). The 70338 trace had
+      `interruptedBy` nil every time; that no longer holds.
+    - **The target's and focus's bars stay plain:** CastProbe's trace the same day logged the
+      target's INTERRUPTED with castGUID, spellID and `interruptedBy` all **secret**.
+    - A cast you cancel yourself (moving) has `interruptedBy` nil, as it should.
   - **Built offline, each gated on a CastProbe procedure** (no in-game check yet):
-    - **Interrupter** (#150, every bar): INTERRUPTED and CHANNEL_STOP carry `interruptedBy`. A plain
-      GUID is named by `Castbar.InterrupterName` (a token showing it, else
-      `API.PlayerNameByGUID`), kept per cast (`c.interrupter`, cleared at START and on a token
-      change), and the flash says `Interrupted by <name>`. A channel's STOP after the flash renames
-      that flash. No name (NPC nobody targets, nil, secret) is plain "Interrupted". The porting
-      guide measured `interruptedBy` nil every time on 70338: if `kick` confirms that, close #150.
     - **Out of range** (#152, the player's bar): at START the recipient is bound from SENT's target
       name (`isNameOf`, the same match as the self-cast check) to `target` or `focus` with its
       GUID and the spell; a name matching two different units (or an unreadable GUID) binds nothing
