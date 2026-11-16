@@ -4,7 +4,7 @@
 -- tracker (takeoff, landing, early landing, a /reload mid-flight) and the
 -- learned times. We draw it.
 --
--- LibTaxiTime-1.0 (MINOR 1, colon-called; its LibTaxiTime.lua header is the
+-- LibTaxiTime-1.0 (MINOR 1 and up, colon-called; its LibTaxiTime.lua header is the
 -- contract):
 -- - lib:AddStore(tbl) at our ADDON_LOADED, with GlassUnitFramesDB.flight: the
 --   library owns its `routes` and `current` keys. Nothing starts before it.

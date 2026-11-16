@@ -7,7 +7,7 @@ dofile("tests/harness.lua")
 
 loadAddon({ db = { zoom = { global = { player = { on = false } } } } })
 local LTT = LibStub("LibTaxiTime-1.0")
-eq(LTT.MINOR, 1, "the pinned library (r1, MINOR 1)")
+eq(LTT.MINOR, 2, "the pinned library (r2, MINOR 2)")
 check(LTT.stores[1] == GlassUnitFramesDB.flight, "our store (GlassUnitFramesDB.flight) is the library's")
 check(LTT.frame ~= nil, "started by it: its events registered")
 eq(next(LTT.errors), nil, "no library errors at load")
