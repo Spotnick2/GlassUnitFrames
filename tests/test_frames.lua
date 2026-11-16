@@ -312,6 +312,32 @@ eq(next(GlassUF.paintFailures), nil, "no paint failures with plain values")
 -- The command (#188): /guf, and /glass, its old name, as an alias.
 eq(SLASH_GLASSUNITFRAMES1, "/guf", "the command is /guf")
 eq(SLASH_GLASSUNITFRAMES2, "/glass", "the old name still works")
+
+-- No bare "|" in what the help and the usage replies print (#178): the client
+-- reads "|x" as an escape and drops it (on|off showed as "onff"). A doubled
+-- one prints a single "|"; colour codes are the only escapes we mean.
+local function barePipe(msg)
+    local rest = msg:gsub("||", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    return rest:find("|", 1, true) ~= nil
+end
+check(barePipe("on|off") and not barePipe("|cff7fd4ffGlassUF|r on||off"), "the bare-pipe check itself")
+local firstLine = #WoW.chat + 1
+for _, cmd in ipairs({ "", "help", "font x", "look x", "timer x", "flight x", "breath x", "cc x", "absorb x",
+                       "dots x", "regen x", "ramp x", "body x", "level x", "portrait x", "happiness x", "text x",
+                       "mark x", "mirror x", "snap x", "link x", "blizzard", "threat x" }) do
+    SlashCmdList.GLASSUNITFRAMES(cmd)
+end
+check(#WoW.chat - firstLine > 40, "the help and the usage replies printed")
+local bare = {}
+for i = firstLine, #WoW.chat do
+    if barePipe(WoW.chat[i]) then bare[#bare + 1] = WoW.chat[i] end
+end
+eq(bare[1], nil, "no printed line has a bare |")
+local timerUsage
+for i = firstLine, #WoW.chat do
+    if WoW.chat[i]:find("timer on||off", 1, true) then timerUsage = true end
+end
+check(timerUsage, "a choice prints doubled: timer on||off")
 SlashCmdList.GLASSUNITFRAMES("")
 SlashCmdList.GLASSUNITFRAMES("secrets")
 SlashCmdList.GLASSUNITFRAMES("totem")                    -- no TotemFrame in the stub

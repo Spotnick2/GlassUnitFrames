@@ -130,7 +130,7 @@ SlashCmdList.GLASSUNITFRAMES("regen on")
 eq(GlassUnitFramesDB.manaRegen, nil, "on: not saved")
 check(clip._shown, "on: shown")
 SlashCmdList.GLASSUNITFRAMES("regen maybe")
-check(WoW.chat[#WoW.chat]:find("regen on|off", 1, true), "a wrong word gets the usage")
+check(WoW.chat[#WoW.chat]:find("regen on||off", 1, true), "a wrong word gets the usage")
 
 -- The strip off, the segment on: a spend still switches the rate (the window
 -- is tracked for the segment).

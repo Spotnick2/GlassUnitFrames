@@ -58,7 +58,7 @@ SlashCmdList.GLASSUNITFRAMES("ramp whole")
 eq(GlassUnitFramesDB.trackRamp, nil, "whole is the default: not saved")
 eq(t._points[1][1], "ALL", "back across the bar")
 SlashCmdList.GLASSUNITFRAMES("ramp diagonal")
-check(WoW.chat[#WoW.chat]:find("ramp whole|edge", 1, true), "a wrong word gets the usage")
+check(WoW.chat[#WoW.chat]:find("ramp whole||edge", 1, true), "a wrong word gets the usage")
 
 -- Reset look forgets it.
 GlassUF.Settings.SetTrackRamp("edge")

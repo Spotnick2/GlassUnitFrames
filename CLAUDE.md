@@ -35,8 +35,8 @@ GlassActionBars and Glass UI). (Hosted shaman totems were removed in #58: `Totem
 managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
-  druid mana strip (bear/cat); the cast bar's GCD line and out-of-range colour
-  (#149, #152: `/fp steps cast gcd|range`, after 2026-11-04); the crowd-control icon (#159:
+  druid mana strip (bear/cat); the crowd-control icon (#159, closed by the owner, but never
+  turned on in the saved settings: does `HARMFUL|CROWD_CONTROL` match anything on Forever?
   `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?);
   the DoT kill estimate on target and focus (#175: the marker's stripes and alphas, the kill
   icon's boundary at UI scale 1 and 0.64: `/fp steps cast dotview`, P6 of `docs/DOT-KILL-PLAN.md`; rogue/druid combo points,
@@ -359,7 +359,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - **The target's and focus's bars stay plain:** CastProbe's trace the same day logged the
       target's INTERRUPTED with castGUID, spellID and `interruptedBy` all **secret**.
     - A cast you cancel yourself (moving) has `interruptedBy` nil, as it should.
-  - **Built offline, each gated on a CastProbe procedure** (no in-game check yet):
+  - **Seen in game by the owner** (2026-11-16, 70938; no CastProbe `gcd` or `range` record kept):
     - **Out of range** (#152, the player's bar): at START the recipient is bound from SENT's target
       name (`isNameOf`, the same match as the self-cast check) to `target` or `focus` with its
       GUID and the spell; a name matching two different units (or an unreadable GUID) binds nothing
@@ -372,7 +372,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       the option is on; `API.GCDDuration` takes the GCD spell 61304 when it reads active (it never
       did, porting guide), else the spell SENT in the last 0.5 s while its `isOnGCD` is true, and
       the duration goes to `SetTimerDuration`. Hidden after its plain remaining time, else 1.5 s
-      (generation-checked). A spell with its own cooldown shows no line.
+      (generation-checked). A spell with its own cooldown shows no line. CastProbe's trace (70938)
+      has the readings in combat: 61304's info nil, the sent spell's `startTime` / `duration`
+      secret with `isOnGCD` true, the path `API.GCDDuration` takes.
   - Measuring tool: `Tools/CastProbe` (procedures `gcd`, `kick`, `range` for the items above; `mirror`, `cc`, `absorb`, `dots`, `dotview`, `avoids`, `mouseover`).
 - **`Swing.lua`** (#87): the player's swing timer.
   - **Rows:** main hand, off hand and ranged, drawn from the client's own `PLAYER_SWING(duration,
@@ -761,8 +763,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - We only style the client's buttons (`SetIcon`, `SetDurationCooldown`, `SetDurationText`,
     `SetApplicationCount`). **No scripts on them, no aura reads, no filtering** (impossible
     under secrecy).
-  - **The crowd-control icon** (#159, target and focus, **off by default**; built offline,
-    gated on `/fp steps cast cc`): one more container per unit, filtered `HARMFUL|CROWD_CONTROL`
+  - **The crowd-control icon** (#159, target and focus, **off by default**; closed by the owner
+    2026-11-16, but the saved settings have never had it on, so whether the filter matches
+    anything on Forever is unconfirmed: `/fp steps cast cc`): one more container per unit, filtered `HARMFUL|CROWD_CONTROL`
     (`AuraUtil.AuraFilters.CrowdControl`), `maxFrameCount = 1`, its button the portrait's size
     (`styleButton(button, size, ...)`). Built the first time it's on (`Auras.AttachCC`, also from
     `Frames.Build`). `Auras.PlaceCC`: **portrait** = CENTER on the tile, above the model and under
@@ -771,7 +774,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     every placement runs out of combat (`WhenOutOfCombat("cc:<unit>")`, also from a 3D/2D switch
     in combat). Target and focus changes refresh it. `db.ccIcon[unit]` ("portrait" | "beside";
     off not saved), `Settings.SetCCIcon`, `/guf cc target|focus off|portrait|beside`, radio rows
-    under the main page's Portraits. If the filter matches nothing on Forever, #159 closes.
+    under the main page's Portraits. If the filter matches nothing on Forever, the icon goes.
   - The container API isn't in the dump; `test_methods.lua` allowlists exactly those methods,
     with DinoUF as the evidence.
 - **Class resources** (#29): combo pips on the target frame for rogues and cat-form druids, each
@@ -839,6 +842,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
   - `/guf` is the command (#188; `/glass`, its old name, stays registered as an alias):
+    help and usage lines print through `usage()`, which doubles every `|` (#178: the client reads
+    a bare `|x` as an escape, so `on|off` printed `onff`). Write choices as plain `a|b` there;
+    a line with its own colour codes goes through `say` instead. `test_frames.lua` fails on any
+    bare `|` the help or a usage reply prints.
   - `/guf options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|timer glow on|off|timer sound on|off|test|flight on|off|absorb on|off|dots ...|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.

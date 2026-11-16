@@ -98,7 +98,7 @@ check(host:IsShown(), "on in a fight opens it at once")
 eq(textOf(text), "00:00", "counting from now (the start was missed)")
 fight(false); settle()
 SlashCmdList.GLASSUNITFRAMES("timer maybe")
-check(WoW.chat[#WoW.chat]:find("timer on|off", 1, true), "a wrong word gets the usage")
+check(WoW.chat[#WoW.chat]:find("timer on||off", 1, true), "a wrong word gets the usage")
 
 -- World entry: a /reload mid-fight counts from now; a loading screen inside a
 -- timed fight keeps its start; out of combat, closed.
@@ -241,7 +241,7 @@ fight(false); settle()
 SlashCmdList.GLASSUNITFRAMES("timer glow on")
 eq(GlassUnitFramesDB.timerGlow, nil, "glow on is the default: not saved")
 SlashCmdList.GLASSUNITFRAMES("timer glow maybe")
-check(WoW.chat[#WoW.chat]:find("glow on|off", 1, true), "a wrong word gets the usage")
+check(WoW.chat[#WoW.chat]:find("glow on||off", 1, true), "a wrong word gets the usage")
 -- The timer off: no glow, no sound (its events are off).
 S.SetTimerSound(true)
 S.SetCombatTimer(false)
