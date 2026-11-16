@@ -1230,6 +1230,11 @@ break the behaviour and confirm it goes red.
 - **Every tag needs a `CHANGELOG.md` entry committed first**, written for players. The tag name
   sets the channel: `alpha` / `beta` / anything else → Release. That's a distribution channel,
   not a stability claim.
+- **A release tag (`vX.Y.Z`, not an alpha or beta) updates both READMEs in its prep PR**
+  (`References\Docs\RELEASING.md` §3, #168): `README.md` and the untracked `README.curseforge.md`
+  describe what the release does (new features, commands, options, changed limits) and nothing
+  it no longer does. The PR says whether `README.curseforge.md` changed: the owner pastes it into
+  CurseForge and Wago after the release (§4).
 - `.pkgmeta` ignores `.github`, `docs`, `tests`, `Tools`, `AGENTS.md`, `CLAUDE.md`, `README.md`,
   `README.curseforge.md` (untracked: the CurseForge description, in `.git/info/exclude`) and
   `CHANGELOG.md`, plus the library's non-dot dev files under `Libs/LibGlass-1.0/` (CurseForge's
