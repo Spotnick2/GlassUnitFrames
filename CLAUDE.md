@@ -36,8 +36,7 @@ managed frame, see `Blizzard.lua` below.)
 
 - **Awaiting in-game checks** (built and tested offline only): combo pips (rogue, cat druid), the
   druid mana strip (bear/cat); the cast bar's GCD line and out-of-range colour
-  (#149, #152: `/fp steps cast gcd|range`, after 2026-11-04); the mirror timers
-  (#151: `/fp steps cast mirror`); the crowd-control icon (#159:
+  (#149, #152: `/fp steps cast gcd|range`, after 2026-11-04); the crowd-control icon (#159:
   `/fp steps cast cc`); the absorb segment (#171: does the secret total shrink with each hit, and does it start where a heal ends?);
   the DoT kill estimate on target and focus (#175: the marker's stripes and alphas, the kill
   icon's boundary at UI scale 1 and 0.64: `/fp steps cast dotview`, P6 of `docs/DOT-KILL-PLAN.md`; rogue/druid combo points,
@@ -440,11 +439,18 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       timer.
   - `Timer.enabled` is public: ForeverCombatAssistant hides its own timer while it's true.
 - **`Mirror.lua`** (#151): the client's mirror timers (breath, fatigue, feign death) as glass rows,
-  plus a custom-timer hook. **Built offline; awaiting `/fp steps cast mirror`.**
+  plus a custom-timer hook.
+  - **Seen in game** (70938, 2026-11-15): Glass UI's whole mirror timer procedure (GlassUI#184,
+    run #338/#339) ran with ours active. Ours drew every dive, and Blizzard's container stayed hidden
+    (it never got a timer), with nothing blocked. Not seen: feign death, fatigue with ours on.
   - **Events:** `MIRROR_TIMER_START` / `PAUSE` / `STOP` on its own frame, and a rebuild from
     `GetMirrorTimerInfo(1..3)` at `PLAYER_ENTERING_WORLD` (Blizzard's container does the same).
+    Breath's payloads are **plain** (CastProbe trace, 70938): going under,
+    `START BREATH 60000 60000 -1 0 Breath` (scale -1 drains); coming up, a second START at the
+    value reached with scale 10 (refilling), not a PAUSE, then STOP once full. The second START
+    re-binds the same row (rows are keyed by timer name).
   - **Values to the client only:** `maxValue` to `SetMinMaxValues`, `GetMirrorTimerProgress` to
-    `SetValue` (their secrecy is unmeasured). The seconds are written only from a plain progress.
+    `SetValue` (in combat, and the progress's secrecy, unmeasured). The seconds are written only from a plain progress.
     A timer name keys its row, so a secret name is skipped (`API.Fail("mirror timer")`).
   - **A row's binding is its timer's** (Codex, #163): a row given a different timer (a start, a
     stop moving rows up) is bound again (`bind`): a mirror timer's max and last value (a paused one
