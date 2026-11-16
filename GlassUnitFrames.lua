@@ -210,6 +210,8 @@ local HELP = {
     "font arial|friz  - text font (saved)",
     "look pearl|clean|classic  - the glass: LibGlass's Pearl (the default), Clean or Classic (after /reload, saved)",
     "timer on|off  - the combat timer over your portrait (saved)",
+    "timer glow on|off  - a glow on it when a fight starts (saved)",
+    "timer sound on|off|test  - a sound when a fight starts (saved; test plays it)",
     "flight on|off  - a taxi flight on your cast bar, from Glass Panel's flight timer (saved)",
     "breath on|off  - glass breath, fatigue and feign death bars (saved; Blizzard's follow after /reload)",
     "cc target|focus off|portrait|beside  - the crowd-control icon, over the portrait or beside the frame (saved)",
@@ -517,6 +519,20 @@ function Settings_.SetCombatTimer(on)
     return true
 end
 
+-- Its alert at a fight's start (#186): the glow (db.timerGlow = false when
+-- off) and the sound (db.timerSound = true when on).
+function Settings_.SetTimerGlow(on)
+    GlassUF.Timer.SetGlow(on)
+    if on then GlassUnitFramesDB.timerGlow = nil else GlassUnitFramesDB.timerGlow = false end
+    return true
+end
+
+function Settings_.SetTimerSound(on)
+    GlassUF.Timer.SetSound(on)
+    GlassUnitFramesDB.timerSound = on and true or nil
+    return true
+end
+
 -- The flight on the player's cast bar (#148): db.flightBar = false when off.
 function Settings_.SetFlightBar(on)
     if not GlassUF.Flight.SetEnabled(on) then return false end
@@ -658,10 +674,22 @@ local function slash(msg)
             say("body clear|smoked (now " .. GlassUF.body .. ")")
         end
     elseif cmd == "timer" then
+        local Timer = GlassUF.Timer
+        local what, value = arg:match("^(%S+)%s*(%S*)$")
         if (arg == "on" or arg == "off") and Settings_.SetCombatTimer(arg == "on") then
             say("combat timer " .. arg)
+        elseif what == "glow" and (value == "on" or value == "off") then
+            Settings_.SetTimerGlow(value == "on")
+            say("combat timer glow " .. value)
+        elseif what == "sound" and (value == "on" or value == "off") then
+            Settings_.SetTimerSound(value == "on")
+            say("combat timer sound " .. value)
+        elseif what == "sound" and value == "test" then
+            say(Timer.TestSound() and "combat timer sound: playing"
+                or "combat timer sound: the client refused sound kit " .. Timer.SOUND_KIT)
         else
-            say("timer on|off (now " .. (GlassUF.Timer.enabled and "on" or "off") .. ")")
+            say("timer on|off | glow on|off | sound on|off|test (now " .. (Timer.enabled and "on" or "off")
+                .. ", glow " .. (Timer.glow and "on" or "off") .. ", sound " .. (Timer.sound and "on" or "off") .. ")")
         end
     elseif cmd == "flight" then
         if (arg == "on" or arg == "off") and Settings_.SetFlightBar(arg == "on") then

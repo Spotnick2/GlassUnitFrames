@@ -47,6 +47,16 @@ function API.ThreatSound()
     return ok and not API.IsSecret(played) and played == true
 end
 
+-- A Blizzard sound kit on the Master channel (the combat timer's, #186). Not
+-- every Retail kit exists here: a refused one returns willPlay false (porting
+-- guide), and so does this.
+function API.PlaySoundKit(kit)
+    local fn = rawget(_G, "PlaySound")
+    if type(fn) ~= "function" then return false end
+    local ok, played = pcall(fn, kit, "Master")
+    return ok and not API.IsSecret(played) and played == true
+end
+
 function API.ClientBuild()
     local version, build = GetBuildInfo()
     return tostring(version) .. "." .. tostring(build)

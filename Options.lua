@@ -449,6 +449,13 @@ local function build()
     controls.combatTimer = checkbox(right, "Show it over your portrait in a fight",
         function() return GlassUF.Timer.enabled end,
         GlassUF.Settings.SetCombatTimer)
+    -- Its alert when a fight starts (#186).
+    controls.timerGlow = checkbox(right, "Glow on it when a fight starts",
+        function() return GlassUF.Timer.glow end,
+        GlassUF.Settings.SetTimerGlow)
+    controls.timerSound = checkbox(right, "Play a sound when a fight starts",
+        function() return GlassUF.Timer.sound end,
+        GlassUF.Settings.SetTimerSound)
     -- A taxi flight on the player's cast bar (#148), from Glass Panel's timer.
     controls.flightBar = checkbox(right, "Show a flight on your cast bar",
         function() return GlassUF.Flight.enabled end,
