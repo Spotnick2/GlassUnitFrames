@@ -156,9 +156,10 @@ place and colour things without a target, a pet or a fight.
   The game doesn't let addons move these frames in combat. You're told when one is waiting.
 - **Shaman totems** don't show while Blizzard's frames are hidden. The game hides totem details
   from addons, so Glass Unit Frames can't draw them.
-- **Not yet checked in game:** the combo points, the druid mana strip, the crowd-control icon,
-  the absorb shield segment and the combat timer's new glow and sound are built and tested
-  offline only (the game was checked to report shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids. The
+- **Not yet checked in game:** the combo points, the druid mana strip, the fatigue and feign death
+  bars (the breath bar is), the crowd-control icon, the absorb shield segment and the combat
+  timer's new glow and sound are built and tested offline only (the game was checked to report
+  shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids. The
   DoT kill estimate's marker and skull are new and not yet seen in game; its timings were measured
   with a priest's Shadow Word: Pain outdoors, and the other classes' DoTs, combo-point finishers,
   dungeons and raids are untested. Reports welcome.
