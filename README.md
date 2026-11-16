@@ -50,7 +50,8 @@ when it fails, pushback (`+0.4`), a craft count (`Heavy Linen Bandage (3/5)`) an
 whole craft batch. Your own bar shows a red **latency block**: roughly the end of the cast that is
 too late to cancel, measured from your own key presses. Your bar also has a thin **global
 cooldown line**, and turns grey while the target or focus you're casting on is **out of range**.
-A kicked cast says who interrupted it ("Interrupted by <name>") when the game tells us. Each bar
+When your cast is kicked, your bar says who did it ("Interrupted by <name>"); the game doesn't
+tell addons who kicked your target's. Each bar
 can stay docked on its frame or be **detached** into its own glass bar you can drag, size and
 scale. Colours for every part are on the Cast bars options page.
 
@@ -91,7 +92,8 @@ Each part can be turned off on the DoTs options page.
 - a **swing timer** (main hand, off hand, ranged) inside your frame, or detached;
 - the **five-second rule**: a thin red line on your mana bar while spirit regen is paused;
 - your **next 2 seconds of mana regen**, a faint segment just past your mana fill;
-- a **combat timer** over your portrait, counting the fight;
+- a **combat timer** over your portrait, counting the fight, with a gold glow when one starts
+  (and a sound, if you turn it on);
 - **breath, fatigue and feign death** bars in glass, in place of Blizzard's (movable in unlock
   mode).
 
@@ -127,6 +129,8 @@ place and colour things without a target, a pet or a fight.
 - `/guf level power|name|portrait`, `/guf mark name|top|right`,
   `/guf happiness left|right|under` - where the target's level, raid marks and pet happiness go
 - `/guf timer on|off`, `/guf regen on|off` - the combat timer and the mana regen segment
+- `/guf timer glow on|off`, `/guf timer sound on|off|test` - the timer's glow and sound when a
+  fight starts
 - `/guf breath on|off` - the glass breath and fatigue bars
 - `/guf cc target|focus off|portrait|beside` - the crowd-control icon
 - `/guf absorb on|off` - absorb shields on the health bars
@@ -152,9 +156,9 @@ place and colour things without a target, a pet or a fight.
   The game doesn't let addons move these frames in combat. You're told when one is waiting.
 - **Shaman totems** don't show while Blizzard's frames are hidden. The game hides totem details
   from addons, so Glass Unit Frames can't draw them.
-- **Not yet checked in game:** the combo points, the druid mana strip, the cast bar's GCD line,
-  interrupter name and out-of-range colour, the breath and fatigue bars, the crowd-control icon
-  and the absorb shield segment are built and tested offline only (the game was checked to report
+- **Not yet checked in game:** the combo points, the druid mana strip, the fatigue and feign death
+  bars (the breath bar is), the crowd-control icon, the absorb shield segment and the combat
+  timer's new glow and sound are built and tested offline only (the game was checked to report
   shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids. The
   DoT kill estimate's marker and skull are new and not yet seen in game; its timings were measured
   with a priest's Shadow Word: Pain outdoors, and the other classes' DoTs, combo-point finishers,
