@@ -1,42 +1,14 @@
--- harness.lua: assertions and the addon loader. dofile it after wow_stubs.lua.
+-- harness.lua: the addon loader and GUF's test helpers. dofile it after
+-- wow_stubs.lua. check / eq / done are WowTestKit's (tests/kit.lua loads them).
 
-local passed, failed = 0, 0
-
-function check(cond, msg)
-    if cond then passed = passed + 1 else
-        failed = failed + 1
-        io.write("  FAIL: " .. tostring(msg) .. "\n")
-    end
-end
-
-function eq(actual, expected, msg)
-    check(actual == expected, string.format("%s: expected %s, got %s", msg, tostring(expected), tostring(actual)))
-end
-
-function done(name)
-    io.write(string.format("%s: %d passed, %d failed\n", name, passed, failed))
-    os.exit(failed == 0 and 0 or 1)
-end
+TOC = "GlassUnitFrames.toc"
 
 -- Every file line of the TOC, in load order (this addon's .lua files and the
--- embedded library's .xml).
-function tocLines()
-    local lines = {}
-    for line in io.lines("GlassUnitFrames.toc") do
-        line = line:gsub("\r", "")
-        if line ~= "" and not line:match("^#") then lines[#lines + 1] = line end
-    end
-    return lines
-end
+-- embedded libraries' .xml).
+function tocLines() return Kit.tocLines(TOC) end
 
 -- This addon's own Lua files listed in the TOC, in load order.
-function tocFiles()
-    local files = {}
-    for _, line in ipairs(tocLines()) do
-        if line:match("%.lua$") then files[#files + 1] = line end
-    end
-    return files
-end
+function tocFiles() return Kit.tocFiles(TOC) end
 
 -- The embedded libraries come from checkouts, not from Libs\ (gitignored,
 -- filled by the packager): each one's env var, else the sibling folder. No
@@ -151,3 +123,4 @@ function button(unit) return GlassUF.Frames.byUnit[unit] end
 
 -- Text a FontString holds: a plain string, or a table for secret-formatted text.
 function textOf(fs) return fs._text end
+
