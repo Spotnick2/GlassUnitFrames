@@ -1,5 +1,5 @@
 -- The material's optional directional edge (#60): off by default and hidden,
--- live-tuned for every surface with /glass edge (saved only once set), and a
+-- live-tuned for every surface with /guf edge (saved only once set), and a
 -- host can set its own values, which the global tune then leaves alone.
 dofile("tests/wow_stubs.lua")
 dofile("tests/harness.lua")
@@ -14,7 +14,7 @@ check(not g.edge.top:IsShown() and not g.edge.bottom:IsShown(), "off by default:
 eq(Glass.STYLE.edge, 0, "the shipped edge is 0")
 
 SlashCmdList.GLASSUNITFRAMES("edge 0.45")
-check(g.edge.top:IsShown(), "/glass edge shows it")
+check(g.edge.top:IsShown(), "/guf edge shows it")
 eq(g.edge.top._color[4], 0.45, "the top line at the value")
 check(math.abs(g.edge.bottom._color[4] - 0.35) < 1e-6, "the bottom line in proportion (0.35)")
 eq(GlassUnitFramesDB.edge, 0.45, "saved once set")

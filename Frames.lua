@@ -84,7 +84,7 @@ local GREY, DEFAULT = { 0.50, 0.50, 0.52 }, { 0.56, 0.34, 0.92 }
 -- bar's colour, fading to clear across the bar) at this fraction of its
 -- strength. At full strength a 9% mana bar read as half full.
 -- The alpha goes on the track's clip frame (it holds only the track), so it
--- multiplies the material's own and /glass track still scales it. Not on the
+-- multiplies the material's own and /guf track still scales it. Not on the
 -- track texture: a texture's SetAlpha drew nothing different in game (#117).
 local QUIET_TRACK = 0.25
 local function quietTrack(bar)
@@ -112,7 +112,7 @@ local function playerPowerToken()
     return token
 end
 
--- Run a paint step; remember the first failure per step for /glass secrets.
+-- Run a paint step; remember the first failure per step for /guf secrets.
 local function attempt(key, fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok then API.Fail(key, err) end

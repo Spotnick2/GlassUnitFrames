@@ -125,4 +125,4 @@ if ($Probe -or $ProbeOnly) { Deploy-Probe }
 
 Write-Host ""
 Write-Host "/reload loads changed files and new addon folders alike (ForeverProbe guide, section 7)." -ForegroundColor Yellow
-Write-Host "In game:  /console scriptErrors 1   then   /glass help" -ForegroundColor Green
+Write-Host "In game:  /console scriptErrors 1   then   /guf help" -ForegroundColor Green

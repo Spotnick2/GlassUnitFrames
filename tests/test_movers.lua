@@ -88,15 +88,15 @@ eq(GlassUnitFramesDB.pos.pet and GlassUnitFramesDB.pos.pet[4] or 0, 0, "the pet 
 eq(GlassUnitFramesDB.pos.target and GlassUnitFramesDB.pos.target[4], tBefore, "the target is unchanged")
 M._test.movers.target._scripts.OnMouseUp(M._test.movers.target)
 
--- Lock, and /glass unlock|lock.
+-- Lock, and /guf unlock|lock.
 np.buttons.lock._scripts.OnClick(np.buttons.lock)
 check(not M.unlocked and not mt._shown and not np._shown, "Lock hides the movers and the panel")
 SlashCmdList.GLASSUNITFRAMES("unlock")
-check(M.unlocked, "/glass unlock")
+check(M.unlocked, "/guf unlock")
 SlashCmdList.GLASSUNITFRAMES("lock")
-check(not M.unlocked, "/glass lock")
+check(not M.unlocked, "/guf lock")
 
--- /glass reset re-attaches everything at the defaults.
+-- /guf reset re-attaches everything at the defaults.
 SlashCmdList.GLASSUNITFRAMES("reset")
 eq(next(GlassUnitFramesDB.pos), nil, "all positions cleared")
 eq(tot._points[1][4], 211.5 - 304, "targettarget back at its default offset")
@@ -182,16 +182,16 @@ UIParent._width = 1600
 M.Lock(); M.Unlock()
 eq(ov.gridW, 1600, "the grid is rebuilt for the new screen size")
 check(before ~= ov.gridW, "it was drawn for the old one before")
--- /glass snap.
+-- /guf snap.
 SlashCmdList.GLASSUNITFRAMES("snap align off")
-eq(GlassUnitFramesDB.snapAlign, false, "/glass snap align off: saved")
+eq(GlassUnitFramesDB.snapAlign, false, "/guf snap align off: saved")
 check(not M.snapAlign, "and applied")
 SlashCmdList.GLASSUNITFRAMES("snap align on")
 eq(GlassUnitFramesDB.snapAlign, nil, "on again: nothing saved")
 -- The panel (created earlier, reused) follows a slash change.
 SlashCmdList.GLASSUNITFRAMES("snap grid off")
 M.Lock(); M.Unlock()
-check(not M._test.dialog().snapGrid:GetChecked(), "grid switch unticked after /glass snap grid off")
+check(not M._test.dialog().snapGrid:GetChecked(), "grid switch unticked after /guf snap grid off")
 SlashCmdList.GLASSUNITFRAMES("snap grid on")
 check(M._test.dialog().snapGrid:GetChecked(), "and ticked again after on")
 M.Lock()

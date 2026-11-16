@@ -112,9 +112,9 @@ eq(GlassUnitFramesDB.absorbBar, nil, "on is the default: nothing saved")
 
 -- The slash command.
 SlashCmdList.GLASSUNITFRAMES("absorb off"); WoW.tick()
-eq(GlassUF.Frames.absorbs, false, "/glass absorb off")
+eq(GlassUF.Frames.absorbs, false, "/guf absorb off")
 SlashCmdList.GLASSUNITFRAMES("absorb on"); WoW.tick()
-eq(GlassUF.Frames.absorbs, true, "/glass absorb on")
+eq(GlassUF.Frames.absorbs, true, "/guf absorb on")
 
 -- The preview's sample shows a shield on the target (only while on).
 GlassUF.Frames.PaintSample(t)

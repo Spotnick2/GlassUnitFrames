@@ -26,7 +26,7 @@ WoW.units.target.raidTarget = nil
 WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()
 check(not t.indicators.raidTarget._shown, "cleared mark hides")
 
--- /glass secrets reports the mark index and the icon's state (a diagnostic
+-- /guf secrets reports the mark index and the icon's state (a diagnostic
 -- for in-game cases where the mark does not show).
 WoW.units.target.raidTarget = 6
 WoW.fire("RAID_TARGET_UPDATE"); WoW.tick()

@@ -160,7 +160,7 @@ eq(lastReport().minor, 10, "too old: with the old MINOR")
 eq(GlassUF.SuiteStatus(), "own look: library-too-old", "too old: said")
 WoW.chat = {}
 SlashCmdList.GLASSUNITFRAMES("look")
-check(WoW.chat[#WoW.chat]:find("own look: library-too-old", 1, true) ~= nil, "/glass look says it: " .. WoW.chat[#WoW.chat])
+check(WoW.chat[#WoW.chat]:find("own look: library-too-old", 1, true) ~= nil, "/guf look says it: " .. WoW.chat[#WoW.chat])
 restoreLib()
 -- A newer copy arriving after the build changes nothing this session.
 fakeLib(11)()
@@ -219,7 +219,7 @@ eq(Glass.fontKey, "friz", "following: Reset look left the font alone too")
 for _, cmd in ipairs({ "look classic", "body clear", "ramp whole", "rim 0.3", "fill 0.9", "track 0.1", "fade 0.5", "edge 0.5" }) do
     WoW.chat = {}
     SlashCmdList.GLASSUNITFRAMES(cmd)
-    eq(WoW.chat[#WoW.chat], "|cff7fd4ffGlassUF|r Look: following Glass UI (Pearl), set in Glass UI", "/glass " .. cmd .. ": set in Glass UI")
+    eq(WoW.chat[#WoW.chat], "|cff7fd4ffGlassUF|r Look: following Glass UI (Pearl), set in Glass UI", "/guf " .. cmd .. ": set in Glass UI")
 end
 untouched(db, savedLook(), "following, after every write path")
 check(S.SetFont("arial"), "following: the font is still ours")

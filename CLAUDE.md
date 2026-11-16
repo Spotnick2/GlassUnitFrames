@@ -63,7 +63,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - `CastDuration` (a `LuaDurationObject`);
   - `ClassColor`;
   - `Fail(key, err)`: the **one** failure recorder (`GlassUF.paintFailures`, read by
-    `/glass secrets`). Engine, Frames and Auras all report through it;
+    `/guf secrets`). Engine, Frames and Auras all report through it;
   - `LoadBlizzardAddOn`, `AuraSort` (sort method and direction, both or neither), `FlowLayout`;
   - `NewHealCalculator` / `IncomingHeals`: heal prediction via `CreateUnitHealPredictionCalculator`
     and `UnitGetDetailedHealPrediction` (the first return of `GetIncomingHeals`, clamped to max
@@ -84,7 +84,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
 - **`Glass.lua`**: `GlassUF.Glass`, this addon's instance of the embedded material (see below).
   Every call site dot-calls it (`Glass.Apply`, `Glass.Bar`, `Glass.MEDIA`, ...).
   - It's a **forwarding handle** (#102) to the instance in use. `GlassUF.UseLook(look, body)`
-    builds it at ADDON_LOADED, before anything is built, from `db.look` (`/glass look`, an options
+    builds it at ADDON_LOADED, before anything is built, from `db.look` (`/guf look`, an options
     radio, after `/reload`).
   - **The looks** are LibGlass presets: **Pearl** (the default, not saved; owner, #129), **Clean**
     and **Classic** (both saved). A profile that never chose a look gets Pearl; there's no
@@ -92,12 +92,12 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - Pearl needs LibGlass r11. With an older copy winning (MINOR below `GlassUF.PEARL_MINOR`),
       or Pearl's `New` failing under pcall, the look is Clean.
     - That case sets `GlassUF.lookFallback` ("Pearl needs LibGlass r11 or newer: Clean in use",
-      the same text as GRF), which is said once at load, on `/glass look` and under Look on the
+      the same text as GRF), which is said once at load, on `/guf look` and under Look on the
       options page.
     - Classic omits the preset: r6-r10 refuse `"classic"`.
   - The glass body works the same way (#101), from `db.glassBody`. Clear is LibGlass's own
     default (tint alpha 0.24). "smoked" passes `bodyAlpha = GlassUF.SMOKED` (0.65, the middle of
-    the 0.50–0.80 LibGlass explored). It's set with `/glass body` and a Body radio, after
+    the 0.50–0.80 LibGlass explored). It's set with `/guf body` and a Body radio, after
     `/reload`. `GlassUF.UseLook(look, body)` builds one instance with both.
   - The instance's functions are closures bound to it, so forwarding is enough.
   - Never keep `Glass.TUNABLES` / `STYLE` from file load: read them when used.
@@ -116,7 +116,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - **While following**, the look, body, ramp and knobs are suspended but kept:
       - `ensureDefaults` neither applies nor prunes the knobs, and the saved ramp isn't applied.
       - `Settings.SetLook`, `SetGlassBody`, `SetTrackRamp`, `SetTunable` and `ResetLook` refuse.
-      - `/glass look|body|ramp|<knob>` says `GlassUF.SuiteStatus()`.
+      - `/guf look|body|ramp|<knob>` says `GlassUF.SuiteStatus()`.
       - The options page shows that note and disables those controls, dimmed (0.5) with grey labels:
         `SetEnabled(false)` alone shows nothing (our labels are font strings), as GRF measured.
     - **Glass UI settings**, a button under Look (`GlassUF.OpenSuite`), calls `Suite.Open()`
@@ -135,7 +135,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     the track texture's own `SetAlpha` changed nothing in game. `db.trackRamp` ("edge", saved;
     the whole bar is the default) moves the ramp to the fill's moving edge over
     `GlassUF.RAMP_LENGTH` (5%) of the bar, live, through LibGlass r10's `SetTrackLength`
-    (`Settings.SetTrackRamp`, `/glass ramp whole|edge`, the main page's Fade radio). With an
+    (`Settings.SetTrackRamp`, `/guf ramp whole|edge`, the main page's Fade radio). With an
     older LibGlass winning, "edge" is refused and a saved "edge" is kept, but "whole" (and Reset
     look) still clears it: that copy draws the whole bar anyway.
 - **`Engine.lua`**: who gets painted and when:
@@ -193,7 +193,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   `GetDamageAbsorbs`: its default clamp is the MISSING health, so a shield at full health reads 0.
   Its own `absorb` channel (`UNIT_ABSORB_AMOUNT_CHANGED`, which fires as a shield lands, at each hit
   and as it breaks). Cleared for offline or dead units. `db.absorbBar` (false when off),
-  `Settings.SetAbsorbs`, `/glass absorb on|off`, a checkbox under the main page's Colours.
+  `Settings.SetAbsorbs`, `/guf absorb on|off`, a checkbox under the main page's Colours.
 - **Default positions** in `Frames.LAYOUT` are sized for WoW's UIParent, which is **768 units
   tall at the default UI scale**: check new frames in those units, not on the owner's 4K screen.
   The defaults are the owner's tested setup (#141): player and target at (∓304, −272), focus at
@@ -256,7 +256,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - Saved in `db.castBars[unit] = { detached, x, y, w, h, scale }`, each field validated against
       `Castbar.LIMITS` (junk falls back to its default), pruned when empty. Only what the
       player set is saved (typing W leaves H on its default). "Reset frame positions"
-      (`/glass reset`) also resets every bar's spot and size (`Castbar.ResetPositions`); it
+      (`/guf reset`) also resets every bar's spot and size (`Castbar.ResetPositions`); it
       stays detached. A unit without `DETACHED` defaults gets a generic one.
     - `Castbar.Place(c)` lays a bar out for its mode and reconciles the rows. Levels are fixed at
       build: host H, pill H (rims H + 10), bar H + 2, text H + 11.
@@ -415,7 +415,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     00:00) -> combat -> closed. Combat is recorded whatever shows, so the dispatcher's order
     (Preview stop, the timer's own frame) never loses a start. A `/reload` mid-fight counts from
     the reload; a loading screen inside a timed fight keeps its start (`live = live or GetTime()`).
-  - **Option:** `db.combatTimer` (saved only when off), `Settings.SetCombatTimer`, `/glass timer
+  - **Option:** `db.combatTimer` (saved only when off), `Settings.SetCombatTimer`, `/guf timer
     on|off`, a checkbox on the main page (the Cast bars page doesn't scroll and is full: a test keeps
     its controls inside the canvas). Idempotent; off -> on in a fight starts counting
     from now.
@@ -430,8 +430,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     - **Sound** (off by default): `Timer.SOUND_KIT` (8959, `SOUNDKIT.RAID_WARNING`) on Master
       through `API.PlaySoundKit` (`PlaySound` under pcall; a refused kit, `willPlay` false, goes to
       `API.Fail("timer sound")`). Real fights only, never a preview. `db.timerSound` (true when on).
-    - Both need the timer on (its events). `Settings.SetTimerGlow|SetTimerSound`, `/glass timer
-      glow on|off`, `/glass timer sound on|off|test`, two checkboxes under the main page's Combat
+    - Both need the timer on (its events). `Settings.SetTimerGlow|SetTimerSound`, `/guf timer
+      glow on|off`, `/guf timer sound on|off|test`, two checkboxes under the main page's Combat
       timer.
   - `Timer.enabled` is public: ForeverCombatAssistant hides its own timer while it's true.
 - **`Mirror.lua`** (#151): the client's mirror timers (breath, fatigue, feign death) as glass rows,
@@ -456,8 +456,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **Blizzard's** `MirrorTimerContainer` (an Edit Mode system) is hidden at load by
     `Blizzard.HideFrame` while ours are on and `hideBlizzard` is set, and kept under its parent
     (`KEEP_PARENT`).
-  - **Option:** `db.mirrorTimers` (false when off), `Settings.SetMirrorTimers`, `/glass breath
-    on|off` (`/glass mirror` is the frame mirroring), a checkbox under the main page's Combat timer.
+  - **Option:** `db.mirrorTimers` (false when off), `Settings.SetMirrorTimers`, `/guf breath
+    on|off` (`/guf mirror` is the frame mirroring), a checkbox under the main page's Combat timer.
     Ours follow live; Blizzard's after a `/reload`.
 - **`FiveSecond.lua`** (#94): the five-second rule, for mana users only (none for warriors or rogues).
   - **The strip:** 2 px red along the bottom of the player's power bar, or of the druid mana strip in
@@ -498,7 +498,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       The last one off unregisters and idles; the first one on registers, re-reads combat and
       idles; otherwise the window is kept. The strip turned off during a preview still ends its
       sample loop.
-    - `db.manaRegen` (saved only when off), `Settings.SetManaRegen`, `/glass regen on|off`, a
+    - `db.manaRegen` (saved only when off), `Settings.SetManaRegen`, `/guf regen on|off`, a
       checkbox in the main page's "Mana" section.
 - **`Zoom.lua`** (#89): combat zoom, per bar (player, target, focus, pet, swing): on for the player and
   target by default, at scale 1.5 and the owner's tested spots (0, −182) / (0, −152) (#141), off
@@ -567,7 +567,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       (`T.ResetPositions`) re-docks both.
   - **Settings:** `db.threat = { mode, view, expand[role], hideDelay, sound, ...geometry }`,
     the **Threat** sub-page (registered after Combat zoom: Display, hide delay, View, combat
-    expansion for this role, sound + Test, previews, reset), and `/glass threat on|off|always |
+    expansion for this role, sound + Test, previews, reset), and `/guf threat on|off|always |
     view compact|expanded|auto | delay N | sound on|off | expand on|off | preview
     compact|expanded|off | reset | test`. `Settings.SetThreatMode|Sound|Expand`.
   - **The sound file** `Sounds/BoxingArenaSound.ogg` is WeakAuras' (GPL-2, `Sounds/COPYING.txt`,
@@ -605,7 +605,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     Shown and hidden by alpha and values (never `Show`/`Hide` on a child of the secure button);
     placed out of combat (`WhenOutOfCombat("dots:<unit>")`, from `applyPortrait` too).
   - **Options:** `db.dots = { marker, ticks, icon, focus }`, each false when off, pruned when
-    empty; `Settings.SetDots(key, on)`, `/glass dots on|off|marker|ticks|icon|focus on|off`, the
+    empty; `Settings.SetDots(key, on)`, `/guf dots on|off|marker|ticks|icon|focus on|off`, the
     **DoTs** sub-page (after Threat). Marker and icon both off stop the tracker.
   - **`DotSpells.lua` is generated** by `Tools/dot_spells.py` from one build's client tables
     (SpellEffect, SpellMisc, SpellDuration, SpellLevels, SpellName, Spell, SkillLineAbility in
@@ -642,7 +642,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **Zoom:** a flight counts as zoom time for the player's bar, and the target's bar is re-placed too
     (one shared lift under the group layout; Codex, #154) (`Zoom.SetFlying`, called from
     `idle`, so a `/reload` mid-flight zooms too).
-  - **Option:** `db.flightBar` (false when off), `Settings.SetFlightBar`, `/glass flight on|off`, a
+  - **Option:** `db.flightBar` (false when off), `Settings.SetFlightBar`, `/guf flight on|off`, a
     checkbox under the main page's Combat timer.
 - **`Link.lua`** (#132): the group layout. The plan is GlassUI's `docs/GROUP-LAYOUT.md` (sections 4
   and 5, GlassUI#28; Codex consensus). Don't extend it here: changes go through the Glass UI session.
@@ -697,7 +697,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     player's move: its linked centre x minus `Frames.OwnCenterX("player")`; `petDx` the pet's, `dx`
     when it rides the player, 0 when it's saved on the screen (`Frames.RidesLeader`). Both 0 when
     unlinked. Trailing arguments only grow.
-  - **Setting:** `db.groupLink` (false when off), `Settings.SetGroupLink`, `/glass link on|off`, a
+  - **Setting:** `db.groupLink` (false when off), `Settings.SetGroupLink`, `/guf link on|off`, a
     checkbox and status under Positions.
   - **Measuring:** `Tools/LayoutProbe` (`/fp steps layout glide`, M5) announces a fake layout
     through the real event; `/fp layout pet|stance <dx>|off` fakes our own announcement for GlassActionBars.
@@ -712,7 +712,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     guide). GlassActionBars' pet bar, under the player and pet
     frames, stays put while they move (owner: a GlassActionBars question, not GUF's).
 - **`Preview.lua`** (#109): every frame and bar with sample data, out of combat, session-only
-  (`/glass preview`, a button on the main, Cast bars and Combat zoom pages that closes Settings, and
+  (`/guf preview`, a button on the main, Cast bars and Combat zoom pages that closes Settings, and
   a switch on the unlock dialog). DBM's simulated test bars were the idea.
   - **Frames:** every unit button but the player's leaves its unit watch (`UnregisterUnitWatch`,
     `Show`) and shows `Frames.SAMPLES` through `Frames.PaintSample` (plain values: name, health,
@@ -759,7 +759,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     the same at scale 0.6 outside the tile (or the body). It's a child of the secure button, so
     every placement runs out of combat (`WhenOutOfCombat("cc:<unit>")`, also from a 3D/2D switch
     in combat). Target and focus changes refresh it. `db.ccIcon[unit]` ("portrait" | "beside";
-    off not saved), `Settings.SetCCIcon`, `/glass cc target|focus off|portrait|beside`, radio rows
+    off not saved), `Settings.SetCCIcon`, `/guf cc target|focus off|portrait|beside`, radio rows
     under the main page's Portraits. If the filter matches nothing on Forever, #159 closes.
   - The container API isn't in the dump; `test_methods.lua` allowlists exactly those methods,
     with DinoUF as the evidence.
@@ -774,7 +774,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   **validated** (a malformed one falls back to the default instead of aborting the build), and
   old-style saves are still honoured. Positions change only through `Frames.SetPosition` /
   `ResetPosition` / `ResetPositions`, **out of combat**.
-- **`Movers.lua`**: unlock mode (`/glass unlock|lock`, the options panel's Unlock button). One
+- **`Movers.lua`**: unlock mode (`/guf unlock|lock`, the options panel's Unlock button). One
   plain, insecure mover per **source** on UIParent, **anchored to its frame, never the reverse**
   (a frame a protected frame anchors to becomes protected). A source is the adapter a mover
   moves through (`label`, `frame`, `rel`, `position`, `set`, `save`, `reset`, `follows`), keyed
@@ -792,7 +792,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   line, else its centre snaps to a 16-unit **grid** drawn over the screen; the frame's own
   followers aren't alignment targets; **Alt** places freely. Both switches are on the unlock
   dialog (saved only when off: `db.snapGrid`, `db.snapAlign`). **Mirroring** (on by default,
-  `db.mirror` when off, `/glass mirror`): moving the player or target frame (drag, arrows, typed
+  `db.mirror` when off, `/guf mirror`): moving the player or target frame (drag, arrows, typed
   X/Y, reset) places the other at the mirrored spot (-x, same y), but only while the pair IS
   symmetric (a custom asymmetric layout is never overwritten). Alt at the start of a drag moves one
   alone, fixed for the whole drag; the drag's partner isn't an alignment target. Cast bars never
@@ -818,7 +818,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     combat to end through `GlassUF.WhenOutOfCombat`.
   - **Totems:** not shown while Blizzard's frames are hidden. GlassUF can't draw them
     (`GetTotemInfo` is secret), and hosting Blizzard's `TotemFrame` (#18/#54) was removed in #58:
-    it's a managed frame like PetFrame. `/glass totem` still reports where it lives.
+    it's a managed frame like PetFrame. `/guf totem` still reports where it lives.
   - `Blizzard.active` records whether anything was hidden this session. Hiding is one-way per
     session.
 - **`GlassUnitFrames.lua`**:
@@ -827,18 +827,19 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
-  - `/glass options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|timer glow on|off|timer sound on|off|test|flight on|off|absorb on|off|dots ...|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
+  - `/guf` is the command (#188; `/glass`, its old name, stays registered as an alias):
+  - `/guf options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|timer glow on|off|timer sound on|off|test|flight on|off|absorb on|off|dots ...|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames
-  (`/glass options`). A canvas panel (`Settings.RegisterCanvasLayoutCategory` +
+  (`/guf options`). A canvas panel (`Settings.RegisterCanvasLayoutCategory` +
   `RegisterAddOnCategory`, registered at `PLAYER_LOGIN`, as Priestly does), two columns so it fits
   the canvas. Check and radio buttons use `UICheckButtonTemplate` / `UIRadioButtonTemplate` (the
   porting guide lists the option templates as present), with our own art only as a fallback. The
   slider is hand-built on purpose (compact label + value line). No `UIDropDownMenu`: choices are
   radio groups. Built on first show, **re-synced from the current state on every show** (a
   `refreshing` guard keeps that from saving). Every control goes through **`GlassUF.Settings`**,
-  the apply-and-save helpers `/glass` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
+  the apply-and-save helpers `/guf` also uses (`SetFont`, `SetMark`, `SetTunable`, `ResetLook`,
   `ResetPositions`, `SetHideBlizzard`, `SetAggroRed`, `SetHealthFormat`, `SetLevelPosition`,
   `SetCastOption`, `SetCastDetached`, `SetCastScale`, `CenterCast`, `SetCastSize`, `SetCastIcon`,
   `SetCastColor`, `ResetCastColors`, `SetCastPrecision`, `SetTrackRamp`, `SetCombatTimer`, `SetManaRegen`). The cast bars have their
@@ -902,7 +903,7 @@ contract (the API, region fields and texture names only grow; instances; upgrade
   tests against it, and asserts the zip's `Libs/LibGlass-1.0/` is exactly that commit's shipped
   files.
 - **`GlassUF.Glass` is an instance**: `STYLE`, the `TUNABLES` setters and the font registry are
-  this addon's own, so `/glass rim` never touches another glass addon. `Glass.MEDIA` resolves to
+  this addon's own, so `/guf rim` never touches another glass addon. `Glass.MEDIA` resolves to
   the winning copy's `Media\`; use it only for library textures (`bar_fill`, `bar_edge`, ...).
 - **Colours passed to a glass bar's `SetStatusBarColor` must be plain** (the library's hook
   compares them): never a secret.

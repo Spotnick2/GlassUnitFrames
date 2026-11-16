@@ -50,6 +50,6 @@ local sawSecretLine = false
 for _, line in ipairs(WoW.chat) do
     if line:find("player: hp=S") then sawSecretLine = true end
 end
-check(sawSecretLine, "/glass secrets classifies secret health as S")
+check(sawSecretLine, "/guf secrets classifies secret health as S")
 
 done("test_secrets")

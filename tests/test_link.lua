@@ -338,7 +338,7 @@ check(not Link.Placing(), "a secret: own positions")
 -- The setting: off, own positions (saved false); on, placed again (not saved).
 announce(HUD)
 SlashCmdList.GLASSUNITFRAMES("link off")
-check(not Link.Placing(), "/glass link off: own positions")
+check(not Link.Placing(), "/guf link off: own positions")
 eq(GlassUnitFramesDB.groupLink, false, "saved")
 eq(lastReport().layout.linked, false, "Report: not linked")
 check(Frames.SetPosition("player", -310, -110), "its own position is movable again")
@@ -346,7 +346,7 @@ n = #heard
 check(Frames.SetPosition("pet", 0, -52), "the pet moved, unlinked")
 eq(#heard, n, "not linked: no announcement (the bars have nothing to follow)")
 SlashCmdList.GLASSUNITFRAMES("link on")
-check(Link.Placing(), "/glass link on: placed")
+check(Link.Placing(), "/guf link on: placed")
 eq(GlassUnitFramesDB.groupLink, nil, "on is the default, not saved")
 check(GlassUnitFramesDB.pos.player[4] == -310, "the save made while unlinked is kept")
 -- Off in combat waits.

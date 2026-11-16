@@ -16,7 +16,7 @@ WoW.combat = true
 check(not GlassUF.Movers.Unlock(), "unlock refused in combat")
 check(not GlassUF.Frames.SetPosition("player", 0, 0), "positions refused in combat")
 
--- /glass reset in combat waits for PLAYER_REGEN_ENABLED.
+-- /guf reset in combat waits for PLAYER_REGEN_ENABLED.
 SlashCmdList.GLASSUNITFRAMES("reset")
 check(GlassUnitFramesDB.pos.player ~= nil, "reset deferred in combat")
 

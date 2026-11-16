@@ -24,7 +24,7 @@ if not Glass.SetTrackLength then
     check(not GlassUF.Settings.SetTrackRamp("edge"), "edge refused without SetTrackLength")
     eq(GlassUnitFramesDB.trackRamp, "edge", "a refusal changes nothing")
     SlashCmdList.GLASSUNITFRAMES("ramp edge")
-    check(WoW.chat[#WoW.chat]:find("needs LibGlass r10", 1, true), "/glass ramp says why")
+    check(WoW.chat[#WoW.chat]:find("needs LibGlass r10", 1, true), "/guf ramp says why")
     check(GlassUF.Settings.SetTrackRamp("whole"), "whole is accepted: it's what an older copy draws")
     eq(GlassUnitFramesDB.trackRamp, nil, "and clears the saved edge")
     GlassUnitFramesDB.trackRamp = "edge"
@@ -45,7 +45,7 @@ eq(p.health.track._points[1][2], p.health:GetStatusBarTexture(), "bars are born 
 SlashCmdList.GLASSUNITFRAMES("ramp whole")
 
 SlashCmdList.GLASSUNITFRAMES("ramp edge")
-eq(GlassUnitFramesDB.trackRamp, "edge", "/glass ramp edge is saved")
+eq(GlassUnitFramesDB.trackRamp, "edge", "/guf ramp edge is saved")
 local t = p.health.track
 eq(t._points[1][2], p.health:GetStatusBarTexture(), "the health ramp starts at the fill's edge")
 eq(p.power.track._points[1][2], p.power:GetStatusBarTexture(), "the power ramp too")

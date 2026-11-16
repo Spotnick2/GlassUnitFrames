@@ -38,7 +38,7 @@ forbidden = false
 -- An error in Blizzard's code is recorded, never thrown at the button.
 rawset(_G, "UnitFrame_OnEnter", function() error("boom") end)
 check(pcall(t._scripts.OnEnter, t), "an error doesn't escape")
-check(GlassUF.paintFailures.tooltip ~= nil, "it's recorded (/glass secrets)")
+check(GlassUF.paintFailures.tooltip ~= nil, "it's recorded (/guf secrets)")
 GlassUF.paintFailures.tooltip = nil
 
 -- Clicks still work: the hooks don't replace the button's own handlers.

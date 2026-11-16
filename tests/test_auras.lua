@@ -135,7 +135,7 @@ loadAddon()
 CreateFrame = realCreate
 eq(#(button("target").auraContainers or {}), 0, "no containers when the type is missing")
 
-check(GlassUF.paintFailures["aura container"] ~= nil, "the failure is recorded for /glass secrets")
+check(GlassUF.paintFailures["aura container"] ~= nil, "the failure is recorded for /guf secrets")
 check(button("target").health ~= nil, "the rest of the target frame still built")
 
 -- A disabled Blizzard_AuraContainer is reported with the client's reason.

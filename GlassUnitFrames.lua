@@ -1,12 +1,12 @@
 -- GlassUnitFrames.lua: bootstrap, saved settings, combat-deferred actions and
--- the /glass command.
+-- the /guf command.
 
 local ADDON = ...
 GlassUF = GlassUF or {}
 local API, Glass, Frames, Blizzard = GlassUF.API, GlassUF.Glass, GlassUF.Frames, GlassUF.Blizzard
 local say = API.Print
 
--- Live material tweaks (Glass.TUNABLES): /glass <key> <value>, saved only
+-- Live material tweaks (Glass.TUNABLES): /guf <key> <value>, saved only
 -- once set, so a new default in Glass.STYLE still reaches everyone who never
 -- touched it.
 -- The material knobs of the instance in use (Glass forwards to it, #102): read
@@ -61,7 +61,7 @@ local function runPending()
 end
 
 --------------------------------------------------------------------------------
--- /glass secrets: which unit values come back secret, in or out of combat.
+-- /guf secrets: which unit values come back secret, in or out of combat.
 --------------------------------------------------------------------------------
 
 local SECRET_PROBES = {
@@ -148,7 +148,7 @@ local function secretsReport()
 end
 
 --------------------------------------------------------------------------------
--- /glass totem: where Blizzard's TotemFrame lives on this client (#18). A
+-- /guf totem: where Blizzard's TotemFrame lives on this client (#18). A
 -- diagnostic only: hosting TotemFrame was removed in #58 (it's a managed
 -- frame; moving it out of its container breaks Blizzard's layout code).
 --------------------------------------------------------------------------------
@@ -166,7 +166,7 @@ local function frameName(f)
 end
 
 -- Where a Blizzard frame lives: parent chain, first anchor, protection,
--- visibility. /glass totem is this for TotemFrame; /glass frame <Name> for
+-- visibility. /guf totem is this for TotemFrame; /guf frame <Name> for
 -- any global frame (names are case sensitive), e.g. PetActionBar.
 local function frameReport(name, label)
     local tf = rawget(_G, name)
@@ -237,7 +237,7 @@ local HELP = {
     "secrets  - which unit values are secret right now, plus any paint failures",
     "threat on|off|always  - target threat; sound, expand, preview, reset, test",
     "totem  - where Blizzard's totem bar lives (diagnostic)",
-    "frame <Name>  - where any Blizzard frame lives, e.g. /glass frame PetActionBar",
+    "frame <Name>  - where any Blizzard frame lives, e.g. /guf frame PetActionBar",
 }
 
 -- Apply-and-save, one helper per setting: the slash commands and the options
@@ -319,7 +319,7 @@ end
 function Settings_.Unlock()
     local ok, why = GlassUF.Movers.Unlock()
     if ok then
-        say("frames unlocked: drag to move (the target carries its group), click to nudge. /glass lock when done")
+        say("frames unlocked: drag to move (the target carries its group), click to nudge. /guf lock when done")
     elseif why == "combat" then
         say("can't unlock frames in combat")
     end
@@ -333,7 +333,7 @@ function Settings_.SetPreview(on)
     if on and not P.active then
         local ok, why = P.Start()
         if ok then
-            say("preview on: every frame and bar shows sample data. /glass preview again to stop; combat stops it")
+            say("preview on: every frame and bar shows sample data. /guf preview again to stop; combat stops it")
         elseif why == "combat" then
             say("can't preview in combat")
         end
@@ -643,7 +643,7 @@ local function slash(msg)
         if unit and Settings_.SetHealthFormat(unit, kind) then
             say(unit .. " health text " .. kind)
         else
-            say("text <unit> " .. table.concat(Frames.HEALTH_FORMATS, "|") .. "  (e.g. /glass text target curmaxhp)")
+            say("text <unit> " .. table.concat(Frames.HEALTH_FORMATS, "|") .. "  (e.g. /guf text target curmaxhp)")
         end
     elseif cmd == "portrait" then
         local unit, mode = arg:match("^(%S+)%s+(%S+)$")
@@ -798,7 +798,7 @@ local function slash(msg)
             local next = GlassUnitFramesDB.hideBlizzard and "hidden" or "shown"
             say("Blizzard's frames are " .. now
                 .. (now == next and "" or (", " .. next .. " after /reload"))
-                .. ". /glass blizzard show|hide, then /reload")
+                .. ". /guf blizzard show|hide, then /reload")
         end
     elseif cmd == "threat" then
         local action, value = arg:match("^(%S+)%s*(.-)$")
@@ -820,12 +820,13 @@ local function slash(msg)
     elseif cmd == "frame" and rawArg ~= "" then
         frameReport(rawArg, "frame")
     else
-        for _, line in ipairs(HELP) do say("/glass " .. line) end
-        for _, t in ipairs(tweaks()) do say(string.format("/glass %s %s  - %s (saved)", t.key, rangeText(t), t.help)) end
+        for _, line in ipairs(HELP) do say("/guf " .. line) end
+        for _, t in ipairs(tweaks()) do say(string.format("/guf %s %s  - %s (saved)", t.key, rangeText(t), t.help)) end
     end
 end
 
-SLASH_GLASSUNITFRAMES1 = "/glass"
+SLASH_GLASSUNITFRAMES1 = "/guf"
+SLASH_GLASSUNITFRAMES2 = "/glass"   -- the old name (#188), kept for macros and habits
 SlashCmdList.GLASSUNITFRAMES = slash
 
 local boot = CreateFrame("Frame")

@@ -35,7 +35,7 @@ eq(GlassUnitFramesDB.look, "classic", "classic is saved: it isn't the default")
 check(S.SetLook("pearl"), "back to Pearl")
 eq(GlassUnitFramesDB.look, nil, "the default isn't saved")
 SlashCmdList.GLASSUNITFRAMES("look clean")
-eq(GlassUnitFramesDB.look, "clean", "/glass look clean")
+eq(GlassUnitFramesDB.look, "clean", "/guf look clean")
 
 -- After /reload: the clean instance builds every surface, and the saved knobs
 -- and slash tweaks reach it.
@@ -50,7 +50,7 @@ eq(Glass.STYLE.grain, 0, "no grain")
 eq(button("player").glass.size, "thin", "the player's glass is built thin")
 eq(Glass.STYLE.rimAlpha, 0.5, "a saved knob reaches the clean instance")
 SlashCmdList.GLASSUNITFRAMES("rim 0.7")
-eq(Glass.STYLE.rimAlpha, 0.7, "/glass rim tunes the clean instance")
+eq(Glass.STYLE.rimAlpha, 0.7, "/guf rim tunes the clean instance")
 eq(GlassUnitFramesDB.rim, 0.7, "and saves")
 saved.rim = nil
 
@@ -100,7 +100,7 @@ check(S.SetGlassBody("smoked"), "smoked chosen")
 eq(GlassUnitFramesDB.glassBody, "smoked", "saved")
 check(not S.SetGlassBody("murky"), "an unknown body is refused")
 SlashCmdList.GLASSUNITFRAMES("body clear")
-eq(GlassUnitFramesDB.glassBody, nil, "/glass body clear: the default isn't saved")
+eq(GlassUnitFramesDB.glassBody, nil, "/guf body clear: the default isn't saved")
 SlashCmdList.GLASSUNITFRAMES("body smoked")
 for _, rb in ipairs(O.controls.glassBody) do
     if rb.value == "smoked" then O.controls.refreshAll(); check(rb:GetChecked(), "the Body radio shows Smoked") end
@@ -166,7 +166,7 @@ for _, case in ipairs({ { 10, false, "an r10 copy winning" }, { 5, false, "an r5
     check(printed, case[3] .. ": and once at load")
     WoW.chat = {}
     SlashCmdList.GLASSUNITFRAMES("look")
-    check(WoW.chat[#WoW.chat]:find("now clean; " .. FALLBACK, 1, true) ~= nil, case[3] .. ": /glass look: " .. WoW.chat[#WoW.chat])
+    check(WoW.chat[#WoW.chat]:find("now clean; " .. FALLBACK, 1, true) ~= nil, case[3] .. ": /guf look: " .. WoW.chat[#WoW.chat])
     GlassUF.Options._test.panel:Show()
     eq(GlassUF.Options._test.controls.suiteNote._text, FALLBACK, case[3] .. ": the note under Look")
     check(GlassUF.Options._test.controls.look[1]:IsEnabled(), case[3] .. ": the look is still ours to choose")
