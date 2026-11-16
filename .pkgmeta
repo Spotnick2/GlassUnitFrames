@@ -18,12 +18,12 @@ manual-changelog:
 externals:
   Libs/LibGlass-1.0:
     url: https://github.com/Spotnick2/LibGlass
-    tag: r11
+    tag: r12
   # Flight times (#153), shared with GlassPanel's Flight plugin. The same
   # rules: pinned to a tag, never latest; CI reads the pin from here.
   Libs/LibTaxiTime-1.0:
     url: https://github.com/Spotnick2/LibTaxiTime
-    tag: r1
+    tag: r2
 
 # YAML list, not markdown bullets. Every pattern matches the WHOLE path from
 # the package root (release.sh's match_pattern is a shell `case`), so the
