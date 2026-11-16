@@ -167,8 +167,10 @@ fight(false); settle()
 local glowing = Timer._test.glowing
 local g = t.glow
 check(Timer.glow and not Timer.sound, "defaults: glow on, sound off")
-eq(g.outer._file, "Interface\SpellActivationOverlay\IconAlert", "Blizzard's proc glow")
-eq(g.ants._file, "Interface\SpellActivationOverlay\IconAlertAnts", "and its ants")
+-- Long brackets: the expected paths can't lose their backslashes to escaping
+-- the way a quoted string can (Codex, #187).
+eq(g.outer._file, [[Interface\SpellActivationOverlay\IconAlert]], "Blizzard's proc glow")
+eq(g.ants._file, [[Interface\SpellActivationOverlay\IconAlertAnts]], "and its ants")
 local sounds = {}
 rawset(_G, "PlaySound", function(kit, channel) sounds[#sounds + 1] = { kit, channel }; return true, 1 end)
 fight(true)

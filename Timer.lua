@@ -36,8 +36,8 @@ local TICK = 0.2          -- the clock's writes (only when the whole second chan
 local ANIM = 0.25         -- opening and closing, seconds
 local EVENTS = { "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD" }
 
-local ALERT = "Interface\SpellActivationOverlay\IconAlert"
-local ANTS = "Interface\SpellActivationOverlay\IconAlertAnts"
+local ALERT = "Interface\\SpellActivationOverlay\\IconAlert"
+local ANTS = "Interface\\SpellActivationOverlay\\IconAlertAnts"
 local GLOW_IN, GLOW_HOLD, GLOW_OUT = 0.3, 3, 0.4   -- the burst, the hold, the fade (seconds)
 local OVERLAY = 1.4       -- the glow's box, times the pill on each axis (an action button's proportions)
 local ANT_FRAMES, ANT_STEP, ANT_SIZE = 22, 0.01, 48 / 256   -- the ants' flipbook: 5 a row on a 256 px sheet
