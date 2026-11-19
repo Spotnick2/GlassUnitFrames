@@ -1,7 +1,7 @@
 # WowTestKit for these tests: the commit, and the client build to test against.
-# 70888: GUF's MEASURED_ON_BUILD (ADOPTING.md: the build the addon was last
-# measured on). d272903 is the pinned 5ecf611 plus that build's data, nothing
-# else; the kit's API 2 (its main) is a pin bump of its own.
+# 70888: the build GUF was measured on until #198 (MEASURED_ON_BUILD is now
+# 70959). d272903 is the pinned 5ecf611 plus 70888's data, nothing else. The
+# kit's data for 70938 and 70959 is only on its main, API 2: that move is #199.
 sha=d2729034d1d1cac146139ad50e95c4f299993812
 build=70888
 api=1
