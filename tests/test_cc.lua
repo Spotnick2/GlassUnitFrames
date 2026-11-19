@@ -16,7 +16,7 @@ eq(GlassUnitFramesDB.ccIcon, nil, "and nothing saved")
 -- Over the target's portrait.
 check(S.SetCCIcon("target", "portrait"), "target: portrait")
 local c = t.ccContainer
-check(c ~= nil and c._type == "AuraContainer", "a container of its own")
+check(c ~= nil and c._intrinsic == "AuraContainer", "a container of its own")
 local group = c._groups and c._groups.glass_cc
 check(group ~= nil, "its aura group")
 eq(group.filter, "HARMFUL|CROWD_CONTROL", "the client's crowd-control filter")

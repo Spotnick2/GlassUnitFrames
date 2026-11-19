@@ -16,7 +16,7 @@ if WoW.units.focus then WoW.units.focus.casting = { name = "Heal" } end
 if WoW.units.pet then WoW.units.pet.casting = { name = "Firebolt" } end
 
 loadAddon()                       -- throws if a painter misuses a secret outside attempt()
-WoW.fireAllRegistered()
+WoW.fireAllRegistered(WoW.modelledUnits())
 WoW.tick()
 WoW.tick(0.1)                     -- cast time text updates
 WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "target")

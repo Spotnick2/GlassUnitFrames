@@ -11,7 +11,7 @@ dofile("tests/harness.lua")
 standardUnits()
 WoW.units.player.casting = { name = "Shadow Bolt" }
 loadAddon()
-WoW.fireAllRegistered()
+WoW.fireAllRegistered(WoW.modelledUnits())
 WoW.tick(); WoW.tick(0.1)
 WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "player"); WoW.flushTimers()
 -- Unlock mode: movers, a drag, the nudge panel (so their methods are checked).
@@ -82,35 +82,9 @@ local tf = CreateFrame("Frame", "TotemFrame", PlayerFrame)
 CreateFrame("Button", nil, tf)
 SlashCmdList.GLASSUNITFRAMES("totem")
 
--- Methods the dump cannot list: Blizzard_AuraContainer is a load-on-demand
--- Blizzard addon the dump did not capture, so neither its widget type nor
--- the methods of the buttons it creates are in the widget walk. Evidence they
--- exist on Forever: DinoUnitFrames (ships on this client) calls every one of
--- them (modules/auras.lua ForeverEnsureAuraContainer / ForeverInitAuraButton),
--- and an AuraContainer is a Frame underneath. Keep this list exact: anything
--- else missing from the build still fails.
-local DINO = "DinoUnitFrames-Forever modules/auras.lua (Blizzard_AuraContainer, not in the dump)"
-local allow = {
-    ["AuraContainer:AddAuraGroup"] = DINO, ["AuraContainer:UpdateAllAuras"] = DINO,
-    ["AuraContainer:SetUnit"] = DINO,
-    ["AuraContainer:SetFlowLayoutAnchorPoint"] = DINO, ["AuraContainer:SetFlowLayoutAxis"] = DINO,
-    ["AuraContainer:SetFlowLayoutMaximumLineSize"] = DINO, ["AuraContainer:SetFlowLayoutGrowthDirection"] = DINO,
-    ["AuraContainer:SetFlowLayoutPadding"] = DINO,
-    -- on the buttons the container creates (a Button in the tests)
-    ["Button:SetIcon"] = DINO, ["Button:SetDurationCooldown"] = DINO,
-    ["Button:SetDurationText"] = DINO, ["Button:SetApplicationCount"] = DINO,
-}
--- Any other method on an AuraContainer must be a Frame method in the pinned
--- build (a Frame underneath); one that isn't stays unallowed, and fails.
-local known = Kit.data("widgetMethods")
-for name in pairs(WoW.methodsCalled) do
-    local method = name:match("^AuraContainer:(%a+)$")
-    if method and not allow[name] and known["Frame:" .. method] then
-        allow[name] = "an AuraContainer is a Frame underneath (Frame:" .. method .. ")"
-    end
-end
-
-local recorded = Kit.checkMethods({ allow = allow })
+-- The aura container's and its buttons' mixin methods are allowed in the stub
+-- (Kit.allowMethods, with the Blizzard file each comes from).
+local recorded = Kit.checkMethods()
 -- The floor: what the exercise records today (218), rounded down, so it can't quietly shrink.
 check(recorded >= 210, "the exercise reached the frames, movers and options pages (" .. recorded .. " recorded)")
 done("test_methods")

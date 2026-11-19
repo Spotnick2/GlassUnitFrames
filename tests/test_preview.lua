@@ -53,6 +53,7 @@ local checksBefore = #WoW.rangeChecks
 
 -- Start: every other frame leaves its unit watch and shows sample data.
 eq(S.SetPreview(true), true, "Settings.SetPreview(true): on")
+local started = WoW.now   -- the sample loops run from here (the frames below move the clock too)
 WoW.runDue()
 eq(#WoW.rangeChecks, checksBefore, "the queued re-enable runs during the preview: no call")
 for _, u in ipairs(ABSENT) do
@@ -114,7 +115,7 @@ eq(textOf(pc.spell), "Frostbolt -> Sample Target", "a real START leaves the samp
 WoW.units.player.casting = nil
 
 -- The player's cycle: a cast and its green flash, a channel, a craft that's interrupted.
-adv(3.0)
+adv(started + 3.0 - WoW.now)
 check(pc.flashing, "the cast ends in a flash")
 eq(pc.bar._color[1], Castbar.colors.complete[1], "green")
 adv(1.5)

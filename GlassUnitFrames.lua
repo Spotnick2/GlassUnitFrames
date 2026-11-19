@@ -192,11 +192,16 @@ local function frameReport(name, label)
     -- IsProtected returns (protected, explicitly): explicit means the frame
     -- itself is secure (reparenting it is combat-locked), implicit means only
     -- through its relationships.
-    -- Every read and every formatting of a client value inside pcall: a
-    -- restricted frame can hand back secret offsets, which tostring rejects.
+    -- Every read of a client value inside pcall. A restricted frame can hand
+    -- back secret offsets: they're checked before any formatting, since a
+    -- caught touch is still a taint.log line on the client.
     local okP, prot, explicit = pcall(function() return tf:IsProtected() end)
     local okA, anchor = pcall(function()
         local point, anchorTo, relPoint, x, y = tf:GetPoint(1)
+        if API.IsSecret(point) or API.IsSecret(anchorTo) or API.IsSecret(relPoint)
+            or API.IsSecret(x) or API.IsSecret(y) then
+            return "(unreadable anchor)"
+        end
         if not point then return "(no anchor)" end
         return string.format("to %s (%s on %s, %s, %s)",
             (type(anchorTo) == "table") and frameName(anchorTo) or tostring(anchorTo or "screen"),

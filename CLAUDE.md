@@ -1144,8 +1144,8 @@ not port cleanly.
 ## Testing
 
 The test scaffolding is WowTestKit (`C:\Projects\WoW\WowTestKit`; its README is the reference)
-at the commit and client build `tests\kit.pin` names (build 70888, while GUF's `MEASURED_ON_BUILD`
-is 70959: the kit's 70959 data is on its API 2 only, #199).
+at the commit, client build and kit API `tests\kit.pin` names (build 70959, GUF's
+`MEASURED_ON_BUILD`; API 2 since #199, the kit's `docs/MIGRATING.md`).
 `tests\run.ps1` puts that commit in `%LOCALAPPDATA%\WowTestKit\<sha>` and hands off to the kit's
 runner; CI fetches it with `tests\fetch_kit.sh`. `tests\kit.lua`, `kit.ps1` and `fetch_kit.sh` are
 the kit's bootstrap copies: never edit them here. A kit need is an issue on the kit, worked around
@@ -1155,24 +1155,26 @@ runs against the `..\WowTestKit` working copy instead of the pin.
 The kit holds the mechanics: `check` / `eq` / `done` (with its stray-`|` check on every printed
 line), strict globals, secrets, event names checked against the pinned build's data, widgets that
 record every method called (`Kit.checkMethods` in `test_methods.lua`: each `Type:Method` must
-exist on that widget type), protected frames refusing changes in combat (`WoW.blocked`),
-`SetFormattedText` taking secrets, timers (`WoW.flushTimers`, `WoW.advance`), `fire` / `tick`.
-`tests\wow_stubs.lua` adds GUF's own client APIs (units, casts, heal prediction, the aura
-container, Blizzard's unit frames, ...) and, on top of the kit:
-- `RegisterUnitEvent`, with `WoW.fire` / `WoW.fireAllRegistered` delivering a unit event only to
-  its unit (kit #17);
-- the old stub's extra combat refusals, recorded in `WoW.blocked`: `SetSize` / `SetWidth` /
-  `SetHeight` / `SetParent` / `SetScale` / `RegisterForClicks` / moving / `SetAttribute` (kit #12);
-- `SetStatusBarColor` replacing the fill's gradient (LibGlass#64, kit #19);
-- `WoW.runDue()` (one pass over the timers due by `WoW.now`, in scheduling order) and
-  `WoW.tickTickers()` (one tick of every live ticker, left in place; the kit's tickers don't
-  repeat, kit #18);
-- `WoW.fontStrings`, `ag._plays`, the StatusBar interpolation fields (`_interp`,
-  `_minMaxInterp`), geometry (`GetCenter`, `GetRect`, `WoW.layout`) and `GetEffectiveScale`.
+exist on that widget type; a method the build lacks reads `nil`), protected frames refusing
+`WoW.PROTECTED` in combat (`WoW.blocked`), a swallowed secret touch failing the file (`done`: a
+caught touch is still a taint.log line), `RegisterUnitEvent`, `SetFormattedText` taking secrets,
+timers and repeating tickers (`WoW.flushTimers`, `WoW.advance`, `WoW.step`), `fire` /
+`fireAllRegistered` / `tick`. **`WoW.tick(dt)` moves the clock by `dt`** (a bare `tick()`
+by 0.02): never move `WoW.now` and then tick the same span.
+`tests\wow_stubs.lua` adds GUF's own client APIs (units, casts, heal prediction, Blizzard's unit
+frames, ...) and, on top of the kit:
+- the aura container's and its buttons' mixin methods, allowed by `Kit.allowMethods` with the
+  `Blizzard_AuraContainer` file of each (the kit makes `AuraContainer` a Frame, `AuraButton` a
+  Button);
+- `SetParent` in `WoW.PROTECTED`;
+- `WoW.runDue()` (the timers due by `WoW.now`: `WoW.advance(0)`) and `WoW.modelledUnits()` (for
+  `WoW.fireAllRegistered(units)`);
+- `WoW.fontStrings`, `ag._plays`, `w._silenced`, the StatusBar interpolation fields (`_interp`,
+  `_minMaxInterp`), geometry (`GetCenter`, `GetRect`, `WoW.layout`), `GetEffectiveScale` (the UI
+  scale, `WoW.uiScale`) and `GetStringHeight` (the tests' own metrics).
 
 `tests\harness.lua` keeps GUF's loader (`loadAddon`, `EMBEDDED`, `libRoot`, `loadForeverProbe`,
-`standardUnits`); `tocLines` / `tocFiles` wrap the kit's. Its `done` accepts the bare `|` of the
-`/glass` choice lists until #178 doubles them (a `FINDING`); any other stray still fails.
+`standardUnits`); `tocLines` / `tocFiles` wrap the kit's.
 
 `GlassUF.paintFailures` collects the errors that `attempt()` swallows in painters, so
 `test_secrets.lua` asserts it stays empty. Before trusting a new test, **mutation-test it**:

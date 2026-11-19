@@ -25,8 +25,8 @@ for _, unit in ipairs(GlassUF.Frames.ORDER) do
     end
     -- Unit buttons: up edge only, as SUF/DinoUF. The unit-button handler acts
     -- on every registered edge, so both edges could toggle the menu twice.
-    eq(#(b._clicks or {}), 1, unit .. " registers one click spec")
-    eq(b._clicks[1], "AnyUp", unit .. " clicks on the up edge")
+    eq(#(b._registeredClicks or {}), 1, unit .. " registers one click spec")
+    eq(b._registeredClicks[1], "AnyUp", unit .. " clicks on the up edge")
     check(WoW.unitWatch[b], unit .. " is under RegisterUnitWatch")
 end
 
@@ -302,7 +302,8 @@ WoW.units.player.casting = { name = "Shadow Bolt" }
 WoW.units.target.casting = { name = "Fireball" }
 if WoW.units.focus then WoW.units.focus.casting = { name = "Heal" } end
 if WoW.units.pet then WoW.units.pet.casting = { name = "Firebolt" } end
-local seen = WoW.fireAllRegistered()
+local seen = {}
+for _, e in ipairs(WoW.fireAllRegistered(WoW.modelledUnits())) do seen[e] = true end
 WoW.tick()
 check(seen.UNIT_HEALTH and seen.UNIT_SPELLCAST_START and seen.PLAYER_TARGET_CHANGED, "core events registered")
 eq(next(GlassUF.eventFailures), nil, "no event registration failures")
@@ -372,18 +373,18 @@ rawset(_G, "RestrictedThing", nil)
 SlashCmdList.GLASSUNITFRAMES("font friz")
 eq(GlassUnitFramesDB.font, "friz", "font saved")
 eq(p.nameText._font[1], "Fonts\\FRIZQT__.TTF", "font applied to existing text")
--- Translucent bar fill: texture alpha on every glass bar, text untouched.
-eq(p.health:GetStatusBarTexture()._alpha, 0.6, "bar fill at the default opacity (owner-picked)")
-SlashCmdList.GLASSUNITFRAMES("fill 0.5")
--- A coloured fill's opacity is drawn in its gradient: a gradient texture
--- ignores SetAlpha (measured, LibGlass #53; WowTestKit models it).
+-- Translucent bar fill on every glass bar, text untouched. A coloured fill's
+-- opacity is drawn in its gradient: a gradient texture ignores SetAlpha
+-- (measured, LibGlass #53; WowTestKit models it).
 local function fillOpacity(bar) local g = bar:GetStatusBarTexture()._gradient; return g and g[2].a end
+eq(fillOpacity(p.health), 0.6 * p.health.trackColor[4], "bar fill at the default opacity (owner-picked)")
+SlashCmdList.GLASSUNITFRAMES("fill 0.5")
 eq(fillOpacity(p.health), 0.5 * p.health.trackColor[4], "fill retuned live")
 eq(fillOpacity(p.power), 0.5 * p.power.trackColor[4], "power bar too")
 eq(GlassUnitFramesDB.fill, 0.5, "fill saved")
 check(p.nameText._alpha == nil or p.nameText._alpha == 1, "text stays opaque")
 p.health:SetStatusBarColor(1, 0, 0)
-eq(p.health:GetStatusBarTexture()._alpha, 0.5, "recolouring keeps the fill opacity")
+eq(fillOpacity(p.health), 0.5, "recolouring keeps the fill opacity")
 local vc = p.health.track._vertex
 eq(p.health.track._file, GlassUF.Glass.MEDIA .. "track_fade", "missing health: the fading ramp")
 check(vc and vc[1] == 1 and vc[2] == 0 and vc[4] == 0.75, "tinted with the bar's own colour")
@@ -420,11 +421,7 @@ eq(p.health.track:GetParent(), tc, "the track lives in the clip")
 SlashCmdList.GLASSUNITFRAMES("fill nan")
 eq(GlassUnitFramesDB.fill, 0.5, "NaN fill rejected")
 check(not GlassUF.Glass.SetTrackAlpha(0 / 0), "NaN track rejected")
--- A client visual reset of the fill's alpha is undone on the next recolour.
 local fillTex = p.health:GetStatusBarTexture()
-fillTex:SetAlpha(1)
-p.health:SetStatusBarColor(0, 1, 0)
-eq(fillTex._alpha, 0.5, "fill opacity re-applied after a reset")
 -- A caller's alpha is honoured by the fill gradient.
 p.health:SetStatusBarColor(0, 1, 0, 0.5)
 eq(fillTex._gradient[2].a, 0.25, "SetStatusBarColor's alpha kept (x the fill opacity)")

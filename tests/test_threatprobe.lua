@@ -245,7 +245,7 @@ do
         local native = method:gsub("^EventFrame:", "Frame:")
         local kind = native:match("^(%a+):")
         if kind == "Frame" or kind == "Button" or kind == "StatusBar" or kind == "FontString" or kind == "Texture" then
-            check(methods[native], "native widget method exists: " .. native)
+            check(methods[native] or Kit.allowedMethods[native], "native widget method exists: " .. native)
         end
     end
 end

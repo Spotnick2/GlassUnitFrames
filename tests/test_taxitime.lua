@@ -28,7 +28,7 @@ check(pc.time._text == "", "with no time to show")
 WoW.now = WoW.now + 30
 WoW.onTaxi = false
 WoW.fire("PLAYER_CONTROL_GAINED")
-WoW.tickTickers(); WoW.flushTimers(); WoW.tick()
+WoW.flushTimers(); WoW.tick()
 eq(LTT:Current(), nil, "the library lands it")
 check(not pc.host._shown, "the bar hides")
 

@@ -1,7 +1,6 @@
-# WowTestKit for these tests: the commit, and the client build to test against.
-# 70888: the build GUF was measured on until #198 (MEASURED_ON_BUILD is now
-# 70959). d272903 is the pinned 5ecf611 plus 70888's data, nothing else. The
-# kit's data for 70938 and 70959 is only on its main, API 2: that move is #199.
-sha=d2729034d1d1cac146139ad50e95c4f299993812
-build=70888
-api=1
+# WowTestKit for these tests: the commit, the client build to test against,
+# and the kit API the tests are written for. 70959: GUF's MEASURED_ON_BUILD.
+# 38c8a6c: the kit's main at the move to API 2 (#199; its docs/MIGRATING.md).
+sha=38c8a6c58a8caaf3b4cee41424e6e43502102a45
+build=70959
+api=2
