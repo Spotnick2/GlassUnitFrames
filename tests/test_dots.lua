@@ -29,7 +29,7 @@ local function land(guid, spellID) WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player"
 local function cast(spellID, name) local g = send(spellID, name); land(g, spellID); return g end
 local function wait(dt)            -- time passes a rendered frame at a time
     local steps = math.floor(dt / 0.05 + 0.5)
-    for _ = 1, steps do WoW.now = WoW.now + 0.05; WoW.tick(0.05) end
+    for _ = 1, steps do WoW.tick(0.05) end
 end
 local function hit(unit, school, action)
     WoW.fire("UNIT_COMBAT", unit or "target", action or "WOUND", "", WoW.Secret("amount"), school or 32)

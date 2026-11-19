@@ -22,7 +22,7 @@ local function cast(spellID, name)
     WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", g, spellID or CORRUPTION)
 end
 local function wait(dt)
-    for _ = 1, math.floor(dt / 0.05 + 0.5) do WoW.now = WoW.now + 0.05; WoW.tick(0.05) end
+    for _ = 1, math.floor(dt / 0.05 + 0.5) do WoW.tick(0.05) end
 end
 local function hit(unit) WoW.fire("UNIT_COMBAT", unit or "target", "WOUND", "", WoW.Secret("amount"), 32) end
 local function shownLines(b)

@@ -821,7 +821,7 @@ do
     local missing = {}
     for name in pairs(WoW.methodsCalled) do
         local kind = name:match("^(%a+):")
-        if (kind == "Frame" or kind == "Button" or kind == "Texture" or kind == "FontString" or kind == "StatusBar") and not methods[name] then
+        if (kind == "Frame" or kind == "Button" or kind == "Texture" or kind == "FontString" or kind == "StatusBar") and not methods[name] and not Kit.allowedMethods[name] then
             missing[#missing + 1] = name
         end
     end

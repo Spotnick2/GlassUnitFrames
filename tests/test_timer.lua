@@ -18,7 +18,7 @@ local function fight(on)
     WoW.combat = on
     WoW.fire(on and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED")
 end
-local function after(s) WoW.now = WoW.now + s; WoW.tick(0.25) end
+local function after(s) WoW.now = WoW.now + s - 0.25; WoW.tick(0.25) end   -- s passes, its last 0.25 a rendered frame
 local function settle() after(0.3) end   -- past the opening or closing animation
 
 -- Format.
@@ -39,7 +39,7 @@ check(host:IsShown(), "combat starts: it opens")
 eq(host._alpha, 0, "from transparent")
 eq(host._width, 18, "and a circle")
 eq(textOf(text), "00:00", "at 00:00")
-WoW.now = WoW.now + 0.125; WoW.tick(0.125)
+WoW.tick(0.125)
 check(host._alpha > 0.5 and host._alpha < 1, "half way: fading in (ease-out)")
 check(host._width > 18 and host._width < 52, "and growing")
 settle()
@@ -49,7 +49,7 @@ after(65)
 eq(textOf(text), "01:05", "counts up")
 fight(false)
 check(host:IsShown(), "combat ends: it closes, still shown")
-WoW.now = WoW.now + 0.125; WoW.tick(0.125)
+WoW.tick(0.125)
 check(host._alpha < 0.5 and host._alpha > 0, "fading out")
 eq(textOf(text), "01:05", "frozen on the fight's time")
 settle()
@@ -59,10 +59,10 @@ check(not t.ticker:IsShown(), "and its clock stops")
 fight(true)
 settle()
 fight(false)
-WoW.now = WoW.now + 0.125; WoW.tick(0.125)
+WoW.tick(0.125)
 local mid = host._alpha
 fight(true)
-WoW.now = WoW.now + 0.01; WoW.tick(0.01)
+WoW.tick(0.01)
 check(host._alpha >= mid, "a fight mid-close reopens from where it was")
 settle()
 eq(host._alpha, 1, "fully open again")
@@ -187,7 +187,7 @@ after(0.25)
 eq(g.ants._alpha, 1, "the ants march")
 local function antCell() return table.concat(g.ants._texCoord, ",") end
 local cell = antCell()
-WoW.now = WoW.now + 0.05; WoW.tick(0.05)
+WoW.tick(0.05)
 check(antCell() ~= cell, "the ants step their flipbook")
 eq(#g.ants._texCoord, 4, "one 48 px cell of it")
 eq(g.ants._texCoord[2] - g.ants._texCoord[1], 48 / 256, "48 px wide")

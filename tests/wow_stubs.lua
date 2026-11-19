@@ -10,17 +10,9 @@
 -- the methods the core doesn't have, and replaces a WoW.Methods entry where a
 -- test relies on it.
 
--- WowTestKit #8: a test that loads this file again for a fresh client
--- (test_cc) keeps its counts: the kit, with its assertions, is loaded once; a
--- reload rebuilds only the stub core.
-if rawget(_G, "Kit") and Kit.counts then
-    local strays = WoW.strays
-    setmetatable(_G, nil)
-    dofile(Kit.ROOT .. "/core/stubs.lua")
-    for _, line in ipairs(strays) do table.insert(WoW.strays, line) end
-else
-    dofile("tests/kit.lua")
-end
+-- A test that loads this file again (test_cc) gets a fresh client that keeps
+-- the file's counts: the kit's own (API 2).
+dofile("tests/kit.lua")
 local Methods = WoW.Methods
 local newWidget = WoW.newWidget
 local secrets = WoW.secrets
@@ -39,44 +31,19 @@ WoW.templates.SecureUnitButtonTemplate = function(w)
     while p do p._protected = true; p = p._parent end
 end
 
--- WowTestKit #12: a protected frame in combat also refuses resizing,
--- reparenting and SetAttribute (and, below, SetScale, RegisterForClicks,
--- StartMoving and StopMovingOrSizing); each refusal is recorded in
--- WoW.blocked, which the tests assert stays empty. The old stub's guards,
--- kept so those assertions still cover every change the client refuses.
-for _, m in ipairs({ "SetSize", "SetWidth", "SetHeight", "SetParent", "SetAttribute" }) do
-    local impl = Methods[m]
-    Methods[m] = function(w, ...)
-        if WoW.refused(w, m) then return end
-        if impl then return impl(w, ...) end
-    end
-end
+-- In combat a protected frame refuses every method in the kit's
+-- WoW.PROTECTED, recorded in WoW.blocked (which the tests assert stays
+-- empty). Reparenting too, which the kit's list leaves out.
+WoW.PROTECTED.SetParent = true
 
 --------------------------------------------------------------------------------
 -- Unit events
 --------------------------------------------------------------------------------
 
--- WowTestKit #17: RegisterUnitEvent. A unit event reaches the frame only for
--- the unit it registered (w._unitEvents[event] = unit); WoW.fire's first
--- payload argument is the unit.
-local function knownEvent(e)
-    if not WoW.KNOWN_EVENTS[e] then error("Attempt to register unknown event \"" .. tostring(e) .. "\"", 3) end
-end
-function Methods.RegisterUnitEvent(w, e, unit)
-    knownEvent(e)
-    w._unitEvents = w._unitEvents or {}
-    w._unitEvents[e] = unit
-    return true
-end
-local coreUnregisterEvent, coreUnregisterAllEvents = Methods.UnregisterEvent, Methods.UnregisterAllEvents
-function Methods.UnregisterEvent(w, e)
-    coreUnregisterEvent(w, e)
-    if w._unitEvents then w._unitEvents[e] = nil end
-end
 -- w._silenced: test_blizzard checks Blizzard's frames were silenced.
+local coreUnregisterAllEvents = Methods.UnregisterAllEvents
 function Methods.UnregisterAllEvents(w)
     coreUnregisterAllEvents(w)
-    w._unitEvents = {}
     w._silenced = true
 end
 
@@ -84,9 +51,6 @@ end
 -- Widget methods the core doesn't have, or GUF's on top of the core's
 --------------------------------------------------------------------------------
 
-function Methods.GetNumPoints(w) return #w._points end
-function Methods.SetScale(w, sc) if not WoW.refused(w, "SetScale") then w._scale = sc end end
-function Methods.GetScale(w) return w._scale or 1 end
 -- The UI's base scale (WoW.uiScale, 0.64 by default) times every SetScale on
 -- the widget and its parents, as the client computes it.
 function Methods.GetEffectiveScale(w)
@@ -98,10 +62,7 @@ function Methods.GetEffectiveScale(w)
     end
     return s
 end
-function Methods.IsProtected(w) return w._protected == true, w._explicit == true end
 function Methods.SetClipsChildren(w, v) w._clips = v end
-function Methods.RegisterForClicks(w, ...) if not WoW.refused(w, "RegisterForClicks") then w._clicks = { ... } end end
-function Methods.StartMoving(w) if not WoW.refused(w, "StartMoving") then w._moving = true end end
 
 -- No real geometry in the stub: a test sets w._center = { x, y } where it matters.
 -- With no _center: a frame placed CENTER on UIParent's CENTER resolves as the
@@ -198,20 +159,6 @@ function Methods.GetStringHeight(fs)
 end
 function Methods.LockHighlight(b) b._highlightLocked = true end
 function Methods.UnlockHighlight(b) b._highlightLocked = false end
-function Methods.SetScrollChild(sf, child) sf._scrollChild = child end
-function Methods.GetScrollChild(sf) return sf._scrollChild end
-function Methods.SetFocus(e) e._focus = true end
-function Methods.ClearFocus(e) e._focus = false end
-function Methods.HasFocus(e) return e._focus == true end
--- Button state textures: Set<State>Texture creates the texture, Get<State>Texture returns it.
-for _, state in ipairs({ "Normal", "Pushed", "Highlight", "Checked", "Disabled" }) do
-    Methods["Set" .. state .. "Texture"] = function(b, file)
-        local t = newWidget("Texture", b)
-        t._file = file
-        b["_" .. state] = t
-    end
-    Methods["Get" .. state .. "Texture"] = function(b) return b["_" .. state] end
-end
 
 -- StatusBar: takes values (secret or not) without inspecting them, and keeps
 -- the interpolation each call was given (the tests check snaps and eases).
@@ -224,13 +171,6 @@ function Methods.SetValue(b, v, interp)
 end
 function Methods.SetReverseFill(b, on) b._reverse = on end
 function Methods.GetReverseFill(b) return b._reverse end
--- WowTestKit #19: the client sets the fill's vertex colour, which replaces
--- the gradient that held the fill's opacity (measured in game, LibGlass#64);
--- test_frames' "recolouring keeps the fill opacity" relies on it.
-function Methods.SetStatusBarColor(b, r, g, bl, a)
-    b._color = { r, g, bl }
-    if b._fill then b._fill._gradient, b._fill._vertex = nil, { r, g, bl, a } end
-end
 function Methods.SetTimerDuration(b, d, interp, dir) b._timer = { duration = d, interp = interp, dir = dir } end
 
 --------------------------------------------------------------------------------
@@ -270,9 +210,29 @@ function Methods.GetModelFileID(m)
     return 123456
 end
 
--- Blizzard's managed aura container (Blizzard_AuraContainer; not in the API
--- dump, shipped by DinoUF on Forever). It records its groups; the client
--- would create buttons and call initializeFrame on each.
+-- Blizzard's managed aura container (Blizzard_AuraContainer). Its methods are
+-- Lua mixins, which the dump's widget walk can't see, on an XML intrinsic of
+-- Frame (AuraContainer) and of Button (AuraButton, the buttons it creates):
+-- the kit makes those a Frame and a Button (WoW.INTRINSIC). DinoUF calls every
+-- one of them on Forever (modules/auras.lua). Keep this list exact: anything
+-- else missing from the build still fails.
+local AURAS = "Interface/AddOns/Blizzard_AuraContainer/"
+Kit.allowMethods({
+    ["Frame:SetUnit"] = AURAS .. "Blizzard_AuraContainer.lua (AuraContainerSharedMixin)",
+    ["Frame:UpdateAllAuras"] = AURAS .. "Blizzard_AuraContainer.lua (AuraContainerSharedMixin)",
+    ["Frame:AddAuraGroup"] = AURAS .. "Blizzard_CustomAuraContainer.lua (CustomAuraContainerSharedMixin)",
+    ["Frame:SetFlowLayoutAxis"] = AURAS .. "Blizzard_AuraContainerFlowLayout.lua",
+    ["Frame:SetFlowLayoutAnchorPoint"] = AURAS .. "Blizzard_AuraContainerFlowLayout.lua",
+    ["Frame:SetFlowLayoutGrowthDirection"] = AURAS .. "Blizzard_AuraContainerFlowLayout.lua",
+    ["Frame:SetFlowLayoutPadding"] = AURAS .. "Blizzard_AuraContainerFlowLayout.lua",
+    ["Frame:SetFlowLayoutMaximumLineSize"] = AURAS .. "Blizzard_AuraContainerFlowLayout.lua",
+    ["Button:SetIcon"] = AURAS .. "Blizzard_CustomAuraButton.lua (CustomAuraButtonSharedMixin)",
+    ["Button:SetDurationCooldown"] = AURAS .. "Blizzard_CustomAuraButton.lua (CustomAuraButtonSharedMixin)",
+    ["Button:SetDurationText"] = AURAS .. "Blizzard_CustomAuraButton.lua (CustomAuraButtonSharedMixin)",
+    ["Button:SetApplicationCount"] = AURAS .. "Blizzard_CustomAuraButton.lua (CustomAuraButtonSharedMixin)",
+})
+-- It records its groups; the client would create buttons and call
+-- initializeFrame on each.
 function Methods.AddAuraGroup(c, name, filter, spec)
     c._groups = c._groups or {}
     c._groups[name] = { filter = filter, spec = spec }
@@ -386,31 +346,14 @@ end
 
 
 --------------------------------------------------------------------------------
--- Timers: the core's C_Timer.After records ({ s, fn, at }), run by its
--- WoW.flushTimers / WoW.advance, plus GUF's two helpers on top
+-- Timers: the core's C_Timer.After records ({ s, fn, at }) and tickers, run
+-- by its WoW.flushTimers / WoW.advance, plus GUF's helper on top
 --------------------------------------------------------------------------------
 
--- WoW.runDue(): one pass over the timers due by WoW.now (at <= now), in the
--- order they were scheduled, keeping the rest; one scheduled inside waits for
--- the next pass. The timing tests move WoW.now by hand and call it.
-function WoW.runDue()
-    local run, keep = {}, {}
-    for _, t in ipairs(WoW.timers) do
-        if (t.at or 0) <= WoW.now then run[#run + 1] = t else keep[#keep + 1] = t end
-    end
-    WoW.timers = keep
-    for _, t in ipairs(run) do if not t.cancelled then t.fn() end end
-end
-
--- WoW.tickTickers(): one tick of every live ticker (the core's C_Timer.NewTicker
--- records, those with `every`), each left in place. The core records a ticker
--- once, like a timer: WoW.flushTimers / WoW.advance run it and drop it
--- (WowTestKit #18: on the client it repeats); no test relies on a repeat yet.
-function WoW.tickTickers()
-    for _, t in ipairs(WoW.timers) do
-        if t.every and not t.cancelled then t.fn() end
-    end
-end
+-- WoW.runDue(): the timers due by WoW.now (at <= now), in due order, a
+-- ticker re-armed: the kit's WoW.advance(0). The timing tests move WoW.now by
+-- hand and call it.
+function WoW.runDue() WoW.advance(0) end
 
 -- C_DurationUtil.CreateDuration() -> LuaDurationObject (dump 70338): the
 -- methods the addon uses. A test reads _start / _dur.
@@ -757,35 +700,14 @@ end
 -- Driving
 --------------------------------------------------------------------------------
 
--- WowTestKit #17: fire an event at every frame registered for it, the way
--- the client does; a unit event reaches a RegisterUnitEvent frame only for
--- its unit. Errors are NOT caught: a handler that throws fails the test.
-function WoW.fire(event, ...)
-    local unit = ...
-    for _, w in ipairs(WoW.frames) do
-        local handler = w._scripts.OnEvent
-        if handler then
-            if w._events[event] then handler(w, event, ...)
-            elseif w._unitEvents and w._unitEvents[event] ~= nil and w._unitEvents[event] == unit then
-                handler(w, event, ...)
-            end
-        end
-    end
-end
-
--- WowTestKit #17: every event any frame registered, unit events included,
--- fired for every modelled unit and the player.
-function WoW.fireAllRegistered()
-    local seen = {}
-    for _, w in ipairs(WoW.frames) do
-        for e in pairs(w._events) do seen[e] = true end
-        for e in pairs(w._unitEvents or {}) do seen[e] = true end
-    end
-    for e in pairs(seen) do
-        for u in pairs(WoW.units) do WoW.fire(e, u) end
-        WoW.fire(e, "player")
-    end
-    return seen
+-- Every modelled unit and the player, sorted: the units for the kit's
+-- WoW.fireAllRegistered(units), so plain registrations get each as payload.
+function WoW.modelledUnits()
+    local set, list = { player = true }, {}
+    for u in pairs(WoW.units) do set[u] = true end
+    for u in pairs(set) do list[#list + 1] = u end
+    table.sort(list)
+    return list
 end
 
 -- The client's unit watch: show/hide watched frames by UnitExists.

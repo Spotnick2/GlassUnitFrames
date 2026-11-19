@@ -22,7 +22,7 @@ check(GlassUnitFramesDB.pos.player ~= nil, "reset deferred in combat")
 
 -- Heavy event traffic in combat, including target and pet churn and casts.
 WoW.units.target.casting = { name = "Fireball" }
-WoW.fireAllRegistered()
+WoW.fireAllRegistered(WoW.modelledUnits())
 WoW.SetUnit("target", nil)
 WoW.fire("PLAYER_TARGET_CHANGED")
 WoW.SetUnit("target", { name = "Wolf", reaction = 2 })

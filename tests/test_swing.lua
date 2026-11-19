@@ -22,7 +22,7 @@ local function combat(on)
     WoW.fire("PLAYER_IN_COMBAT_CHANGED", on)
 end
 local function swing(dur, t) WoW.fire("PLAYER_SWING", dur, t) end
-local function after(s) WoW.now = WoW.now + s; WoW.tick(0.06) end
+local function after(s) WoW.now = WoW.now + s - 0.06; WoW.tick(0.06) end   -- s passes, its last 0.06 a rendered frame
 local function shownRows()
     local n = 0
     for _, r in ipairs(rows) do if r.bar._shown then n = n + 1 end end

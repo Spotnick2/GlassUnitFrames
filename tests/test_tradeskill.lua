@@ -187,7 +187,7 @@ check(pc.craft ~= nil, "the target changing keeps the player's batch")
 craftEnd(g); stopped(); WoW.flushTimers()
 
 -- The merged batch bar (#93): one duration for the batch, held in the gaps.
-local function advance(sec) WoW.now = WoW.now + sec; WoW.runDue(); WoW.tick(0.06) end
+local function advance(sec) WoW.now = WoW.now + sec - 0.06; WoW.runDue(); WoW.step(0.06) end   -- sec passes, its last 0.06 a rendered frame with its timers
 local function near(a, b) return type(a) == "number" and math.abs(a - b) < 0.001 end
 WoW.flushTimers()
 local t0 = WoW.now
@@ -209,7 +209,7 @@ eq(pc.duration, k.dur, "with the batch duration")
 WoW.fire("UNIT_SPELLCAST_FAILED", "player", "Cast-2-0-0-0-133-0000000009", 133, nil)
 WoW.fire("UNIT_SPELLCAST_STOP", "player", "Cast-3-1-1-1-3275-older", 3275, "CastBar-1")
 WoW.fire("UNIT_SPELLCAST_INTERRUPTED", "player", "Cast-3-1-1-1-3275-older", 3275, nil, nil)
-WoW.tick()
+WoW.tick()   -- a rendered frame: 0.02 s of the gap
 check(k.holding and pc.host._shown, "an unrelated FAILED and an older craft's events keep the hold")
 -- A duplicate STOP doesn't re-arm.
 local gen = k.holdGen
@@ -218,8 +218,8 @@ eq(k.holdGen, gen, "a duplicate STOP doesn't re-arm the guard")
 advance(0.12)
 g = craftStart(3)
 eq(k.gapN, 1, "one gap sample")
-check(near(k.gapSum, 0.12), "the measured gap")
-check(near(k.dur._dur, (WoW.now + 3) + 3 * (3 + 0.12) - t0), "re-anchored to this craft's real end")
+check(near(k.gapSum, 0.14), "the measured gap (the frame and the 0.12 s after it)")
+check(near(k.dur._dur, (WoW.now + 3) + 3 * (3 + 0.14) - t0), "re-anchored to this craft's real end")
 eq(k.dur._start, t0, "the start never moves")
 -- The first hold's guard comes due mid-craft: stale, it does nothing.
 advance(1.6)
