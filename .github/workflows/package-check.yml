@@ -328,25 +328,15 @@ jobs:
             gh release create "$TAG" "${repo[@]}" --verify-tag --draft \
               --title "$title" --notes-file out/notes.md --prerelease="$pre"
           fi
-          # This tag's zip as GitHub stored it: whatever GitHub does to the
-          # addon's part of the name, it ends in -$TAG-forever.zip. A
-          # -forever.zip of any other name (another tag's, uploaded by hand)
-          # stops the run: kept, release.json would send WowUp to it while Wago
-          # gets this run's zip (Codex, GUF #206). A zip for this tag that an
-          # earlier run uploaded is this tag's build, and is kept.
-          stored_zip() {
-            local names name found=
-            names=$(gh release view "$TAG" "${repo[@]}" --json assets \
-              --jq '.assets[] | select(.state == "uploaded") | .name') || return 1
-            while read -r name; do
-              case "$name" in
-                *-"$TAG"-forever.zip) [ -n "$found" ] || found=$name ;;
-                *-forever.zip)
-                  echo "$TAG's release holds $name, which is not $TAG's zip. Delete it, then run again." >&2
-                  return 2 ;;
-              esac
-            done <<< "$names"
-            printf '%s\n' "$found"
+          # The release's -forever.zip assets, as GitHub stored their names
+          # (it renames characters it doesn't allow: Bugsy #38).
+          stored_zips() {
+            gh release view "$TAG" "${repo[@]}" --json assets \
+              --jq '.assets[] | select(.state == "uploaded") | .name' | { grep -- '-forever\.zip$' || true; }
+          }
+          one_zip() {
+            [ "$(printf '%s' "$1" | grep -c .)" -le 1 ] ||
+              { echo "$TAG's release holds more than one -forever.zip:"; echo "$1"; echo "Delete the wrong ones, then run again."; exit 1; }
           }
           # An upload that failed can leave an empty asset in "starter" state.
           # It still holds its name, and gh refuses to upload over a name that
@@ -358,16 +348,30 @@ jobs:
               echo "deleting an unfinished asset: $url"
               gh api -X DELETE "${url#https://api.github.com/}"
             done
-          asset=$(stored_zip)
+          mkdir -p gh
+          asset=$(stored_zips)
+          one_zip "$asset"
           if [ -n "$asset" ]; then
-            echo "keeping the zip an earlier run uploaded"
+            # A zip an earlier run uploaded is kept only when it IS the package
+            # this run checked: the same files with the same bytes (a rebuild
+            # of the tag differs only in the zip's timestamps). Anything else
+            # (another tag's or another addon's zip, uploaded by hand) stops
+            # the run before release.json is written: kept, it would send
+            # WowUp to that zip while Wago gets this one (Codex, GUF #206).
+            rm -rf gh/kept gh/built gh/kept.zip && mkdir -p gh/kept gh/built
+            gh release download "$TAG" "${repo[@]}" -p "$asset" -O gh/kept.zip
+            unzip -q gh/kept.zip -d gh/kept
+            unzip -q "$ZIP" -d gh/built
+            diff -r gh/kept gh/built ||
+              { echo "$TAG's release holds $asset, which is not the package this run checked. Delete it, then run again."; exit 1; }
+            echo "keeping the zip an earlier run uploaded: it is this package"
           else
             gh release upload "$TAG" "$ZIP" "${repo[@]}"
-            asset=$(stored_zip)
+            asset=$(stored_zips)
+            one_zip "$asset"
           fi
           test -n "$asset" || { echo "the release has no -forever.zip asset"; exit 1; }
           echo "the zip is stored as $asset"
-          mkdir -p gh
           jq -c --arg f "$asset" '.releases[0].filename = $f' out/release.json > gh/release.json
           cat gh/release.json
           if gh release view "$TAG" "${repo[@]}" --json assets \
