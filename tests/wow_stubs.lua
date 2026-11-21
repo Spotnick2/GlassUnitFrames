@@ -259,7 +259,7 @@ Enum = {
     UITextureSliceMode = { Stretched = 0, Tiled = 1 },
 }
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
-function GetBuildInfo() return "1.60.1", "70959", "Nov 12 2026", 16001 end
+function GetBuildInfo() return "1.60.1", "71037", "Nov 18 2026", 16001 end
 -- For LibTaxiTime-1.0 (#153; dump 70532): server time follows the frame
 -- time; WoW.onTaxi says the player is on a taxi.
 function GetServerTime() return 1800000000 + math.floor(WoW.now) end
