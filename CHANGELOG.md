@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.1 - 2026-11-20
+
+A maintenance release: nothing changes on your frames.
+
+- **Checked on the current client,** 1.60.1.71037.
+- **The shared glass library is now LibGlass r13.** It adds a glass button look for other
+  addons; Glass Unit Frames looks the same.
+
 ## v1.2.0 - 2026-11-16
 
 - **See a fight start.** The combat timer over your portrait now glows gold for a few seconds when

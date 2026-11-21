@@ -18,7 +18,7 @@ manual-changelog:
 externals:
   Libs/LibGlass-1.0:
     url: https://github.com/Spotnick2/LibGlass
-    tag: r12
+    tag: r13
   # Flight times (#153), shared with GlassPanel's Flight plugin. The same
   # rules: pinned to a tag, never latest; CI reads the pin from here.
   Libs/LibTaxiTime-1.0:
