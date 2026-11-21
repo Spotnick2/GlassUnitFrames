@@ -893,7 +893,7 @@ Classic API is usually stale.
 - `C:\Projects\WoW\References\Docs\PORTING-TBC-TO-FOREVER.md` holds the canonical addon-agnostic field
   notes, measured on the live client. Treat them as fact; don't re-derive them. Other sessions
   edit this file, so write new addon-agnostic findings there, not into a copy in this repo.
-- `C:\Projects\WoW\References\Forever\api\forever-api-1.60.1.70959.md` is the full API dump for the current
+- `C:\Projects\WoW\References\Forever\api\forever-api-1.60.1.71037.md` is the full API dump for the current
   build: documented functions and events, enums, **widget methods** (the only list of those), and
   the `_G` walk. It proves a name exists, not that it works. **Presence is not a contract.**
 - For a live check in game: `/api search <name>`, `/api system list`, `/api <system> list`
@@ -987,7 +987,7 @@ Write our own code.
   `EllesmereUIRaidFrames\` covers party and raid frames. `EllesmereUI_ForeverLayout.lua` shows
   default positions coexisting with Edit Mode.
 
-Keep a `MEASURED_ON_BUILD` constant in the source, matching the dump's build (`1.60.1.70959`),
+Keep a `MEASURED_ON_BUILD` constant in the source, matching the dump's build (`1.60.1.71037`),
 and warn at login when `GetBuildInfo()` differs, **dev copies only** (`API.IsDevBuild`: version
 `dev`, the unreplaced packager keyword, or unreadable), as AltStable does. Bump it only after
 re-measuring in game. Matching dumps don't prove runtime behaviour.
@@ -1144,7 +1144,7 @@ not port cleanly.
 ## Testing
 
 The test scaffolding is WowTestKit (`C:\Projects\WoW\WowTestKit`; its README is the reference)
-at the commit, client build and kit API `tests\kit.pin` names (build 70959, GUF's
+at the commit, client build and kit API `tests\kit.pin` names (build 71037, GUF's
 `MEASURED_ON_BUILD`; API 2 since #199, the kit's `docs/MIGRATING.md`).
 `tests\run.ps1` puts that commit in `%LOCALAPPDATA%\WowTestKit\<sha>` and hands off to the kit's
 runner; CI fetches it with `tests\fetch_kit.sh`. `tests\kit.lua`, `kit.ps1` and `fetch_kit.sh` are

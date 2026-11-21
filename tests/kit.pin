@@ -1,6 +1,6 @@
 # WowTestKit for these tests: the commit, the client build to test against,
-# and the kit API the tests are written for. 70959: GUF's MEASURED_ON_BUILD.
-# 38c8a6c: the kit's main at the move to API 2 (#199; its docs/MIGRATING.md).
-sha=38c8a6c58a8caaf3b4cee41424e6e43502102a45
-build=70959
+# and the kit API the tests are written for. 71037: GUF's MEASURED_ON_BUILD.
+# 85f5593: the kit's main with 71037's data (#203; API 2 since #199, its docs/MIGRATING.md).
+sha=85f5593879fd029fcabbc880bf38d788d3ed1bbb
+build=71037
 api=2
