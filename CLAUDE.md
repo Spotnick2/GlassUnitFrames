@@ -1025,8 +1025,9 @@ a full client restart.
 - **In game:** `/console scriptErrors 1` first, because errors are off by default. Then `/reload`.
   Check the AddOns list shows the addon enabled **and not flagged out of date**. The client
   doesn't block a wrong interface number, so "it loaded" proves nothing. Error delivery stops
-  after 100 errors in a session. BugGrabber + BugSack capture locals, which helps with
-  secret-value bugs.
+  after 100 errors in one frame. The owner's client runs **Bugsy** (the root `CLAUDE.md`, "Lua
+  errors in game"): read its `!Bugsy.lua` SavedVariables yourself after a `/reload`, and ask for
+  `/bugsy locals on` for a secret-value bug.
 
 ## Addon basics
 
