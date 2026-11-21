@@ -328,9 +328,25 @@ jobs:
             gh release create "$TAG" "${repo[@]}" --verify-tag --draft \
               --title "$title" --notes-file out/notes.md --prerelease="$pre"
           fi
+          # This tag's zip as GitHub stored it: whatever GitHub does to the
+          # addon's part of the name, it ends in -$TAG-forever.zip. A
+          # -forever.zip of any other name (another tag's, uploaded by hand)
+          # stops the run: kept, release.json would send WowUp to it while Wago
+          # gets this run's zip (Codex, GUF #206). A zip for this tag that an
+          # earlier run uploaded is this tag's build, and is kept.
           stored_zip() {
-            gh release view "$TAG" "${repo[@]}" --json assets \
-              --jq '.assets[] | select(.state == "uploaded") | .name' | grep -- '-forever\.zip$' | head -1
+            local names name found=
+            names=$(gh release view "$TAG" "${repo[@]}" --json assets \
+              --jq '.assets[] | select(.state == "uploaded") | .name') || return 1
+            while read -r name; do
+              case "$name" in
+                *-"$TAG"-forever.zip) [ -n "$found" ] || found=$name ;;
+                *-forever.zip)
+                  echo "$TAG's release holds $name, which is not $TAG's zip. Delete it, then run again." >&2
+                  return 2 ;;
+              esac
+            done <<< "$names"
+            printf '%s\n' "$found"
           }
           # An upload that failed can leave an empty asset in "starter" state.
           # It still holds its name, and gh refuses to upload over a name that
@@ -342,12 +358,12 @@ jobs:
               echo "deleting an unfinished asset: $url"
               gh api -X DELETE "${url#https://api.github.com/}"
             done
-          asset=$(stored_zip || true)
+          asset=$(stored_zip)
           if [ -n "$asset" ]; then
             echo "keeping the zip an earlier run uploaded"
           else
             gh release upload "$TAG" "$ZIP" "${repo[@]}"
-            asset=$(stored_zip || true)
+            asset=$(stored_zip)
           fi
           test -n "$asset" || { echo "the release has no -forever.zip asset"; exit 1; }
           echo "the zip is stored as $asset"
