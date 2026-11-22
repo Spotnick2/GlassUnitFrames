@@ -70,9 +70,10 @@ off).
 
 **Target threat.** In group combat, a small glass plate beside your target shows your threat
 rank and how close you are to pulling aggro, shading from mint to amber at 90% and coral at 100%,
-with an optional warning gong. Hover it for the top five; click it for the whole ranking of
-players and pets. A tank isn't warned while holding aggro. It can also show in solo combat, or
-not at all, on the Threat options page.
+with an optional warning gong, which by default plays only when someone in your group has the
+tank role. Hover it for the top five; click it for the whole ranking of players and pets. A tank
+isn't warned while holding aggro. It can also show in solo combat, or not at all, on the Threat
+options page.
 
 **Will my DoTs kill it?** On your target's and focus's health bars, a striped red marker shows how
 much health your own damage-over-time spells will still take, with a thin line for each tick to
@@ -136,6 +137,7 @@ place and colour things without a target, a pet or a fight.
 - `/guf absorb on|off` - absorb shields on the health bars
 - `/guf threat on|off|always` - target threat in group combat, always, or never (more options
   in `/guf help`)
+- `/guf threat sound tank on|off` - the warning gong only when the group has a tank, or always
 - `/guf dots on|off`, `/guf dots marker|ticks|icon|focus on|off` - will your DoTs kill it
 - `/guf flight on|off` - a taxi flight on your cast bar
 - `/guf link on|off` - the frames beside Glass Raid Frames' layout
@@ -159,7 +161,9 @@ place and colour things without a target, a pet or a fight.
 - **Not yet checked in game:** the combo points, the druid mana strip, the fatigue and feign death
   bars (the breath bar is), the crowd-control icon, the absorb shield segment and the combat
   timer's new glow and sound are built and tested offline only (the game was checked to report
-  shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids. The
+  shields). Target threat was checked in outdoor party combat, not yet in dungeons or raids, and the
+  gong's wait for a tank is new: roles come from the group finder or the Set Role menu, and a
+  group where nobody set one counts as having no tank. The
   DoT kill estimate's marker and skull are new and not yet seen in game; its timings were measured
   with a priest's Shadow Word: Pain outdoors, and the other classes' DoTs, combo-point finishers,
   dungeons and raids are untested. Reports welcome.
