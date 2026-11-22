@@ -561,7 +561,11 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
       and warn at 90% (rearm below 85%); tanks (`Zoom.role`, else `API.ThreatTankRole`) use
       `UnitThreatLeadSituation`, so holding aggro never warns. The sound (`API.ThreatSound`,
       "Boxing Arena Gong") plays only in group combat, once per warning, 5 s cooldown, never in a
-      preview, never from a secret value.
+      preview, never from a secret value. By default (#207) only with a tank in the group
+      (`T.GroupHasTank`: `T.IsTank()`, or any roster unit's `UnitGroupRolesAssigned` plainly
+      `"TANK"`; secret or unreadable is no tank). `db.threat.soundNeedsTank` (false when off),
+      `Settings.SetThreatSoundNeedsTank`, `/guf threat sound tank on|off`. Whether Forever
+      assigns roles in practice is unmeasured (its group finder calls `UnitSetRole`).
     - **When it shows:** a hostile live target and `mode` "group" (the default, `nil` saved) in
       combat; "always" adds solo combat; "off". No idle display. Combat end keeps the last combat
       snapshot for `hideDelay` (0–60, default 10 s), then closes. A target change or clear hides at
@@ -581,7 +585,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - **Settings:** `db.threat = { mode, view, expand[role], hideDelay, sound, ...geometry }`,
     the **Threat** sub-page (registered after Combat zoom: Display, hide delay, View, combat
     expansion for this role, sound + Test, previews, reset), and `/guf threat on|off|always |
-    view compact|expanded|auto | delay N | sound on|off | expand on|off | preview
+    view compact|expanded|auto | delay N | sound on|off | sound tank on|off | expand on|off | preview
     compact|expanded|off | reset | test`. `Settings.SetThreatMode|Sound|Expand`.
   - **The sound file** `Sounds/BoxingArenaSound.ogg` is WeakAuras' (GPL-2, `Sounds/COPYING.txt`,
     `Sounds/README.txt`), not MIT; it ships, and CI's allowlist names all three files.

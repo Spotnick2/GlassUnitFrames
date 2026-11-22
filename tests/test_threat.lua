@@ -10,7 +10,7 @@ standardUnits()
 
 local grouped, raid, hostile = false, false, true
 
-local data, lead, sounds, tankRole = {}, 0, {}, false
+local data, lead, sounds, tankRole, roles = {}, 0, {}, false, {}
 
 rawset(_G, "IsInGroup", function() return grouped end)
 
@@ -29,6 +29,9 @@ rawset(_G, "UnitDetailedThreatSituation", function(u, mob)
 end)
 
 rawset(_G, "UnitThreatLeadSituation", function() return lead end)
+
+-- UnitGroupRolesAssigned(optional unit) -> cstring, per the 71037 dump.
+rawset(_G, "UnitGroupRolesAssigned", function(u) return roles[u or "player"] or "NONE" end)
 
 rawset(_G, "PlayerUtil", { IsPlayerEffectivelyTank = function() return tankRole end })
 
@@ -80,6 +83,8 @@ end
 eq(T.Mode(), "group", "group display enabled by default")
 
 check(T.enabled and T.SoundEnabled() and T.Expand(), "feature, sound and combat expansion default on")
+
+check(T.SoundNeedsTank(), "the sound waits for a tank by default (#207)")
 
 eq(V.window, nil, "solo default does not build UI")
 
@@ -171,7 +176,9 @@ eq(#sounds, 0, "safe threat is silent")
 
 
 
--- Non-tank warning, hysteresis, cooldown and secret gaps.
+-- Non-tank warning, hysteresis, cooldown and secret gaps. The group has a tank.
+
+roles.party1 = "TANK"
 
 data.player = { false, 1, 90, 99, 190 }
 
@@ -215,6 +222,58 @@ refresh(); eq(#sounds, 2, "re-enabling does not replay current warning")
 
 
 
+-- #207: no tank in the group, no gong (on by default); off restores it.
+
+roles.party1 = nil; WoW.now = WoW.now + 6
+
+data.player[3] = 80; refresh(); data.player[3] = 91; refresh()
+
+eq(#sounds, 2, "no tank in the group: no sound")
+
+check(V.compact:IsShown() or V.window:IsShown(), "the meter still shows without a tank")
+
+roles.party1 = "HEALER"; data.player[3] = 80; refresh(); data.player[3] = 91; refresh()
+
+eq(#sounds, 2, "a healer is not a tank")
+
+roles.party1 = WoW.Secret("role"); data.player[3] = 80; refresh(); data.player[3] = 91; refresh()
+
+eq(#sounds, 2, "a secret role is no tank")
+
+local rolesAPI = UnitGroupRolesAssigned
+
+rawset(_G, "UnitGroupRolesAssigned", function() error("refused") end)
+
+data.player[3] = 80; refresh(); data.player[3] = 91; refresh()
+
+eq(#sounds, 2, "an unreadable role is no tank")
+
+rawset(_G, "UnitGroupRolesAssigned", rolesAPI); roles.party1 = nil
+
+command("sound tank off")
+
+eq(GlassUnitFramesDB.threat.soundNeedsTank, false, "off is saved")
+
+data.player[3] = 80; refresh(); data.player[3] = 91; refresh()
+
+eq(#sounds, 3, "off: the sound plays without a tank")
+
+command("sound tank on")
+
+eq(GlassUnitFramesDB.threat.soundNeedsTank, nil, "on is the default: nothing saved")
+
+check(not T.SetSoundNeedsTank("yes"), "a non-boolean is refused")
+
+roles.player = "TANK"; WoW.now = WoW.now + 6
+
+data.player[3] = 80; refresh(); data.player[3] = 91; refresh()
+
+eq(#sounds, 4, "the player's own tank role counts")
+
+roles.player = nil; roles.party1 = "TANK"
+
+
+
 local secret = WoW.Secret("threat")
 
 data.player = { secret, secret, secret, secret, secret }
@@ -233,7 +292,7 @@ check(V.rows[1].bar:GetValue() == secret, "secret percent goes directly to nativ
 
 eq(V.rows[1].value._text.secretFormat, "%.0f%%", "native formatting receives secret")
 
-eq(#sounds, 2, "unknown danger does not play sound")
+eq(#sounds, 4, "unknown danger does not play sound")
 
 S.SetThreatExpand(false)
 
@@ -275,7 +334,7 @@ hostile = true
 
 data.player = { true, 3, 100, 255, 210 }
 
-refresh(); eq(#sounds, 2, "holding aggro does not trigger approaching-aggro sound")
+refresh(); eq(#sounds, 4, "holding aggro does not trigger approaching-aggro sound")
 
 data.player = { false, 3, 231.818176, 255, 0 }
 
@@ -291,7 +350,7 @@ check(T.snapshot.player.tank == false, "status 3 does not overwrite explicit tan
 
 data.player = { true, 3, 100, 255, 210 }
 
-GlassUF.Zoom.role = "tank"
+GlassUF.Zoom.role = "tank"; roles.party1 = nil   -- GUF's own tank role counts as the group's tank (#207)
 
 lead = 0; refresh(); local beforeTank = #sounds
 
@@ -461,6 +520,14 @@ eq(T.Mode(), "group", "settings default control")
 controls.threatSound:SetChecked(false); controls.threatSound._scripts.OnClick(controls.threatSound)
 
 check(not T.SoundEnabled(), "settings sound control")
+
+controls.threatSoundTank:SetChecked(false); controls.threatSoundTank._scripts.OnClick(controls.threatSoundTank)
+
+check(not T.SoundNeedsTank(), "settings tank-only control")
+
+controls.threatSoundTank:SetChecked(true); controls.threatSoundTank._scripts.OnClick(controls.threatSoundTank)
+
+check(T.SoundNeedsTank(), "settings tank-only control back on")
 
 controls.threatExpand:SetChecked(true); controls.threatExpand._scripts.OnClick(controls.threatExpand)
 
