@@ -512,6 +512,7 @@ end
 
 function Settings_.SetThreatMode(mode) return GlassUF.Threat.SetMode(mode) end
 function Settings_.SetThreatSound(on) return GlassUF.Threat.SetSound(on) end
+function Settings_.SetThreatSoundNeedsTank(on) return GlassUF.Threat.SetSoundNeedsTank(on) end
 function Settings_.SetThreatExpand(on) return GlassUF.Threat.SetExpand(on) end
 
 -- The glass swing timer rows (#87): db.swingTimer = false when off.
@@ -815,13 +816,14 @@ local function slash(msg)
         if action == "on" then Settings_.SetThreatMode("group")
         elseif action == "off" or action == "always" or action == "group" then Settings_.SetThreatMode(action)
         elseif action == "sound" and (value == "on" or value == "off") then Settings_.SetThreatSound(value == "on")
+        elseif action == "sound" and (value == "tank on" or value == "tank off") then Settings_.SetThreatSoundNeedsTank(value == "tank on")
         elseif action == "expand" and (value == "on" or value == "off") then Settings_.SetThreatExpand(value == "on")
         elseif action == "view" and (value == "compact" or value == "expanded" or value == "auto") then T.SetDisplay(value)
         elseif action == "delay" and tonumber(value) then T.SetHideDelay(tonumber(value))
         elseif action == "preview" then T.Preview(value)
         elseif action == "reset" then T.ResetPositions()
         elseif action == "test" then API.ThreatSound()
-        else usage("threat on|off|always (solo combat) | view compact|expanded|auto | delay 0-60 | sound on|off | expand on|off | preview compact|expanded|off | reset | test") end
+        else usage("threat on|off|always (solo combat) | view compact|expanded|auto | delay 0-60 | sound on|off | sound tank on|off (only with a tank) | expand on|off | preview compact|expanded|off | reset | test") end
     elseif cmd == "secrets" then
         secretsReport()
     elseif cmd == "totem" then

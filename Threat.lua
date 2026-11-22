@@ -24,6 +24,8 @@ local function config() return db and type(db.threat) == "table" and db.threat o
 local function edit() if type(db.threat) ~= "table" then db.threat = {} end; return db.threat end
 function T.Mode() local m = config().mode; return MODES[m] and m or "group" end
 function T.SoundEnabled() return config().sound ~= false end
+-- #207: by default the gong waits for a tank in the group (no tank, pulling is expected).
+function T.SoundNeedsTank() return config().soundNeedsTank ~= false end
 function T.HideDelay()
     local delay = config().hideDelay
     return number(delay) and math.max(0, math.min(60, delay)) or 10
@@ -81,6 +83,11 @@ function T.SetSound(on)
     if on then edit().sound = nil else edit().sound = false end
     return true
 end
+function T.SetSoundNeedsTank(on)
+    if not db or type(on) ~= "boolean" then return false end
+    if on then edit().soundNeedsTank = nil else edit().soundNeedsTank = false end
+    return true
+end
 function T.SetExpand(on)
     if not db or type(on) ~= "boolean" then return false end
     local c, role = edit(), T.EditRole()
@@ -113,6 +120,18 @@ local function roster()
         end
     end
     return units, grouped
+end
+
+-- Someone with the tank role: the player when GUF treats them as one, or any
+-- group member whose assigned role reads plainly "TANK". A secret, unreadable
+-- or missing role is no tank (errs silent). Read only when about to warn.
+function T.GroupHasTank()
+    if T.IsTank() then return true end
+    for _, unit in ipairs((roster())) do
+        local ok, role = API.ThreatCall("UnitGroupRolesAssigned", unit)
+        if ok and plain(role) == "TANK" then return true end
+    end
+    return false
 end
 
 local function entry(unit, index)
@@ -240,7 +259,7 @@ function T.Refresh()
     if safe or not s.valid or not combat then alerted = false end
     if danger and not alerted and combat and grouped and s.valid then
         alerted = true
-        if T.SoundEnabled() and GetTime() - lastSound >= 5 then
+        if T.SoundEnabled() and GetTime() - lastSound >= 5 and (not T.SoundNeedsTank() or T.GroupHasTank()) then
             lastSound = GetTime()
             if not API.ThreatSound() then API.Fail("threat sound", "Boxing Arena Gong could not be played") end
         end
