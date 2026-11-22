@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.3.0 - 2026-11-22
+
+- **The threat gong waits for a tank.** In group combat, the warning sound now plays only when
+  your group has a tank, so a group without one, where pulling aggro is normal, stays quiet. The
+  plate's colours still warn you either way. A tank is anyone whose group role is Tank (set in the
+  group finder or with Set Role on a group member), or you, when your role on the Combat zoom
+  page is Tank. A group where neither is set counts as having no tank. It's on by default; turn it
+  off under Warning sound on the Threat options page, or with `/guf threat sound tank off`, and the
+  gong plays in any group combat again. It never plays solo.
+
 ## v1.2.1 - 2026-11-20
 
 A maintenance release: nothing changes on your frames.
