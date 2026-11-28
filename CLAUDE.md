@@ -792,6 +792,31 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   **validated** (a malformed one falls back to the default instead of aborting the build), and
   old-style saves are still honoured. Positions change only through `Frames.SetPosition` /
   `ResetPosition` / `ResetPositions`, **out of combat**.
+- **Frame scale** (#217, `docs/FRAME-SCALE-PLAN.md`, Codex APPROVE after 5 rounds): one scale per
+  group, `player` (with the pet) and `target` (ToT, ToTT, focus, focus target), 0.5–2 in 0.05
+  steps. `db.frameScale[group]`, saved only when not 1; `Settings.SetFrameScale`, `/guf scale
+  player|target <n>`, two sliders under the main page's Positions, and the Scale field on the
+  player's and target's movers (enabled even while the group layout places them).
+  - **Units:** a save on UIParent is in UIParent units, applied divided by the scale (SetPoint
+    offsets are in the button's own units); a save on the leader is in design units, applied raw,
+    so a cluster scales around its leader. `PositionOf` / `SetPosition` / `SavePosition` speak
+    UIParent units; `SetPosition` divides its live write by the scale and refuses, before moving
+    anything, a spot whose stored value would fail `sane`.
+  - `Frames.scaleReq` (asked, saved) vs `scaleApplied` (on the buttons): every conversion uses the
+    applied one. In combat a change waits in `WhenOutOfCombat("scale:<group>")`. `build` sets the
+    scale before its first `applyPosition` (the build itself can be queued).
+  - **Applying** (`applyScale`): `Movers.FinishDrag()` first, then `SetScale` + `applyPosition` on
+    the group's buttons in `ORDER`, `Castbar.Place` on every bar whose `c.b` is in the group, the
+    panel, and one `Link.Announce()`.
+  - **Children inherit it** (body, auras, docked cast bars and swing rows, timer, DoT marker);
+    **detached bars don't**: `Castbar.PlaceAt` divides the host's scale by its parent's (relative to
+    UIParent), and Zoom's `rectOf` reads the effective ratio. `Link.PointOf` and `OwnCenterX` use
+    `Frames.ScaledWidthOf`; Movers' `offsetsFromMover` converts the leader's centre.
+  - A linked frame too wide for the room beside the grid stops at the screen's edge, as the
+    client's clamp would. `Frames.ClampCenterX` clamps both `Link.PointOf` and
+    `Frames.OwnCenterX`, so the announced `dx` is the real move (Codex, #218).
+  - Not checked in game yet: the glass rims and 1 px lines at 0.6 / 1.4, the 3D portrait small, a
+    change while linked with GlassActionBars following, a change in combat.
 - **`Movers.lua`**: unlock mode (`/guf unlock|lock`, the options panel's Unlock button). One
   plain, insecure mover per **source** on UIParent, **anchored to its frame, never the reverse**
   (a frame a protected frame anchors to becomes protected). A source is the adapter a mover
@@ -841,7 +866,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     session.
 - **`GlassUnitFrames.lua`**:
   - `GlassUnitFramesDB` (`font`, `pos`, `hideBlizzard`, `hideBlizzardCast` (true by default, #141; `false` when shown), `mark`, `aggroRed`, `level`, `healthText[unit]`,
-    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `timerGlow` / `timerSound` (#186: false when off / true when on), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `absorbBar` (#171, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `dots` (#175), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
+    `castLatency|castLatencyText|castPushback|castTargetName|castTotalTime|castComplete|castCraftCount|castCraftMerge|castGCD|castRange` (saved only when off), `castBars[unit]` (#74; `castBars.swing` is the swing pill, #87), `castColors[key]`, `castPrecision` (#78), `swingTimer` (#87, saved only when off), `combatTimer` (#120, saved only when off), `timerGlow` / `timerSound` (#186: false when off / true when on), `fiveSecondRule` / `fsrCombatOnly` (#94, saved only when off), `manaRegen` (#118, saved only when off), `flightBar` (#148, false when off), `absorbBar` (#171, false when off), `mirrorTimers` (#151, false when off), `ccIcon[unit]` (#159), `dots` (#175), `look` (#102, #129: "clean", "classic" or nil = Pearl), `glassBody` (#101, "smoked" or nil), `trackRamp` (#117, "edge" or nil), `groupLink` (#132, false when off), `frameScale[group]` (#217, only when not 1), `portrait[unit]` (#97, "2d" | "none"), `zoom` / `zoomRole` (#89), `threat` (#86, see `Threat.lua`), and the material knobs `fill|rim|track|fade|edge`, saved only once set);
   - the frames are built at `ADDON_LOADED`, before any lockdown;
   - **the addon's one combat queue**, `GlassUF.WhenOutOfCombat(key, fn, message)`: ordered, the
     build first, `message = false` for silent. Don't add a second one;
@@ -850,7 +875,7 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     a bare `|x` as an escape, so `on|off` printed `onff`). Write choices as plain `a|b` there;
     a line with its own colour codes goes through `say` instead. `test_frames.lua` fails on any
     bare `|` the help or a usage reply prints.
-  - `/guf options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|timer glow on|off|timer sound on|off|test|flight on|off|absorb on|off|dots ...|breath on|off|cc <unit> <mode>|regen on|off|link on|off|threat ...`, plus the live
+  - `/guf options|font|mark|level|text <unit> <format>|reset|blizzard show|hide|secrets|totem|frame <Name>|ramp whole|edge|timer on|off|timer glow on|off|timer sound on|off|test|flight on|off|absorb on|off|dots ...|breath on|off|cc <unit> <mode>|regen on|off|link on|off|scale player|target <n>|threat ...`, plus the live
     material tweaks `fill|rim|track|fade|edge` (one `TWEAKS` table; saved only once set, so a new
     default still reaches everyone). `totem` / `frame` report where a Blizzard frame lives.
 - **`Options.lua`**: the options panel under Game Menu > Options > AddOns > Glass Unit Frames

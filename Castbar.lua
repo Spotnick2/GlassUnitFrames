@@ -930,9 +930,18 @@ Castbar.PlaceStack = placeStack
 
 -- A detached host: its scale, CENTER on the screen centre. The spot is in
 -- screen (UIParent) units at any scale, so the offsets are divided by it.
+-- The host is a child of its unit button, which has its group's scale
+-- (#217): its own is divided by the parent's (relative to UIParent), so the
+-- bar's scale on screen is `scale` whatever the frame's.
 function Castbar.PlaceAt(host, x, y, scale)
     host:ClearAllPoints()
-    host:SetScale(scale)
+    local k = 1
+    local parent = host:GetParent()
+    if parent and parent ~= UIParent then
+        local pe, ue = parent:GetEffectiveScale(), UIParent:GetEffectiveScale()
+        if type(pe) == "number" and type(ue) == "number" and pe > 0 and ue > 0 then k = pe / ue end
+    end
+    host:SetScale(scale / k)
     host:SetPoint("CENTER", UIParent, "CENTER", x / scale, y / scale)
 end
 

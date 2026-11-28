@@ -211,20 +211,22 @@ S.SetPortraitMode("player", "3d")
 check(near(select(4, pointOf(pl)), 400 - 24 - 365 / 2), "the portrait back: the 365 width again")
 
 -- A new state glides: the buttons snap, their visuals ease from where they were.
-local wider = copy(HUD)
-wider.l = 300
-announce(wider)
-check(near(select(4, pointOf(pl)), 300 - 24 - 365 / 2), "the button snapped to its new place")
+-- (Both frames fit on the 1366 screen: a frame that doesn't stops at its
+-- edge, #218, as the client's clamp would put it.)
+local moved = copy(HUD)
+moved.l, moved.w = 500, 476   -- the target 10 right, its right edge at 1365
+announce(moved)
+check(near(select(4, pointOf(pl)), 500 - 24 - 365 / 2), "the button snapped to its new place")
 eq(select(5, pointOf(pl)), -272, "at the same height")
 local g = Link._test.glides[pl.body]
 check(g ~= nil, "the player's body glides")
-check(g and near(g.dx, 100) and near(g.dy, 0), "from where it was: 100 to the right")
+check(g and near(g.dx, -100) and near(g.dy, 0), "from where it was: 100 to the left")
 local bp = pl.body._points[1]
-check(bp[1] == "RIGHT" and bp[2] == pl and near(bp[4], 100), "the body starts at its old place")
+check(bp[1] == "RIGHT" and bp[2] == pl and near(bp[4], -100), "the body starts at its old place")
 check(Link._test.glides[pl.tile] ~= nil and Link._test.glides[tg.body] ~= nil, "the tile and the target glide too")
 check(Link._test.glides[button("pet").body] ~= nil, "the riding pet glides with them")
 WoW.tick(Link._test.DURATION / 2)
-check(near(pl.body._points[1][4], 100 * 0.125), "halfway: the cubic ease-out")
+check(near(pl.body._points[1][4], -100 * 0.125), "halfway: the cubic ease-out")
 WoW.tick(Link._test.DURATION)
 check(near(pl.body._points[1][4], 0) and pl.body._points[1][2] == pl, "home: on its button, no offset")
 eq(next(Link._test.glides), nil, "the glide is over")
@@ -242,7 +244,7 @@ db.pos.pet = { "CENTER", "UIParent", "CENTER", -300, -190 }       -- a follower 
 local savedPlayer, savedPet = copy(db.pos.player), copy(db.pos.pet)
 Frames.ApplyPosition("player")   -- as a load applies it
 pt, rel, rpt, x, y = pointOf(pl)
-check(pt == "TOP" and rpt == "BOTTOMLEFT" and near(x, 300 - 24 - 365 / 2) and y == 700,
+check(pt == "TOP" and rpt == "BOTTOMLEFT" and near(x, 500 - 24 - 365 / 2) and y == 700,
       "an older save: its own vertical anchor (top 700 up), the layout's x")
 check(near(Frames.OwnCenterX("player"), 10 + 365 / 2), "its own centre x: the TOPLEFT save's left edge plus half its width")
 S.ResetPositions()
@@ -279,7 +281,7 @@ M.Lock()
 combat(true)
 n = #heard
 announce(HUD)
-check(near(select(4, pointOf(pl)), 300 - 24 - 365 / 2), "in combat: the frames stay")
+check(near(select(4, pointOf(pl)), 500 - 24 - 365 / 2), "in combat: the frames stay")
 eq(#WoW.blocked, 0, "nothing blocked")
 eq(#heard, n, "nothing announced in combat")
 combat(false)
