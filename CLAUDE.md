@@ -806,8 +806,10 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     applied one. In combat a change waits in `WhenOutOfCombat("scale:<group>")`. `build` sets the
     scale before its first `applyPosition` (the build itself can be queued).
   - **Applying** (`applyScale`): `Movers.FinishDrag()` first, then `SetScale` + `applyPosition` on
-    the group's buttons in `ORDER`, `Castbar.Place` on every bar whose `c.b` is in the group, the
-    panel, and one `Link.Announce()`.
+    the group's buttons in `ORDER`, a portrait repaint (a 3D model's camera stayed zoomed for the
+    old size, seen in game, #219), `Castbar.Place` on every bar whose `c.b` is in the group, the
+    panel, and one `Link.Announce()`. The sliders show the percentage beside their label and a
+    tick at 100% (the value past the track was off the canvas).
   - **Children inherit it** (body, auras, docked cast bars and swing rows, timer, DoT marker);
     **detached bars don't**: `Castbar.PlaceAt` divides the host's scale by its parent's (relative to
     UIParent), and Zoom's `rectOf` reads the effective ratio. `Link.PointOf` and `OwnCenterX` use

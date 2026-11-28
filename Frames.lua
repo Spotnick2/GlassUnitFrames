@@ -1223,7 +1223,13 @@ local function applyScale(group)
             placed[#placed + 1] = b
         end
     end
-    for _, b in ipairs(placed) do applyPosition(b) end
+    for _, b in ipairs(placed) do
+        applyPosition(b)
+        -- A 3D model's camera isn't redone when its parent's scale changes:
+        -- it stayed zoomed for the old size (seen in game, #219). A portrait
+        -- paint loads it afresh.
+        if b.tile then Engine.MarkDirty(b, "portrait") end
+    end
     local Castbar = GlassUF.Castbar
     for _, c in pairs(Castbar.bars) do
         if c.b and c.b.unit and Frames.GroupOf(c.b.unit) == group then Castbar.Place(c) end
