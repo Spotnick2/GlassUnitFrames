@@ -105,6 +105,11 @@ carries its group and the player its pet, and moving the player or target mirror
 the pair is symmetric. `/guf preview` shows every frame and bar with sample data, so you can
 place and colour things without a target, a pet or a fight.
 
+**Size them.** Two sliders under Positions set the size of your frames (yours and your pet's) and
+of the target's (the target, its target, focus and focus target), from 50% to 200%; a tick marks
+100%. Each group grows or shrinks around its main frame, and detached cast bars keep their own
+size. `/guf scale` and the Scale field on the player's and target's handles do the same.
+
 **With the other Glass addons**:
 - When **Glass Raid Frames** shows its centred raid layout, your frame and your target's slide
   to sit just left and right of the raid grid, at their own height, and come back when it goes
@@ -122,6 +127,7 @@ place and colour things without a target, a pet or a fight.
 - `/guf unlock`, `/guf lock` - move the frames and bars
 - `/guf preview` - every frame and bar with sample data (out of combat)
 - `/guf reset` - every frame and bar back to the default layout
+- `/guf scale player|target 0.5-2` - the size of your frames or the target's (1 is 100%)
 - `/guf look pearl|clean|classic`, `/guf body clear|smoked` - the glass (after a `/reload`)
 - `/guf ramp whole|edge` - how the empty part of a bar shows
 - `/guf font arial|friz`
@@ -155,8 +161,11 @@ place and colour things without a target, a pet or a fight.
   times...): the frames hand them straight to the game to draw. That's why the text comes in a few
   fixed formats rather than a custom tag language, and why there are no aura filters: the game
   chooses and sorts the target's buffs and debuffs.
-- **Some changes wait for combat to end:** moving frames, a portrait set to none, `/guf reset`.
-  The game doesn't let addons move these frames in combat. You're told when one is waiting.
+- **Some changes wait for combat to end:** moving or resizing frames, a portrait set to none,
+  `/guf reset`. The game doesn't let addons move these frames in combat. You're told when one is
+  waiting.
+- **Large frames beside Glass Raid Frames' grid:** when a frame is too wide for the room next to
+  the grid, it stops at the screen's edge, over the grid.
 - **Shaman totems** don't show while Blizzard's frames are hidden. The game hides totem details
   from addons, so Glass Unit Frames can't draw them.
 - **Not yet checked in game:** the combo points, the druid mana strip, the fatigue and feign death
@@ -167,7 +176,8 @@ place and colour things without a target, a pet or a fight.
   or your own Tank role on the Combat zoom page, and a group with neither has no tank. The
   DoT kill estimate's marker and skull are new and not yet seen in game; its timings were measured
   with a priest's Shadow Word: Pain outdoors, and the other classes' DoTs, combo-point finishers,
-  dungeons and raids are untested. Reports welcome.
+  dungeons and raids are untested. The new frame sizes were checked in game, but not yet beside
+  Glass Raid Frames' grid or changed in combat. Reports welcome.
 
 ## Bugs and ideas
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.4.0 - 2026-11-28
+
+- **Resize your frames.** Two new sliders under Positions on the options page set the size of
+  your frames (your own and your pet's) and of the target's (the target, its target, focus and
+  focus target), from 50% to 200%. A gold tick on each marks 100%, the size you had before. Each
+  group grows or shrinks around its main frame, so the frames riding it keep their places, and
+  your 3D portrait follows. Detached cast bars keep the size you gave them; bars docked on a frame
+  resize with it. `/guf scale player 0.8` or `/guf scale target 1.2` does the same, and so does
+  the Scale field on the player's and target's handles in unlock mode.
+- A size change made in combat waits for the fight to end, like moving frames.
+- Beside Glass Raid Frames' centred layout, a frame too large for the room next to the grid stops
+  at the screen's edge.
+
 ## v1.3.0 - 2026-11-22
 
 - **The threat gong waits for a tank.** In group combat, the warning sound now plays only when
