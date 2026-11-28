@@ -222,11 +222,22 @@ end
 -- t = { label, min, max, step (default 0.05), get(), set(v), fmt (default "%.2f"),
 -- range() (optional: min, max now, read on every refresh) }.
 local SLIDER_W = 240
+-- t.show(v): the value's text (else t.fmt), and with t.inline it sits right
+-- after the label (the right column has no room past the track). t.mark: a
+-- tick on the track at that value (the frame scale's 100%, #219).
 local function slider(col, t)
     local parent, step = col.parent, t.step or 0.05
     local fs = label(parent, t.label)
     local value = label(parent, "")
-    value:SetPoint("LEFT", fs, "LEFT", SLIDER_W + 12, 0)
+    if t.inline then
+        value:SetPoint("LEFT", fs, "RIGHT", 6, 0)
+    else
+        value:SetPoint("LEFT", fs, "LEFT", SLIDER_W + 12, 0)
+    end
+    local function show(v)
+        if t.show then return t.show(v) end
+        return string.format(t.fmt or "%.2f", v)
+    end
     place(col, fs, 18, 4)
     local s = CreateFrame("Slider", nil, parent)
     s.label, s.valueText = fs, value
@@ -241,10 +252,23 @@ local function slider(col, t)
     track:SetHeight(6)
     track:SetColorTexture(0.25, 0.25, 0.3, 0.9)
     s:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+    if t.mark then
+        -- The thumb's centre travels from half its width to the track's end
+        -- less half its width: the tick sits where the thumb's centre stops.
+        local thumb = s:GetThumbTexture()
+        local tw = thumb and thumb:GetWidth()
+        if type(tw) ~= "number" or tw <= 0 or tw >= SLIDER_W then tw = 32 end
+        local f = (t.mark - t.min) / (t.max - t.min)
+        local tick = s:CreateTexture(nil, "ARTWORK")
+        tick:SetColorTexture(1, 0.82, 0, 0.9)
+        tick:SetSize(2, 12)
+        tick:SetPoint("CENTER", s, "LEFT", tw / 2 + f * (SLIDER_W - tw), 0)
+        s.markTick = tick
+    end
     place(col, s, 26, 8)
     s:SetScript("OnValueChanged", function(self, v)
         v = math.floor(v / step + 0.5) * step
-        value:SetText(string.format(t.fmt or "%.2f", v))
+        value:SetText(show(v))
         if refreshing then return end
         t.set(v)
     end)
@@ -252,7 +276,7 @@ local function slider(col, t)
         if t.range then s:SetMinMaxValues(t.range()) end
         local v = t.get()
         s:SetValue(v)
-        value:SetText(string.format(t.fmt or "%.2f", v))
+        value:SetText(show(v))
     end
     return s
 end
@@ -497,13 +521,18 @@ local function build()
     controls.preview = place(right, button(content, "Preview all frames", 190, Options.Preview), 30, 4)
     place(right, button(content, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
     -- The frame groups' sizes (#217): applied when combat ends, if in combat.
-    controls.scalePlayer = slider(right, { label = "Size of your frames", min = Frames.SCALE_MIN, max = Frames.SCALE_MAX,
+    -- The percentage beside the label and a tick at 100% (#219): the value
+    -- past the track would be off this column's edge.
+    local function percent(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end
+    controls.scalePlayer = slider(right, { label = "Size of your frames:", min = Frames.SCALE_MIN, max = Frames.SCALE_MAX,
+        inline = true, show = percent, mark = 1,
         get = function() return Frames.scaleReq.player end,
         set = function(v) GlassUF.Settings.SetFrameScale("player", v) end })
-    controls.scaleTarget = slider(right, { label = "Size of the target's frames", min = Frames.SCALE_MIN, max = Frames.SCALE_MAX,
+    controls.scaleTarget = slider(right, { label = "Size of the target's frames:", min = Frames.SCALE_MIN, max = Frames.SCALE_MAX,
+        inline = true, show = percent, mark = 1,
         get = function() return Frames.scaleReq.target end,
         set = function(v) GlassUF.Settings.SetFrameScale("target", v) end })
-    note(right, "Yours carries the pet; the target's its target, focus and focus target.", 270)
+    note(right, "The tick is 100%. Yours carries the pet; the target's carries ToT and focus.", 240)
     -- The group layout (#132): player and target beside GRF's centred grid.
     controls.groupLink = checkbox(right, "Beside Glass Raid Frames' grid",
         function() return GlassUF.Link.enabled end,

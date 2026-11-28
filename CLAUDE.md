@@ -806,8 +806,12 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     applied one. In combat a change waits in `WhenOutOfCombat("scale:<group>")`. `build` sets the
     scale before its first `applyPosition` (the build itself can be queued).
   - **Applying** (`applyScale`): `Movers.FinishDrag()` first, then `SetScale` + `applyPosition` on
-    the group's buttons in `ORDER`, `Castbar.Place` on every bar whose `c.b` is in the group, the
-    panel, and one `Link.Announce()`.
+    the group's buttons in `ORDER`, a portrait repaint (a 3D model's camera stayed zoomed for the
+    old size, seen in game, #219), `Castbar.Place` on every bar whose `c.b` is in the group, the
+    panel, and one `Link.Announce()`. The sliders show the percentage beside their label and a
+    tick at 100% (the value past the track was off the canvas).
+  - **Seen in game** by the owner (2026-11-28, #219): the frames resize, the 3D portrait follows
+    a live change, and the sliders' percentage and 100% tick show.
   - **Children inherit it** (body, auras, docked cast bars and swing rows, timer, DoT marker);
     **detached bars don't**: `Castbar.PlaceAt` divides the host's scale by its parent's (relative to
     UIParent), and Zoom's `rectOf` reads the effective ratio. `Link.PointOf` and `OwnCenterX` use
@@ -815,8 +819,8 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
   - A linked frame too wide for the room beside the grid stops at the screen's edge, as the
     client's clamp would. `Frames.ClampCenterX` clamps both `Link.PointOf` and
     `Frames.OwnCenterX`, so the announced `dx` is the real move (Codex, #218).
-  - Not checked in game yet: the glass rims and 1 px lines at 0.6 / 1.4, the 3D portrait small, a
-    change while linked with GlassActionBars following, a change in combat.
+  - Not checked in game yet: the glass rims and 1 px lines up close at 0.6 / 1.4, a change while
+    linked with GlassActionBars following, a change in combat.
 - **`Movers.lua`**: unlock mode (`/guf unlock|lock`, the options panel's Unlock button). One
   plain, insecure mover per **source** on UIParent, **anchored to its frame, never the reverse**
   (a frame a protected frame anchors to becomes protected). A source is the adapter a mover

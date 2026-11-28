@@ -303,6 +303,37 @@ eq(button("target"):GetScale(), 0.65, "built at the saved scale once combat ends
 eq(button("focus"):GetScale(), 0.65, "its followers too")
 eq(#WoW.blocked, 0, "nothing blocked")
 
+-- The 3D portrait is loaded again after a scale change (#219): its camera
+-- isn't redone when its parent's scale changes (it stayed zoomed in game).
+F, S = boot({})
+pl, tg = button("player"), button("target")
+pl.model._modelUnit, tg.model._modelUnit = nil, nil
+S.SetFrameScale("player", 0.8)
+WoW.tick()
+eq(pl.model._modelUnit, "player", "the player's model loaded again")
+eq(tg.model._modelUnit, nil, "the other group's left alone")
+S.SetFrameScale("target", 1.3)
+WoW.tick()
+eq(tg.model._modelUnit, "target", "the target's after its own change")
+
+-- The options sliders: the percentage beside the label, a tick at 100% (#219).
+local O = GlassUF.Options
+O._test.panel:Show()
+local ctl = O._test.controls
+local sp = ctl.scalePlayer
+check(sp ~= nil and ctl.scaleTarget ~= nil, "both sliders built")
+eq(sp.valueText._text, "80%", "the player's shows 80%")
+eq(ctl.scaleTarget.valueText._text, "130%", "the target's 130%")
+local vp = sp.valueText._points[1]
+check(vp[1] == "LEFT" and vp[2] == sp.label and vp[3] == "RIGHT", "the value right after the label")
+check(sp.markTick ~= nil, "a tick on the track")
+local tp = sp.markTick._points[1]
+check(tp[2] == sp and tp[3] == "LEFT" and near(tp[4], 16 + (240 - 32) / 3), "at 100%: a third of the way from 50% to 200%")
+sp._scripts.OnValueChanged(sp, 1)
+eq(sp.valueText._text, "100%", "dragged to the tick: 100%")
+eq(button("player"):GetScale(), 1, "and back to full size")
+eq(GlassUnitFramesDB.frameScale and GlassUnitFramesDB.frameScale.player, nil, "100% isn't saved")
+
 -- Saved values are validated; 1 isn't saved; /guf scale.
 F, S = boot({ frameScale = { player = "big", target = 7 } })
 eq(F.scaleReq.player, 1, "junk: 1")
