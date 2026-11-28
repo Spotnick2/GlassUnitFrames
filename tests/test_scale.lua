@@ -230,6 +230,16 @@ check(near(right(tg), 1366), "the target at its right edge")
 last = heard[#heard]
 check(near(last[2], 0) and near(last[4], 365 * 1.4), "announced: the rect where it is")
 check(near(last[10], 365 * 1.4 / 2 - (683 - 304)), "announced: the dx it really moved")
+-- Its own spot clamped to the same edge (Codex, #218 follow-up): saved at
+-- -450, its own centre (233) would be off screen at 1.4, so the client keeps
+-- it at 255.5 too. Linked or not, it sits there: dx 0.
+grfState = HUD
+F, S = boot({ pos = { player = { "CENTER", "UIParent", "CENTER", -450, -272 } }, frameScale = { player = 1.4 } })
+pl = button("player")
+check(near(left(pl), 0), "linked: at the screen's left edge")
+check(near(F.OwnCenterX("player"), 365 * 1.4 / 2), "its own centre clamped to the same edge")
+last = heard[#heard]
+check(near(last[10], 0), "announced dx 0: it didn't move")
 grfState = nil
 
 -- A detached bar keeps its own spot and scale; a docked one scales with its

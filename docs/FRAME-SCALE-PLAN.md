@@ -261,4 +261,11 @@ its group's saved scale **before its first `applyPosition`**, and sets `scaleApp
   `NormalizeSaves` (#52, 2026-09-28): unlock has always put older saves in the current form,
   without moving anything. The current form arrived before the first release (v0.1.0-alpha1,
   2026-10-21), so no player has such a save, and once converted the frame scales around its centre
-  like every save made since.
+  like every save made since. Codex withdrew it in the follow-up.
+
+### PR #218's follow-up (Codex, 247149c): one P2, taken
+
+- `playerDX()` measured the clamped linked centre against an unclamped own centre: saved at -450
+  and scaled to 1.4, both sit at the screen's edge (255.5), yet `dx` said 22.5. One helper,
+  `Frames.ClampCenterX`, now clamps both `Link.PointOf` and `Frames.OwnCenterX`, with a test for
+  that case.

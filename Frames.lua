@@ -1028,7 +1028,17 @@ function Frames.OwnCenterX(unit)
     local W = UIParent:GetWidth()
     if not b or type(W) ~= "number" or API.IsSecret(W) then return nil end
     local own = validSaved(unit) or b.layout.point
-    return W * (across(own[3]) + 1) / 2 + own[4] - across(own[1]) * Frames.ScaledWidthOf(unit) / 2
+    return Frames.ClampCenterX(unit, W * (across(own[3]) + 1) / 2 + own[4] - across(own[1]) * Frames.ScaledWidthOf(unit) / 2)
+end
+
+-- A centre x (from UIParent's left edge) kept on screen, as the client's
+-- clamp keeps the button (SetClampedToScreen): the linked place and the own
+-- place are measured the same way, so the dx announced is the real move
+-- (Codex, #218). A frame wider than the screen is left alone.
+function Frames.ClampCenterX(unit, x)
+    local w, W = Frames.ScaledWidthOf(unit), UIParent:GetWidth()
+    if type(x) ~= "number" or not w or type(W) ~= "number" or API.IsSecret(W) or W < w then return x end
+    return math.max(w / 2, math.min(W - w / 2, x))
 end
 
 -- Does a follower ride its leader (its default, or a save on the leader),

@@ -63,17 +63,17 @@ function Link.Owns(unit) return Link.applied ~= nil and OWNED[unit] == true end
 -- height stays its own (GlassUI#32; Frames' applyPosition keeps the vertical anchor).
 -- A frame too wide for the room beside the grid (a large frame scale, #217)
 -- stops at the screen's edge, over the grid: where the client's clamp would
--- put it anyway, so the dx we announce is where it really is (Codex, #218).
+-- put it anyway. Frames.OwnCenterX clamps the same way, so the dx we announce
+-- is the real move (Codex, #218).
 function Link.PointOf(unit)
     local s = Link.applied
     if not (s and OWNED[unit]) then return nil end
-    local w = GlassUF.Frames.ScaledWidthOf(unit)   -- its frame scale's, #217
+    local Frames = GlassUF.Frames
+    local w = Frames.ScaledWidthOf(unit)   -- its frame scale's, #217
     if not w then return nil end
     local x
     if unit == "player" then x = s.l - Link.GAP - w / 2 else x = s.l + s.w + Link.GAP + w / 2 end
-    local W = UIParent:GetWidth()
-    if finite(W) and W >= w then x = math.max(w / 2, math.min(W - w / 2, x)) end
-    return x
+    return Frames.ClampCenterX(unit, x)
 end
 
 -- The grid's top while placing, as a CENTER offset from the screen's centre
