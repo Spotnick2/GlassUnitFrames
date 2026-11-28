@@ -63,7 +63,7 @@ end
 -- The detached cast bars (#74) are sources too, "cast:<unit>", from
 -- Castbar.MoverSource (which adds size, setSize and attach).
 local function unitSource(unit)
-    return {
+    local src = {
         id = unit, label = NAMES[unit] or unit,
         frame = function() return Frames.byUnit[unit] end,
         rel = function() return Frames.AnchorOf(unit) end,
@@ -74,6 +74,14 @@ local function unitSource(unit)
         follows = function(leader) return followsFrom(unit, leader) end,
         locked = function() return GlassUF.Link.Owns(unit) end,
     }
+    -- A group's leader carries the group's scale (#217), editable even
+    -- while the group layout places it.
+    if Frames.scaleReq[unit] then
+        src.scale = function() return Frames.scaleReq[unit] end
+        src.setScale = function(v) return GlassUF.Settings.SetFrameScale(unit, v) end
+        src.scaleUnlocked = true
+    end
+    return src
 end
 
 -- Snapping while dragging: align a frame's edges and centre to other frames'
@@ -134,6 +142,12 @@ local function offsetsFromMover(m)
     local rx, ry
     if relFrame then rx, ry = relFrame:GetCenter() end
     if type(mx) ~= "number" or type(rx) ~= "number" or type(ry) ~= "number" then return nil end
+    -- A leader with a frame scale (#217) reports its centre in its own units:
+    -- bring it to UIParent's, the mover's.
+    local e, u = relFrame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+    if type(e) ~= "number" or type(u) ~= "number" or u <= 0 then return nil end
+    local k = e / u   -- exactly 1 for an unscaled frame
+    rx, ry = rx * k, ry * k
     return mx - rx, my - ry
 end
 
@@ -148,7 +162,10 @@ local function refreshPanel()
     for _, k in ipairs({ "center", "left", "right", "up", "down", "reset", "attach" }) do
         panel.buttons[k]:SetEnabled(not locked)
     end
-    for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h, panel.s }) do e:SetEnabled(not locked) end
+    for _, e in ipairs({ panel.x, panel.y, panel.w, panel.h }) do e:SetEnabled(not locked) end
+    -- A frame scale stays the player's while the group layout places the
+    -- frame (#217): only its position is set aside.
+    panel.s:SetEnabled(not locked or src.scaleUnlocked == true)
     if not panel.x:HasFocus() then panel.x:SetText(x and string.format("%g", x) or "?") end
     if not panel.y:HasFocus() then panel.y:SetText(y and string.format("%g", y) or "?") end
     -- A detached cast bar also has a size, a scale and an Attach; a combat
@@ -729,6 +746,8 @@ end
 -- Drop a drag in flight WITHOUT saving it (a reset is about to run: it must
 -- win), and bring the panel up to date afterwards.
 function Movers.CancelDrag() endDrag(false) end
+-- End a drag in flight, saving where it got to (a frame scale change, #217).
+function Movers.FinishDrag() endDrag(true) end
 
 function Movers.Refresh() refreshPanel() end
 

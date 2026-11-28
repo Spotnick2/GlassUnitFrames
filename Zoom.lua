@@ -135,16 +135,18 @@ local controller = CreateFrame("Frame", nil, UIParent)
 controller:Hide()
 
 -- A host's centre in UIParent units, offset from UIParent's centre, and its
--- scale; nil when unreadable (no rect, a secret, a non-finite number).
+-- scale on screen (relative to UIParent: its parent, a unit button, has its
+-- frame group's scale, #217); nil when unreadable (no rect, a secret, a
+-- non-finite number).
 local function rectOf(host)
     local ok, hx, hy = pcall(host.GetCenter, host)
     local ux, uy = UIParent:GetCenter()
-    local he, ue, s = host:GetEffectiveScale(), UIParent:GetEffectiveScale(), host:GetScale()
+    local he, ue = host:GetEffectiveScale(), UIParent:GetEffectiveScale()
     if not (ok and finite(hx) and finite(hy) and finite(ux) and finite(uy)
-            and finite(he) and finite(ue) and finite(s) and he > 0 and ue > 0 and s > 0) then
+            and finite(he) and finite(ue) and he > 0 and ue > 0) then
         return nil
     end
-    return hx * he / ue - ux, hy * he / ue - uy, s
+    return hx * he / ue - ux, hy * he / ue - uy, he / ue
 end
 
 local function put(host, x, y, s) GlassUF.Castbar.PlaceAt(host, x, y, s) end

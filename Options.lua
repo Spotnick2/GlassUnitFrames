@@ -496,6 +496,14 @@ local function build()
     place(right, button(content, "Unlock frames", 190, Options.Unlock), 30, 4)
     controls.preview = place(right, button(content, "Preview all frames", 190, Options.Preview), 30, 4)
     place(right, button(content, "Reset frame positions", 190, GlassUF.Settings.ResetPositions), 30, 4)
+    -- The frame groups' sizes (#217): applied when combat ends, if in combat.
+    controls.scalePlayer = slider(right, { label = "Size of your frames", min = Frames.SCALE_MIN, max = Frames.SCALE_MAX,
+        get = function() return Frames.scaleReq.player end,
+        set = function(v) GlassUF.Settings.SetFrameScale("player", v) end })
+    controls.scaleTarget = slider(right, { label = "Size of the target's frames", min = Frames.SCALE_MIN, max = Frames.SCALE_MAX,
+        get = function() return Frames.scaleReq.target end,
+        set = function(v) GlassUF.Settings.SetFrameScale("target", v) end })
+    note(right, "Yours carries the pet; the target's its target, focus and focus target.", 270)
     -- The group layout (#132): player and target beside GRF's centred grid.
     controls.groupLink = checkbox(right, "Beside Glass Raid Frames' grid",
         function() return GlassUF.Link.enabled end,

@@ -241,6 +241,7 @@ local HELP = {
     "unlock | lock  - move frames: drag (the target carries its group, the player its pet), click to nudge x/y",
     "preview  - every frame and bar with sample data, on or off (out of combat; combat ends it)",
     "reset  - move frames back to the default layout (after combat if in combat)",
+    "scale player|target 0.5-2  - the size of your frames (with the pet) or the target's (with ToT and focus) (saved; after combat if in combat)",
     "link on|off  - player and target beside Glass Raid Frames' centred layout, while it shows (saved)",
     "blizzard show|hide  - Blizzard's own frames for the units GlassUF draws (after /reload)",
     "secrets  - which unit values are secret right now, plus any paint failures",
@@ -381,6 +382,19 @@ function Settings_.ResetPositions()
         say(GlassUF.Link.Placing() and "positions reset (player and target stay with the group layout)"
             or "positions reset")
     end)
+end
+
+-- A frame group's scale (#217): "player" (with the pet) or "target" (with
+-- ToT, ToTT, focus and focus target), 0.5-2. db.frameScale[group], saved only
+-- when not 1, the table pruned when empty. Applied now, or when combat ends.
+function Settings_.SetFrameScale(group, s)
+    local ok, why, v = Frames.SetScale(group, s)
+    if not ok then return false end
+    local db = GlassUnitFramesDB
+    if type(db.frameScale) ~= "table" then db.frameScale = {} end
+    db.frameScale[group] = v ~= 1 and v or nil
+    if next(db.frameScale) == nil then db.frameScale = nil end
+    return true, why, v
 end
 
 -- The group layout's link (#132): player and target beside Glass Raid Frames'
@@ -787,6 +801,17 @@ local function slash(msg)
         say("frames locked")
     elseif cmd == "reset" then
         Settings_.ResetPositions()
+    elseif cmd == "scale" then
+        local group, value = arg:match("^(%S+)%s+(%S+)$")
+        local ok, why, v = false, nil, nil
+        if group then ok, why, v = Settings_.SetFrameScale(group, tonumber(value)) end
+        if ok then
+            -- In combat the queue has already said when it applies.
+            if why ~= "combat" then say(string.format("%s frames at scale %g", group, v)) end
+        else
+            usage(string.format("scale player|target 0.5-2 (now player %g, target %g)",
+                Frames.scaleReq.player, Frames.scaleReq.target))
+        end
     elseif cmd == "link" then
         if arg == "on" or arg == "off" then
             Settings_.SetGroupLink(arg == "on")

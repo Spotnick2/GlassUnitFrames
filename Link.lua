@@ -64,7 +64,7 @@ function Link.Owns(unit) return Link.applied ~= nil and OWNED[unit] == true end
 function Link.PointOf(unit)
     local s = Link.applied
     if not (s and OWNED[unit]) then return nil end
-    local w = GlassUF.Frames.WidthOf(unit)
+    local w = GlassUF.Frames.ScaledWidthOf(unit)   -- its frame scale's, #217
     if not w then return nil end
     if unit == "player" then return s.l - Link.GAP - w / 2 end
     return s.l + s.w + Link.GAP + w / 2
@@ -232,6 +232,10 @@ local function announce()
     if not ok then API.Fail("link announce", err) end
 end
 Link._announce = announce
+-- A frame scale changed (#217): the player's and pet's rects did. Out of combat.
+function Link.Announce()
+    if built then announce() end
+end
 
 --------------------------------------------------------------------------------
 -- Placing

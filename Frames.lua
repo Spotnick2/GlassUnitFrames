@@ -903,6 +903,43 @@ end
 -- Frames.SetPosition, out of combat: nothing starts the client's own drag on a
 -- protected frame (a drag combat interrupts can't be stopped; porting guide).
 
+-- Frame scale (#217, docs/FRAME-SCALE-PLAN.md): one per group, a leader and
+-- the frames riding it (player: pet; target: ToT, ToTT, focus, focus target).
+-- `scaleReq` is what was asked (and saved), `scaleApplied` what the buttons
+-- carry now: in combat a change waits, and every conversion uses the applied
+-- one. Units: a save on UIParent is in UIParent units (applied divided by the
+-- scale, since SetPoint offsets are in the button's own units); a save on the
+-- leader is in design units (scale 1), applied raw, so a cluster scales
+-- around its leader. The API below (PositionOf, SetPosition, SavePosition)
+-- speaks UIParent units either way.
+Frames.SCALE_MIN, Frames.SCALE_MAX = 0.5, 2
+Frames.scaleReq = { player = 1, target = 1 }
+Frames.scaleApplied = { player = 1, target = 1 }
+
+-- A frame's group: the leader at the root of its anchors, from LAYOUT (it
+-- works inside build, before byUnit is filled).
+function Frames.GroupOf(unit)
+    local L = Frames.LAYOUT[unit]
+    if not L then return nil end
+    while L.anchorTo do
+        unit = L.anchorTo
+        L = Frames.LAYOUT[unit]
+    end
+    return unit
+end
+
+function Frames.ScaleOf(unit)
+    local g = Frames.GroupOf(unit)
+    return (g and Frames.scaleApplied[g]) or 1
+end
+
+-- A scale we accept, clamped to the range and rounded to 0.05; nil for junk.
+function Frames.NormalizeScale(s)
+    if type(s) ~= "number" or API.IsSecret(s) or s ~= s or s == math.huge or s == -math.huge then return nil end
+    s = math.max(Frames.SCALE_MIN, math.min(Frames.SCALE_MAX, s))
+    return math.floor(s * 20 + 0.5) / 20
+end
+
 -- The default offset from the leader's default point (or the screen centre).
 local function defaultOffset(unit)
     local L = Frames.LAYOUT[unit]
@@ -947,20 +984,24 @@ end
 -- set aside), else the save, else the default. Out of combat. The layout
 -- sets only the horizontal place (GlassUI#32: lower, the player landed on the
 -- chat): the frame keeps its own anchor's vertical part, and so its height.
+-- The scale (#217): offsets on UIParent are divided by it, a leader-relative
+-- one is applied raw (see Frames.scaleReq).
 local function applyPosition(b)
     local Link = GlassUF.Link
     Link.Snap(b)
     local p = validSaved(b.unit)
+    local s = Frames.ScaleOf(b.unit)
     b:ClearAllPoints()
     local lx = Link.PointOf(b.unit)
     if lx then
         local own = p or b.layout.point   -- a leader's own place is always on UIParent
         local v, rv = vertical(own[1]), vertical(own[3])
-        b:SetPoint(v == "" and "CENTER" or v, UIParent, rv .. "LEFT", lx, own[5])
+        b:SetPoint(v == "" and "CENTER" or v, UIParent, rv .. "LEFT", lx / s, own[5] / s)
         return
     end
     if p then
-        b:SetPoint(p[1], relFrame(p[2]), p[3], p[4], p[5])
+        local k = p[2] == "UIParent" and s or 1
+        b:SetPoint(p[1], relFrame(p[2]), p[3], p[4] / k, p[5] / k)
         return
     end
     local lead = b.layout.anchorTo and Frames.byUnit[b.layout.anchorTo]
@@ -969,7 +1010,7 @@ local function applyPosition(b)
         b:SetPoint("CENTER", lead, "CENTER", x, y)
     else
         local L = b.layout.point
-        b:SetPoint(L[1], UIParent, L[3], L[4], L[5])
+        b:SetPoint(L[1], UIParent, L[3], L[4] / s, L[5] / s)
     end
 end
 
@@ -987,7 +1028,7 @@ function Frames.OwnCenterX(unit)
     local W = UIParent:GetWidth()
     if not b or type(W) ~= "number" or API.IsSecret(W) then return nil end
     local own = validSaved(unit) or b.layout.point
-    return W * (across(own[3]) + 1) / 2 + own[4] - across(own[1]) * Frames.WidthOf(unit) / 2
+    return W * (across(own[3]) + 1) / 2 + own[4] - across(own[1]) * Frames.ScaledWidthOf(unit) / 2
 end
 
 -- Does a follower ride its leader (its default, or a save on the leader),
@@ -1003,6 +1044,12 @@ function Frames.WidthOf(unit)
     if not b then return nil end
     local L = b.layout
     return L.w + ((b.tile and b.portraitMode ~= "none") and (L.h + GAP) or 0)
+end
+
+-- The same in UIParent units: times its group's applied scale (#217).
+function Frames.ScaledWidthOf(unit)
+    local w = Frames.WidthOf(unit)
+    return w and w * Frames.ScaleOf(unit)
 end
 
 -- What a frame's position is relative to: its leader's unit, or "UIParent";
@@ -1022,47 +1069,81 @@ end
 -- anchor's name. An older save (another point, or a follower saved on the
 -- screen) is measured from the live rects; nil when they aren't laid out, so
 -- a nudge never invents a position.
+-- How many UIParent units one stored unit is: 1 on UIParent, the scale on a
+-- leader (#217).
+local function storedUnit(unit, rel)
+    return rel == "UIParent" and 1 or Frames.ScaleOf(unit)
+end
+
+-- A region's centre in UIParent units, or nil.
+local function centreOf(r)
+    local x, y = r:GetCenter()
+    local e, u = r:GetEffectiveScale(), UIParent:GetEffectiveScale()
+    if type(x) ~= "number" or type(y) ~= "number" or type(e) ~= "number" or type(u) ~= "number" or u <= 0 then
+        return nil
+    end
+    local k = e / u   -- exactly 1 for an unscaled frame
+    return x * k, y * k
+end
+
+-- In UIParent units at any scale (#217).
 function Frames.PositionOf(unit)
     local b = Frames.byUnit[unit]
     if not b then return nil end
     local rel, rf = Frames.AnchorOf(unit)
+    local k = storedUnit(unit, rel)
     local p = validSaved(unit)
-    if canonical(unit, p) then return p[4], p[5], rel end
+    if canonical(unit, p) then return p[4] * k, p[5] * k, rel end
     if not p then
         local x, y = defaultOffset(unit)
-        return x, y, rel
+        return x * k, y * k, rel
     end
-    local bx, by = b:GetCenter()
+    local bx, by = centreOf(b)
     local rx, ry
-    if rf then rx, ry = rf:GetCenter() end
-    if type(bx) == "number" and type(by) == "number" and type(rx) == "number" and type(ry) == "number" then
+    if rf then rx, ry = centreOf(rf) end
+    if bx and rx then
         return bx - rx, by - ry, rel
     end
     return nil
 end
 
+-- UIParent-unit offsets as they're stored, or nil when the stored value is
+-- out of bounds (a save validSaved would then drop on the next apply).
+local function stored(unit, x, y)
+    local k = storedUnit(unit, (Frames.AnchorOf(unit)))
+    local sx, sy = x / k, y / k
+    if not (sane(sx) and sane(sy)) then return nil end
+    return sx, sy
+end
+
 -- Record a position without touching the frame (safe in combat): the one
--- owner of the saved format.
+-- owner of the saved format. x, y in UIParent units.
 -- Set aside while the group layout places the frame (#132): refused.
 function Frames.SavePosition(unit, x, y)
     if not (Frames.byUnit[unit] and sane(x) and sane(y)) or GlassUF.Link.Owns(unit) then return false end
-    Frames.db.pos[unit] = { "CENTER", (Frames.AnchorOf(unit)), "CENTER", x, y }
+    local sx, sy = stored(unit, x, y)
+    if not sx then return false end
+    Frames.db.pos[unit] = { "CENTER", (Frames.AnchorOf(unit)), "CENTER", sx, sy }
     return true
 end
 
 -- Place one frame at CENTER offsets from its leader (or the screen centre),
--- rounded to 0.5 units; saved unless `live` (the unlock-mode drag in flight).
--- Refused in combat: these are protected frames.
--- Returns true and the (rounded) offsets it applied.
+-- in UIParent units rounded to 0.5; saved unless `live` (the unlock-mode drag
+-- in flight). Refused in combat: these are protected frames. Refused too when
+-- the stored value would be out of bounds, before anything moves (#217).
+-- Returns true and the (rounded) offsets it applied, in UIParent units.
 function Frames.SetPosition(unit, x, y, live)
     local b = Frames.byUnit[unit]
     if not b or InCombatLockdown() or GlassUF.Link.Owns(unit) then return false end
     if not (sane(x) and sane(y)) then return false end
     x, y = math.floor(x * 2 + 0.5) / 2, math.floor(y * 2 + 0.5) / 2
+    if not stored(unit, x, y) then return false end
     local _, rf = Frames.AnchorOf(unit)
+    local s = Frames.ScaleOf(unit)
     GlassUF.Link.Snap(b)
     b:ClearAllPoints()
-    b:SetPoint("CENTER", rf, "CENTER", x, y)
+    -- SetPoint offsets are in the button's own units, on either anchor.
+    b:SetPoint("CENTER", rf, "CENTER", x / s, y / s)
     if not live then
         Frames.SavePosition(unit, x, y)
         GlassUF.Link.Moved(unit)   -- a pet saved on the screen may ride the player now (#132)
@@ -1111,6 +1192,54 @@ function Frames.ResetPositions()
         if b then applyPosition(b) end
     end
     GlassUF.Link.Moved("pet")
+end
+
+-- Apply a group's requested scale (#217): out of combat. Any drag in flight
+-- ends first, with the old scale that describes it; then every button of the
+-- group scales and is re-placed (leaders first), the bars on those buttons
+-- are re-placed (a detached one keeps its screen spot, see Castbar.PlaceAt),
+-- and the layout is announced once (GlassActionBars follows the player and
+-- pet rects; ThreatView re-docks on it).
+local function applyScale(group)
+    Frames.scaleQueued[group] = nil
+    GlassUF.Movers.FinishDrag()
+    local s = Frames.scaleReq[group] or 1
+    Frames.scaleApplied[group] = s
+    local placed = {}
+    for _, unit in ipairs(Frames.ORDER) do
+        local b = Frames.byUnit[unit]
+        if b and Frames.GroupOf(unit) == group then
+            b:SetScale(s)
+            placed[#placed + 1] = b
+        end
+    end
+    for _, b in ipairs(placed) do applyPosition(b) end
+    local Castbar = GlassUF.Castbar
+    for _, c in pairs(Castbar.bars) do
+        if c.b and c.b.unit and Frames.GroupOf(c.b.unit) == group then Castbar.Place(c) end
+    end
+    GlassUF.Movers.Refresh()
+    GlassUF.Link.Announce()
+end
+
+-- Set a group's scale ("player" or "target"): applied now, or when combat
+-- ends (the last request wins, one message per wait). Returns ok, "combat"
+-- when it waits, and the scale taken.
+Frames.scaleQueued = {}
+function Frames.SetScale(group, s)
+    if not Frames.scaleReq[group] then return false end
+    s = Frames.NormalizeScale(s)
+    if not s then return false end
+    Frames.scaleReq[group] = s
+    if InCombatLockdown() then
+        local first = not Frames.scaleQueued[group]
+        Frames.scaleQueued[group] = true
+        GlassUF.WhenOutOfCombat("scale:" .. group, function() applyScale(group) end,
+            first and "the frames resize when combat ends" or false)
+        return true, "combat", s
+    end
+    applyScale(group)
+    return true, nil, s
 end
 
 -- Resting "zzz": Blizzard's own animated PlayerFrame flipbook when the client
@@ -1503,6 +1632,10 @@ local function build(unit)
     b:HookScript("OnEnter", tooltipEnter)
     b:HookScript("OnLeave", tooltipLeave)
     b:SetClampedToScreen(true)
+    -- Its group's scale (#217) before its first place: the build itself may
+    -- have waited for combat to end, so this is the one place it's set at load.
+    local scale = Frames.ScaleOf(unit)
+    if scale ~= 1 then b:SetScale(scale) end
     applyPosition(b)   -- leaders are built first (ORDER), so a follower's leader exists
 
     -- The glass hosts are plain children without mouse, so a click anywhere
@@ -1670,6 +1803,13 @@ function Frames.Build(db)
     if type(db.healthText) == "table" then
         for unit, kind in pairs(db.healthText) do
             if HEALTH_FORMAT_OK[kind] then Frames.healthFormat[unit] = kind end
+        end
+    end
+    -- The group scales (#217): junk is 1.
+    if type(db.frameScale) == "table" then
+        for group in pairs(Frames.scaleReq) do
+            local s = Frames.NormalizeScale(db.frameScale[group]) or 1
+            Frames.scaleReq[group], Frames.scaleApplied[group] = s, s
         end
     end
     for _, unit in ipairs(Frames.ORDER) do build(unit) end
