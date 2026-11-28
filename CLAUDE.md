@@ -812,6 +812,9 @@ TOC load order: `Libs\LibGlass-1.0\LibGlass-1.0.xml` (the embedded material) →
     **detached bars don't**: `Castbar.PlaceAt` divides the host's scale by its parent's (relative to
     UIParent), and Zoom's `rectOf` reads the effective ratio. `Link.PointOf` and `OwnCenterX` use
     `Frames.ScaledWidthOf`; Movers' `offsetsFromMover` converts the leader's centre.
+  - A linked frame too wide for the room beside the grid stops at the screen's edge
+    (`Link.PointOf` clamps, as the client's clamp would; Codex, #218), so the announced `dx` is
+    where it really is.
   - Not checked in game yet: the glass rims and 1 px lines at 0.6 / 1.4, the 3D portrait small, a
     change while linked with GlassActionBars following, a change in combat.
 - **`Movers.lua`**: unlock mode (`/guf unlock|lock`, the options panel's Unlock button). One

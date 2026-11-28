@@ -247,3 +247,18 @@ its group's saved scale **before its first `applyPosition`**, and sets `scaleApp
 - Codex accepted the round-4 pushback: both announcements run in the same call before the next
   frame renders; GlassActionBars replaces its offsets on each event (`Follow.lua`), and ThreatView
   re-docks from current geometry without saving. No other blocker.
+
+### PR #218's review (Codex, bb1e49e): two P2s
+
+- **A frame too wide for the room beside the grid: taken.** At 1.4 the player is 511 wide and the
+  fixture leaves 376 each side, so the client's screen clamp pushed it over the grid while the
+  `dx` we announced (GlassActionBars' stance bar) still said the unclamped spot. `Link.PointOf` now
+  stops the frame at the screen's edge itself, so the place and the announcement agree. It still
+  overlaps the grid: at that scale there's no room, and its own position overlaps the grid too.
+  `test_link.lua`'s synthetic `l = 300` layout put the player 89 off screen at scale 1 (a spot the
+  client never drew), so it moves to a layout that fits.
+- **Unlock rewrites a corner save as `CENTER` before the Scale field is used: not taken.** That's
+  `NormalizeSaves` (#52, 2026-09-28): unlock has always put older saves in the current form,
+  without moving anything. The current form arrived before the first release (v0.1.0-alpha1,
+  2026-10-21), so no player has such a save, and once converted the frame scales around its centre
+  like every save made since.

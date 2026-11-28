@@ -220,6 +220,16 @@ check(near(right(pl), HUD.l - 24), "still by its edge")
 eq(#heard, n + 1, "announced once")
 check(near(heard[#heard][4], 365 * 0.8), "with the new width")
 M.Lock()
+-- Too wide for the room beside the grid (Codex, #218): 376 units each side,
+-- the frame 511 at 1.4. It stops at the screen's edge, and the dx announced
+-- for GlassActionBars is where it really is.
+S.SetFrameScale("player", 1.4)
+S.SetFrameScale("target", 1.4)
+check(near(left(pl), 0), "the player stops at the screen's left edge")
+check(near(right(tg), 1366), "the target at its right edge")
+last = heard[#heard]
+check(near(last[2], 0) and near(last[4], 365 * 1.4), "announced: the rect where it is")
+check(near(last[10], 365 * 1.4 / 2 - (683 - 304)), "announced: the dx it really moved")
 grfState = nil
 
 -- A detached bar keeps its own spot and scale; a docked one scales with its
